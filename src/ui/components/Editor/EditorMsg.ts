@@ -6,3 +6,4 @@ export type EditorMsg =
   | { type: 'NodeChangeMsg', changes: NodeChange[] }
   | { type: 'EdgeChangeMsg', changes: EdgeChange[] }
   | { type: 'BetaStepMsg' }
+  | { type: 'StepBackMsg' }

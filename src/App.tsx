@@ -11,7 +11,7 @@ import {
   type OnConnect,
 } from '@xyflow/react';
 
-import { MagicWandIcon } from '@radix-ui/react-icons'
+import { ChevronRightIcon, MagicWandIcon } from '@radix-ui/react-icons'
 
 import '@xyflow/react/dist/style.css';
 
@@ -62,7 +62,11 @@ export default function App() {
       <MiniMap />
       <Controls>
         <ControlButton onClick={() => dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' }})}>
-          <MagicWandIcon />
+          <ChevronRightIcon />
+        </ControlButton>
+
+        <ControlButton onClick={() => dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }})}>
+          <ChevronRightIcon style={{ transform: 'rotate(180deg)' }} />
         </ControlButton>
       </Controls>
     </ReactFlow>

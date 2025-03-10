@@ -16,15 +16,28 @@ export function editorUpdate(model: Model, msg: EditorMsg): Model {
       return applyModelUpdates(model, edgeChange, msg.changes);
 
     case 'BetaStepMsg': {
-      console.log('BetaStepMsg');
-      let [stepChange, newTerm] = oneStep(model.currentTerm);
-
-      if (stepChange.type !== 'no-change') {
-        console.log(`BetaStepMsg: updating current term to ${prettyPrintTerm(newTerm)}`);
-        return updateCurrentTerm(model, newTerm);
+      if (model.currentTermIx < model.history.length-1) {
+        return updateCurrentTerm(model, model.currentTermIx + 1);
       }
 
-      console.log('BetaStepMsg: no change');
+      let currentTerm = model.history[model.currentTermIx];
+      if (currentTerm) {
+        let [stepChange, newTerm] = oneStep(currentTerm);
+
+        if (stepChange.type !== 'no-change') {
+          let newModel = { ...model, history: [...model.history, newTerm] };
+          return updateCurrentTerm(newModel, model.currentTermIx + 1);
+        }
+
+        return model;
+      }
+      return model;
+    }
+
+    case 'StepBackMsg': {
+      if (model.currentTermIx > 0) {
+        return updateCurrentTerm(model, model.currentTermIx - 1);
+      }
       return model;
     }
   }
