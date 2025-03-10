@@ -1,6 +1,6 @@
 // Based on https://math.andrej.com/2012/11/08/how-to-implement-dependent-type-theory-i/
 
-import { Type, Term, TermId, Context } from './Sequent' 
+import { Type, Term, TermId, Context } from './Term' 
 import { normalize, equalTerms } from './Normalize';
 import { prettyPrintTerm } from './PrettyPrint';
 import { subst1 } from './Subst';
@@ -52,7 +52,7 @@ export function inferType(ctx: Context, term: Term): CheckResult<Type> {
       if (k.type === 'error') {
         return k;
       } else {
-        const newCtx = produce(ctx, (draft) => {
+        const newCtx: Context = produce<Context>(ctx, (draft: Context) => {
           draft.unshift(term.paramTy);
         });
         let bodyTy = inferType(newCtx, term.body);
