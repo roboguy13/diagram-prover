@@ -93,6 +93,7 @@ export function oneStep(term: Term): [StepChange, Term] {
         default:
           return [ { type: 'no-change' }, { ...term, func: term.func, arg: term.arg } ]
       }
+
     case 'Ann':
       let [termChange, newTerm] = oneStep(term.term);
       if (termChange.type !== 'no-change') {

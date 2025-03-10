@@ -1,17 +1,37 @@
 import { NodeProps, Position, Handle } from '@xyflow/react';
 import { type TermNode } from '../nodeTypes';
-import { portOffsetPercentages } from '../../../NodeUtils';
+import { inputHandleName, outputHandleName, portOffsetPercentages } from '../../../NodeUtils';
 
 export function TermNode(
   { data, selected } : NodeProps<TermNode>) {
-    let portOffsets = portOffsetPercentages(2);
+    let portOffsets = portOffsetPercentages(data.outputCount);
+
+    // Make output Handles
+    const outputHandles = [];
+    for (let i = 0; i < data.outputCount; i++) {
+      outputHandles.push(
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id={outputHandleName(i)}
+          key={i}
+          style={{
+            left: portOffsets[i] + '%',
+          }}
+        />
+      );
+    }
 
     return (
       <div className={`term-node ${selected ? 'selected' : ''}`}>
       {data.label}
-      <Handle type="target" position={Position.Top} style={{ top: 0 }} />
+      <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
+      {
+        
+      }
       {/* <Handle type="source" position={Position.Bottom} style={{ bottom: 0 }} /> */}
-      <Handle
+      {outputHandles}
+      {/* <Handle
         type="source"
         position={Position.Bottom}
         id="bottom-1"
@@ -31,7 +51,7 @@ export function TermNode(
           borderRadius: '0',
           border: '0.5px solid black',
           boxShadow: '0 0 6px rgba(0, 0, 0, 0.3)'
-        }}
-      />
+        }} */}
+      {/* /> */}
     </div>);
 }

@@ -1,6 +1,7 @@
 import { Term, hasAllIds } from '../../engine/Term';
 import { AppNode, TermNode } from '../components/Nodes/nodeTypes';
 import { NodesAndEdges } from './NodesAndEdges';
+import { outputHandleName } from '../NodeUtils';
 
 import * as dagre from 'dagre';
 
@@ -35,7 +36,7 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       g.nodes.push({
         id: thisId,
         type: 'term',
-        data: { label: term.name.name ?? ('?' + term.name.ix) },
+        data: { label: term.name.name ?? ('?' + term.name.ix), outputCount: 0 },
         position: { x: 0, y: 0 },
       });
       break;
@@ -44,7 +45,7 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       g.nodes.push({
         id: thisId,
         type: 'term',
-        data: { label: 'UnitTy' },
+        data: { label: 'UnitTy', outputCount: 0 },
         position: { x: 0, y: 0 },
       });
       break;
@@ -53,16 +54,18 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       g.nodes.push({
         id: thisId,
         type: 'term',
-        data: { label: 'Empty' },
+        data: { label: 'Empty', outputCount: 0 },
         position: { x: 0, y: 0 },
       });
       break;
 
     case 'Type':
+      // TODO: Show universe level
+
       g.nodes.push({
         id: thisId,
         type: 'term',
-        data: { label: 'Type' },
+        data: { label: 'Type', outputCount: 0 },
         position: { x: 0, y: 0 },
       });
       break;
@@ -71,7 +74,7 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       g.nodes.push({
         id: thisId,
         type: 'term',
-        data: { label: 'unit' },
+        data: { label: 'unit', outputCount: 0 },
         position: { x: 0, y: 0 },
       });
       break;
@@ -80,15 +83,15 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       g.nodes.push({
         id: thisId,
         type: 'term',
-        data: { label: 'Pi' },
+        data: { label: 'Pi', outputCount: 2 },
         position: { x: 0, y: 0 },
       });
 
       let paramTy = toUnlayoutedHelper(allIds, g, term.paramTy);
       let bodyId = toUnlayoutedHelper(allIds, g, term.body);
 
-      g.edges.push({ source: thisId, target: paramTy, id: newEdgeId() });
-      g.edges.push({ source: thisId, target: bodyId, id: newEdgeId() });
+      g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: paramTy, id: newEdgeId() });
+      g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: bodyId, id: newEdgeId() });
       break;
     }
 
@@ -96,15 +99,15 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       g.nodes.push({
         id: thisId,
         type: 'term',
-        data: { label: 'Lam' },
+        data: { label: 'Lam', outputCount: 2 },
         position: { x: 0, y: 0 },
       });
 
       let paramTy = toUnlayoutedHelper(allIds, g, term.paramTy);
       let bodyId = toUnlayoutedHelper(allIds, g, term.body);
 
-      g.edges.push({ source: thisId, target: paramTy, id: newEdgeId() });
-      g.edges.push({ source: thisId, target: bodyId, id: newEdgeId() });
+      g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: paramTy, id: newEdgeId() });
+      g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: bodyId, id: newEdgeId() });
       break;
     }
 
@@ -112,15 +115,15 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       g.nodes.push({
         id: thisId,
         type: 'term',
-        data: { label: 'App' },
+        data: { label: 'App', outputCount: 2 },
         position: { x: 0, y: 0 },
       });
 
       let funcId = toUnlayoutedHelper(allIds, g, term.func);
       let argId = toUnlayoutedHelper(allIds, g, term.arg);
 
-      g.edges.push({ source: thisId, target: funcId, id: newEdgeId() });
-      g.edges.push({ source: thisId, target: argId, id: newEdgeId() });
+      g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: funcId, id: newEdgeId() });
+      g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: argId, id: newEdgeId() });
       break;
     }
 
@@ -128,15 +131,15 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       g.nodes.push({
         id: thisId,
         type: 'term',
-        data: { label: 'Ann' },
+        data: { label: 'Ann', outputCount: 2 },
         position: { x: 0, y: 0 },
       });
 
       let termId = toUnlayoutedHelper(allIds, g, term.term);
-      g.edges.push({ source: thisId, target: termId, id: newEdgeId() });
+      g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: termId, id: newEdgeId() });
 
       let tyId = toUnlayoutedHelper(allIds, g, term.ty);
-      g.edges.push({ source: thisId, target: tyId, id: newEdgeId() });
+      g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: tyId, id: newEdgeId() });
       break;
     }
   }
