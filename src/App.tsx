@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from 'react';
+import { useRef, useEffect, useCallback, useReducer } from 'react';
 import {
   ReactFlow,
   Background,
@@ -33,17 +33,30 @@ export default function App() {
   let edges = state.graph?.edges ?? [];
 
   let handleBetaStep = () => {
-    const { x, y, zoom } = reactFlowInstance.getViewport();
-    dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' }});
-    reactFlowInstance.setCenter(x, y, { zoom });
+    dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg', reactFlowInstance }});
   }
 
   let handleStepBack = () => {
-    const { x, y, zoom } = reactFlowInstance.getViewport();
-    dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }});
-    reactFlowInstance.setCenter(x, y, { zoom });
-    // reactFlowInstance.fitView();
+    dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg', reactFlowInstance }});
   }
+
+  // This effect runs when the AST changes
+  useEffect(() => {
+    if (state.updateCenter) {
+      // Use a small timeout to ensure the graph is rendered before fitting
+      setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2, includeHiddenNodes: false }); }, 1);
+
+      dispatch({ kind: 'EditorMsg', msg: { type: 'ResetUpdateCenter' } });
+    }
+  }, [state.updateCenter, reactFlowInstance.fitView]);
+
+  // if (state.updateCenter) {
+  //   // const { x, y, zoom } = reactFlowInstance.getViewport();
+  //   // reactFlowInstance.setCenter(x, y, { zoom });
+  //   reactFlowInstance.fitView();
+  //   dispatch({ kind: 'EditorMsg', msg: { type: 'ResetUpdateCenter' } });
+  // }
 
   return (
     <ReactFlow

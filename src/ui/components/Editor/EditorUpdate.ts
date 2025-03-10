@@ -15,6 +15,9 @@ export function editorUpdate(model: Model, msg: EditorMsg): Model {
     case 'EdgeChangeMsg':
       return applyModelUpdates(model, edgeChange, msg.changes);
 
+    case 'ResetUpdateCenter':
+      return { ...model, updateCenter: false };
+
     case 'BetaStepMsg': {
       if (model.currentTermIx < model.history.length-1) {
         return updateCurrentTerm(model, model.currentTermIx + 1);

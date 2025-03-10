@@ -8,14 +8,16 @@ import { toFlow } from "./render/ToFlow";
 export type Model = {
   graph?: NodesAndEdges
 
-  // currentTerm: Term
   currentTermIx: number
   history: Term[]
+
+  updateCenter: boolean
 }
 
 const initialModel0: Model = {
   currentTermIx: 0,
-  history: [exampleTerm]
+  history: [exampleTerm],
+  updateCenter: true,
 };
 
 export const initialModel: Model = initializeModel(initialModel0);
@@ -38,7 +40,7 @@ export function updateCurrentTerm(model: Model, termIx: number): Model {
   let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(term);
   let flowNodesAndEdges = toFlow(unlayoutedNodesAndEdges);
 
-  return { ...model, graph: flowNodesAndEdges, currentTermIx: termIx };
+  return { ...model, updateCenter: true, graph: flowNodesAndEdges, currentTermIx: termIx };
 }
 
 export function applyModelUpdates<A>(model: Model, fn: (model: Model, a: A) => Model, aList: A[]): Model {
