@@ -3,12 +3,15 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   MiniMap,
   addEdge,
   useNodesState,
   useEdgesState,
   type OnConnect,
 } from '@xyflow/react';
+
+import { MagicWandIcon } from '@radix-ui/react-icons'
 
 import '@xyflow/react/dist/style.css';
 
@@ -54,7 +57,11 @@ export default function App(props: Props) {
     >
       <Background />
       <MiniMap />
-      <Controls />
+      <Controls>
+        <ControlButton onClick={() => alert('Something magical just happened. ✨')}>
+          <MagicWandIcon />
+        </ControlButton>
+      </Controls>
     </ReactFlow>
   );
 }

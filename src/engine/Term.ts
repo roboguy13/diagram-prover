@@ -19,6 +19,46 @@ export type Term =
   | { type: 'App'; func: Term; arg: Term; id?: TermId}
   | { type: 'Ann'; term: Term; ty: Type; id?: TermId}
 
+export function varTerm(name: VarId, id?: TermId): Term {
+  return { type: 'Var', name: name, ...(id !== undefined ? { id } : {}) }
+}
+
+export function unitTyTerm(id?: TermId): Term {
+  return { type: 'UnitTy', ...(id !== undefined ? { id } : {}) }
+}
+
+export function emptyTerm(id?: TermId): Term {
+  return { type: 'Empty', ...(id !== undefined ? { id } : {}) }
+}
+
+export function typeTerm(universe: number=0, id?: TermId): Term {
+  return { type: 'Type', universe: universe, ...(id !== undefined ? { id } : {}) }
+}
+
+export function unitTerm(id?: TermId): Term {
+  return { type: 'unit', ...(id !== undefined ? { id } : {}) }
+}
+
+export const piTerm = (paramName?: string) => function (paramTy: Type, body: Term, id?: TermId): Term {
+  return { type: 'Pi',
+           ...(paramName !== undefined ? { paramName } : {}),
+           paramTy,
+           body,
+           ...(id !== undefined ? { id } : {}) }
+}
+
+export function lamTerm(paramName: string, paramTy: Type, body: Term, id?: TermId): Term {
+  return { type: 'Lam', paramName, paramTy, body, ...(id !== undefined ? { id } : {}) }
+}
+
+export function appTerm(func: Term, arg: Term, id?: TermId): Term {
+  return { type: 'App', func, arg, ...(id !== undefined ? { id } : {}) }
+}
+
+export function annTerm(term: Term, ty: Type, id?: TermId): Term {
+  return { type: 'Ann', term, ty, ...(id !== undefined ? { id } : {}) }
+}
+
 export type NodeId = { type: 'NodeId'; id: string }
 
 export type Type = Term
@@ -53,18 +93,12 @@ export function hasAllIds(t: Term): boolean {
 }
 
 // A simple example term
-export let exampleTerm: Term = {
-  type: 'Pi',
-  paramName: 'x',
-  paramTy: { type: 'UnitTy' },
-  body: {
-    type: 'Lam',
-    paramName: 'y',
-    paramTy: { type: 'UnitTy' },
-    body: {
-      type: 'App',
-      func: { type: 'Var', name: { type: 'VarId', name: 'y', ix: 0 } },
-      arg: { type: 'Var', name: { type: 'VarId', name: 'x', ix: 1 } },
-    }
-  }
-}
+export let exampleTerm: Term =
+  lamTerm('x', piTerm()(unitTyTerm(), unitTyTerm()),
+    lamTerm('y', unitTyTerm(),
+      appTerm(
+        varTerm({ type: 'VarId', name: 'y', ix: 1 }),
+        varTerm({ type: 'VarId', name: 'x', ix: 0 })
+      )
+    )
+  );

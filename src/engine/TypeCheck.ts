@@ -37,7 +37,12 @@ export function inferType(ctx: Context, term: Term): CheckResult<Type> {
 
     case 'Pi':
       let k1 = inferUniverse(ctx, term.paramTy);
-      let k2 = inferUniverse(ctx, term.body);
+
+      let newCtx: Context = produce<Context>(ctx, (draft: Context) => {
+        draft.unshift(term.paramTy);
+      });
+
+      let k2 = inferUniverse(newCtx, term.body);
 
       if (k1.type === 'error') {
         return k1;
@@ -131,7 +136,7 @@ function inferUniverse(ctx: Context, term: Term): CheckResult<number> {
       case 'Type':
         return { type: 'correct', result: normalized.universe }
       default:
-        return { type: 'error', err: { msg: `Expected function but got ${prettyPrintTerm(normalized)} when inferring universe`, term: term } }
+        return { type: 'error', err: { msg: `Type expected but got ${prettyPrintTerm(normalized)} when inferring universe`, term: term } }
     }
   } else {
     return { type: 'error', err: ty.err };
