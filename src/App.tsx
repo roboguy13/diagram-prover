@@ -5,10 +5,8 @@ import {
   Controls,
   ControlButton,
   MiniMap,
-  addEdge,
-  useNodesState,
-  useEdgesState,
   type OnConnect,
+  useReactFlow,
 } from '@xyflow/react';
 
 import { ChevronRightIcon, MagicWandIcon } from '@radix-ui/react-icons'
@@ -28,24 +26,24 @@ export interface Props {
 }
 
 export default function App() {
-  // const { nodesAndEdges } = props;
-  // let initialEdges = nodesAndEdges.edges;
-  // let initialNodes = nodesAndEdges.nodes;
-
   const [state, dispatch] = useReducer(update, initialModel);
-
-  // const nodes: AppNode[] = Array.from(state.nodes.values());
-  // const edges = state.edges;
-
-  // const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  // const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  // const onConnect: OnConnect = useCallback(
-  //   (connection) => setEdges((edges) => addEdge(connection, edges)),
-  //   [setEdges]
-  // );
+  const reactFlowInstance = useReactFlow();
 
   let nodes = Array.from(state.graph?.nodes.values() ?? []);
   let edges = state.graph?.edges ?? [];
+
+  let handleBetaStep = () => {
+    const { x, y, zoom } = reactFlowInstance.getViewport();
+    dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' }});
+    reactFlowInstance.setCenter(x, y, { zoom });
+  }
+
+  let handleStepBack = () => {
+    const { x, y, zoom } = reactFlowInstance.getViewport();
+    dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }});
+    reactFlowInstance.setCenter(x, y, { zoom });
+    // reactFlowInstance.fitView();
+  }
 
   return (
     <ReactFlow
@@ -61,11 +59,11 @@ export default function App() {
       <Background />
       <MiniMap />
       <Controls>
-        <ControlButton onClick={() => dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' }})}>
+        <ControlButton onClick={handleBetaStep}>
           <ChevronRightIcon />
         </ControlButton>
 
-        <ControlButton onClick={() => dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }})}>
+        <ControlButton onClick={handleStepBack}>
           <ChevronRightIcon style={{ transform: 'rotate(180deg)' }} />
         </ControlButton>
       </Controls>

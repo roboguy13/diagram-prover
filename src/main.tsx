@@ -12,6 +12,7 @@ import { prettyPrintTerm } from './engine/PrettyPrint';
 import { exampleTerm } from './engine/Term';
 import { NodesAndEdges } from './ui/render/NodesAndEdges';
 import { inferType } from './engine/TypeCheck';
+import { ReactFlowProvider } from '@xyflow/react';
 
 enableMapSet(); // Initialize immer so it can use Map and Set
 
@@ -20,6 +21,8 @@ console.log('Type infer: ', inferType([], exampleTerm));
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <ReactFlowProvider>
+      <App />
+    </ReactFlowProvider>
   </React.StrictMode>
 );
