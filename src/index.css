@@ -1,0 +1,34 @@
+.term-node {
+  /* border: 1px solid #ccc; */
+
+  padding: 10px;
+  border: 1px solid #1a192b;
+  border-radius: 20%;
+  background: #fff;
+  text-align: center;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &.selected,
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    border: 1.5px solid #1a192b;
+  }
+}
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
