@@ -37,6 +37,54 @@ export function equalAbstractions(ty1: Type, term1: Term, ty2: Type, term2: Term
   return equalTermsHelper(ty1, ty2) && equalTermsHelper(term1, term2);
 }
 
+export type StepChange =
+  | { type: 'no-change' }
+  | { type: 'beta'; changedId: string }
+
+export function oneStep(term: Term): [StepChange, Term] {
+  switch (term.type) {
+    case 'Var':
+      return [{ type: 'no-change' }, term];
+    case 'UnitTy':
+      return [{ type: 'no-change' }, term];
+    case 'Empty':
+      return [{ type: 'no-change' }, term];
+    case 'Type':
+      return [{ type: 'no-change' }, term];
+    case 'unit':
+      return [{ type: 'no-change' }, term];
+
+    case 'Pi': {
+      let [paramChange, newParamTy] = oneStep(term.paramTy);
+
+      if (paramChange.type !== 'no-change') {
+        return [paramChange, { ...term, paramTy: newParamTy }];
+      } else {
+        let [bodyChange, newBody] = oneStep(term.body);
+
+        if (bodyChange.type !== 'no-change') {
+          return [bodyChange, { ...term, body: newBody }];
+        } else {
+          return [{ type: 'no-change' }, term];
+        }
+      }
+    }
+    case 'Lam':
+      return { ...term, paramTy: oneStep(term.paramTy), body: oneStep(term.body) }
+    case 'App':
+      switch (term.func.type) {
+        case 'Lam':
+          return oneStep(subst1(term.func.body, term.arg));
+        case 'Pi':
+          return oneStep(subst1(term.func.body, term.arg));
+        default:
+          return { ...term, func: term.func, arg: term.arg }
+      }
+    case 'Ann':
+      return { ...term, term: oneStep(term.term), ty: oneStep(term.ty) }
+  }
+}
+
 export function normalize(term: Term): Term {
   switch (term.type) {
     case 'Var':

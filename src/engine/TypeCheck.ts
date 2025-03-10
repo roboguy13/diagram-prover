@@ -1,7 +1,8 @@
 // Based on https://math.andrej.com/2012/11/08/how-to-implement-dependent-type-theory-i/
 
-import { Type, Term, TermId, Context } from './Term' 
+import { Type, Term, TermId, Context } from './Sequent' 
 import { normalize, equalTerms } from './Normalize';
+import { prettyPrintTerm } from './PrettyPrint';
 import { subst1 } from './Subst';
 
 import { produce } from 'immer';
@@ -79,7 +80,7 @@ export function inferType(ctx: Context, term: Term): CheckResult<Type> {
         if (te.type === 'error') {
           return te;
         } else if (!equalTerms(s, te.result)) {
-          return { type: 'error', err: { msg: `Expected ${s} but got ${te.result}`, term: e2 } }
+          return { type: 'error', err: { msg: `Expected ${prettyPrintTerm(s)} but got ${prettyPrintTerm(te.result)}`, term: e2 } }
         } else {
           return { type: 'correct', result: subst1(t, e2) }
         }
@@ -99,7 +100,7 @@ export function checkType(ctx: Context, term: Term, ty: Type): CheckResult<Type>
     let normalizedTy = normalize(ty);
 
     if (!equalTerms(normalized, normalizedTy)) {
-      return { type: 'error', err: { msg: `Expected ${normalizedTy} but got ${normalized}`, term: term } }
+      return { type: 'error', err: { msg: `Expected ${prettyPrintTerm(normalizedTy)} but got ${prettyPrintTerm(normalized)}`, term: term } }
     } else {
       return { type: 'correct', result: ty }
     }
@@ -116,7 +117,7 @@ function inferPi(ctx: Context, term: Term): CheckResult<{ type: 'Pi', paramTy: T
       case 'Pi':
         return { type: 'correct', result: ty }
       default:
-        return { type: 'error', err: { msg: `Expected function but got ${ty}`, term: term } }
+        return { type: 'error', err: { msg: `Expected function but got ${prettyPrintTerm(ty)}`, term: term } }
     }
   }
 }
@@ -130,7 +131,7 @@ function inferUniverse(ctx: Context, term: Term): CheckResult<number> {
       case 'Type':
         return { type: 'correct', result: normalized.universe }
       default:
-        return { type: 'error', err: { msg: `Expected function but got ${normalized}`, term: term } }
+        return { type: 'error', err: { msg: `Expected function but got ${prettyPrintTerm(normalized)} when inferring universe`, term: term } }
     }
   } else {
     return { type: 'error', err: ty.err };

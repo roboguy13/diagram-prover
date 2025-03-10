@@ -83,17 +83,11 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
         data: { label: 'Pi' },
         position: { x: 0, y: 0 },
       });
-      // g.nodes.push({
-      //   id: term.paramTy.id ?? 'paramTy',
-      //   type: 'term',
-      //   data: { label: 'paramTy' },
-      //   position: { x: 0, y: 0 },
-      // });
 
-      // g.edges.push({ source: term.id ?? 'Pi', target: term.paramTy.id ?? 'paramTy', id: newEdgeId() });
-
+      let paramTy = toUnlayoutedHelper(allIds, g, term.paramTy);
       let bodyId = toUnlayoutedHelper(allIds, g, term.body);
 
+      g.edges.push({ source: thisId, target: paramTy, id: newEdgeId() });
       g.edges.push({ source: thisId, target: bodyId, id: newEdgeId() });
       break;
     }
@@ -105,17 +99,11 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
         data: { label: 'Lam' },
         position: { x: 0, y: 0 },
       });
-      // g.nodes.push({
-      //   id: term.paramTy.id ?? 'paramTy',
-      //   type: 'term',
-      //   data: { label: 'paramTy' },
-      //   position: { x: 0, y: 0 },
-      // });
 
-      // g.edges.push({ source: term.id ?? 'Lam', target: term.paramTy.id ?? 'paramTy', id: newEdgeId() });
-
+      let paramTy = toUnlayoutedHelper(allIds, g, term.paramTy);
       let bodyId = toUnlayoutedHelper(allIds, g, term.body);
 
+      g.edges.push({ source: thisId, target: paramTy, id: newEdgeId() });
       g.edges.push({ source: thisId, target: bodyId, id: newEdgeId() });
       break;
     }

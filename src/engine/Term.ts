@@ -63,8 +63,8 @@ export let exampleTerm: Term = {
     paramTy: { type: 'UnitTy' },
     body: {
       type: 'App',
-      func: { type: 'Var', name: { type: 'VarId', ix: 0 } },
-      arg: { type: 'Var', name: { type: 'VarId', ix: 1 } },
+      func: { type: 'Var', name: { type: 'VarId', name: 'y', ix: 0 } },
+      arg: { type: 'Var', name: { type: 'VarId', name: 'x', ix: 1 } },
     }
   }
 }

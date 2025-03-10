@@ -18,18 +18,16 @@ import { AppNode } from './ui/components/Nodes/nodeTypes';
 import { update } from './ui/Msg';
 import { initialModel, makeInitialModel, Model } from './ui/Model';
 
-import { exampleTerm } from './engine/Term';
 import { NodesAndEdges } from './ui/render/NodesAndEdges';
-import { toUnlayouted } from './ui/render/ToUnlayoutedNodes';
-import { toFlow } from './ui/render/ToFlow';
 
-import * as TC from './engine/TypeCheck'
+export interface Props {
+  nodesAndEdges: NodesAndEdges;
+}
 
-export default function App() {
-  let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(exampleTerm);
-  let flowNodesAndEdges = toFlow(unlayoutedNodesAndEdges);
-  let initialEdges = flowNodesAndEdges.edges;
-  let initialNodes = flowNodesAndEdges.nodes;
+export default function App(props: Props) {
+  const { nodesAndEdges } = props;
+  let initialEdges = nodesAndEdges.edges;
+  let initialNodes = nodesAndEdges.nodes;
 
   const [state, dispatch] = useReducer(update, makeInitialModel(initialNodes, initialEdges));
 
