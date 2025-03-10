@@ -1,5 +1,5 @@
 import * as dagre from 'dagre';
-import { NodesAndEdges } from './NodesAndEdges';
+import { NodesAndEdges, buildNodeMap } from './NodesAndEdges';
 import { Position } from 'reactflow';
 
 const NODE_WIDTH = 150;
@@ -24,7 +24,7 @@ export function toFlow(g: NodesAndEdges, direction = 'TB'): NodesAndEdges {
  
   dagre.layout(dagreGraph);
  
-  const newNodes = nodes.map((node) => {
+  const newNodes = Array.from(nodes.values()).map((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
     const newNode = {
       ...node,
@@ -41,5 +41,5 @@ export function toFlow(g: NodesAndEdges, direction = 'TB'): NodesAndEdges {
     return newNode;
   });
  
-  return { nodes: newNodes, edges };
+  return { nodes: buildNodeMap(newNodes), edges };
 }

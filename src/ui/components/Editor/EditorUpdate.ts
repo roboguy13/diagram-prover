@@ -1,6 +1,8 @@
-import { applyModelUpdates, Model, setNode } from '../../Model';
+import { applyModelUpdates, Model, setNode, updateCurrentTerm } from '../../Model';
 import { EditorMsg } from './EditorMsg';
 import { NodeChange, NodePositionChange, NodeSelectionChange, EdgeChange } from '@xyflow/react';
+import { oneStep } from '../../../engine/Normalize';
+import { prettyPrintTerm } from '../../../engine/PrettyPrint';
 
 export function editorUpdate(model: Model, msg: EditorMsg): Model {
   switch (msg.type) {
@@ -12,6 +14,19 @@ export function editorUpdate(model: Model, msg: EditorMsg): Model {
       return applyModelUpdates(model, nodeChange, msg.changes);
     case 'EdgeChangeMsg':
       return applyModelUpdates(model, edgeChange, msg.changes);
+
+    case 'BetaStepMsg': {
+      console.log('BetaStepMsg');
+      let [stepChange, newTerm] = oneStep(model.currentTerm);
+
+      if (stepChange.type !== 'no-change') {
+        console.log(`BetaStepMsg: updating current term to ${prettyPrintTerm(newTerm)}`);
+        return updateCurrentTerm(model, newTerm);
+      }
+
+      console.log('BetaStepMsg: no change');
+      return model;
+    }
   }
 }
 
@@ -37,7 +52,7 @@ function nodeChange(model: Model, change: NodeChange): Model {
 }
 
 function nodePositionChange(model: Model, change: NodePositionChange): Model {
-  const node = model.nodes.get(change.id);
+  const node = model.graph?.nodes.get(change.id);
 
   if (node && change.position
       && change.position.x === change.position.x && change.position.y === change.position.y) { // To avoid NaNs
@@ -49,7 +64,7 @@ function nodePositionChange(model: Model, change: NodePositionChange): Model {
 }
 
 function nodeSelectionChange(model: Model, change: NodeSelectionChange): Model {
-  const node = model.nodes.get(change.id);
+  const node = model.graph?.nodes.get(change.id);
 
   if (node) {
     const updatedNode = { ...node, selected: change.selected };

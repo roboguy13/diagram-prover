@@ -39,7 +39,7 @@ export function equalAbstractions(ty1: Type, term1: Term, ty2: Type, term2: Term
 
 export type StepChange =
   | { type: 'no-change' }
-  | { type: 'beta'; changedId: string }
+  | { type: 'beta'; changedId?: string }
 
 export function oneStep(term: Term): [StepChange, Term] {
   switch (term.type) {
@@ -87,9 +87,9 @@ export function oneStep(term: Term): [StepChange, Term] {
     case 'App':
       switch (term.func.type) {
         case 'Lam':
-          return oneStep(subst1(term.func.body, term.arg));
+          return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, subst1(term.func.body, term.arg) ];
         case 'Pi':
-          return oneStep(subst1(term.func.body, term.arg));
+          return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, subst1(term.func.body, term.arg) ];
         default:
           return [ { type: 'no-change' }, { ...term, func: term.func, arg: term.arg } ]
       }

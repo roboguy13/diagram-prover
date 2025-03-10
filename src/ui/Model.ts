@@ -1,25 +1,35 @@
 import { AppNode } from "./components/Nodes/nodeTypes";
 import { Edge } from "@xyflow/react";
+import { NodesAndEdges } from "./render/NodesAndEdges";
+import { Term, exampleTerm } from "../engine/Term";
+import { toUnlayouted } from "./render/ToUnlayoutedNodes";
+import { toFlow } from "./render/ToFlow";
 
 export type Model = {
-  nodes: Map<string, AppNode>;
-  edges: Edge[];
+  graph?: NodesAndEdges
+
+  currentTerm: Term
 }
 
-export const initialModel: Model = {
-  nodes: new Map<string, AppNode>(),
-  edges: [],
+const initialModel0: Model = {
+  currentTerm: exampleTerm
 };
 
-export const makeInitialModel = (nodes: AppNode[], edges: Edge[]): Model => {
-  const nodeMap = new Map<string, AppNode>();
-  for (const node of nodes) {
-    nodeMap.set(node.id, node);
+export const initialModel: Model = initializeModel(initialModel0);
+
+export function initializeModel(model: Model): Model {
+  if (!model.graph) {
+    return updateCurrentTerm(model, model.currentTerm);
+  } else {
+    return model
   }
-  return {
-    nodes: nodeMap,
-    edges: edges,
-  };
+}
+
+export function updateCurrentTerm(model: Model, term: Term): Model {
+  let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(term);
+  let flowNodesAndEdges = toFlow(unlayoutedNodesAndEdges);
+
+  return { ...model, graph: flowNodesAndEdges, currentTerm: term };
 }
 
 export function applyModelUpdates<A>(model: Model, fn: (model: Model, a: A) => Model, aList: A[]): Model {
@@ -31,11 +41,12 @@ export function applyModelUpdates<A>(model: Model, fn: (model: Model, a: A) => M
 }
 
 export function getNode(model: Model, id: string): AppNode | undefined {
-  return model.nodes.get(id);
+  return model.graph?.nodes.get(id);
 }
 
 export function setNode(model: Model, node: AppNode): Model {
-  const newNodes = new Map(model.nodes)
-  newNodes.set(node.id, node);
-  return { ...model, nodes: newNodes };
+  const nodes = model.graph?.nodes ?? new Map();
+  const edges = model.graph?.edges ?? [];
+  nodes.set(node.id, node);
+  return { ...model, graph: { nodes, edges } };
 }

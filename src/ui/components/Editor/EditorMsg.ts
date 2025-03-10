@@ -5,3 +5,4 @@ export type EditorMsg =
   | { type: 'SelectMsg', selected: string[] }
   | { type: 'NodeChangeMsg', changes: NodeChange[] }
   | { type: 'EdgeChangeMsg', changes: EdgeChange[] }
+  | { type: 'BetaStepMsg' }

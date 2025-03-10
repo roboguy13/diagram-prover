@@ -19,7 +19,7 @@ import { nodeTypes } from './ui/components/Nodes';
 import { edgeTypes } from './edges';
 import { AppNode } from './ui/components/Nodes/nodeTypes';
 import { update } from './ui/Msg';
-import { initialModel, makeInitialModel, Model } from './ui/Model';
+import { initialModel, Model } from './ui/Model';
 
 import { NodesAndEdges } from './ui/render/NodesAndEdges';
 
@@ -27,12 +27,12 @@ export interface Props {
   nodesAndEdges: NodesAndEdges;
 }
 
-export default function App(props: Props) {
-  const { nodesAndEdges } = props;
-  let initialEdges = nodesAndEdges.edges;
-  let initialNodes = nodesAndEdges.nodes;
+export default function App() {
+  // const { nodesAndEdges } = props;
+  // let initialEdges = nodesAndEdges.edges;
+  // let initialNodes = nodesAndEdges.nodes;
 
-  const [state, dispatch] = useReducer(update, makeInitialModel(initialNodes, initialEdges));
+  const [state, dispatch] = useReducer(update, initialModel);
 
   // const nodes: AppNode[] = Array.from(state.nodes.values());
   // const edges = state.edges;
@@ -44,12 +44,15 @@ export default function App(props: Props) {
   //   [setEdges]
   // );
 
+  let nodes = Array.from(state.graph?.nodes.values() ?? []);
+  let edges = state.graph?.edges ?? [];
+
   return (
     <ReactFlow
-      nodes={Array.from(state.nodes.values())}
+      nodes={nodes}
       nodeTypes={nodeTypes}
       onNodesChange={(changes) => dispatch({ kind: 'EditorMsg', msg: { type: 'NodeChangeMsg', changes: changes}})}
-      edges={state.edges}
+      edges={edges}
       edgeTypes={edgeTypes}
       onEdgesChange={(changes) => dispatch({ kind: 'EditorMsg', msg: { type: 'EdgeChangeMsg', changes: changes}})}
       onConnect={(connection) => {}}
@@ -58,7 +61,7 @@ export default function App(props: Props) {
       <Background />
       <MiniMap />
       <Controls>
-        <ControlButton onClick={() => alert('Something magical just happened. ✨')}>
+        <ControlButton onClick={() => dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' }})}>
           <MagicWandIcon />
         </ControlButton>
       </Controls>

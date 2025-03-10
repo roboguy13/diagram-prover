@@ -18,11 +18,8 @@ enableMapSet(); // Initialize immer so it can use Map and Set
 console.log('Term: ', prettyPrintTerm(exampleTerm));
 console.log('Type infer: ', inferType([], exampleTerm));
 
-let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(exampleTerm);
-let flowNodesAndEdges = toFlow(unlayoutedNodesAndEdges);
-
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App nodesAndEdges={flowNodesAndEdges} />
+    <App />
   </React.StrictMode>
 );

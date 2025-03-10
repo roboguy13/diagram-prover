@@ -6,7 +6,7 @@ import { outputHandleName } from '../NodeUtils';
 import * as dagre from 'dagre';
 
 export function toUnlayouted(term: Term): NodesAndEdges {
-  let g = { nodes: [], edges: [] }
+  let g = { nodes: new Map(), edges: [] }
   toUnlayoutedHelper(hasAllIds(term), g, term);
   return g
 }
@@ -33,7 +33,7 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
 
   switch (term.type) {
     case 'Var':
-      g.nodes.push({
+      g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
         data: { label: term.name.name ?? ('?' + term.name.ix), outputCount: 0 },
@@ -42,16 +42,16 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       break;
 
     case 'UnitTy':
-      g.nodes.push({
+      g.nodes.set(thisId,{
         id: thisId,
         type: 'term',
-        data: { label: 'UnitTy', outputCount: 0 },
+        data: { label: 'Unit', outputCount: 0 },
         position: { x: 0, y: 0 },
       });
       break;
 
     case 'Empty':
-      g.nodes.push({
+      g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
         data: { label: 'Empty', outputCount: 0 },
@@ -62,7 +62,7 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
     case 'Type':
       // TODO: Show universe level
 
-      g.nodes.push({
+      g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
         data: { label: 'Type', outputCount: 0 },
@@ -71,19 +71,19 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       break;
 
     case 'unit':
-      g.nodes.push({
+      g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
-        data: { label: 'unit', outputCount: 0 },
+        data: { label: '()', outputCount: 0 },
         position: { x: 0, y: 0 },
       });
       break;
 
     case 'Pi': {
-      g.nodes.push({
+      g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
-        data: { label: 'Pi', outputCount: 2 },
+        data: { label: 'Π', outputCount: 2 },
         position: { x: 0, y: 0 },
       });
 
@@ -96,10 +96,10 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
     }
 
     case 'Lam': {
-      g.nodes.push({
+      g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
-        data: { label: 'Lam', outputCount: 2 },
+        data: { label: 'λ', outputCount: 2 },
         position: { x: 0, y: 0 },
       });
 
@@ -112,10 +112,10 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
     }
 
     case 'App': {
-      g.nodes.push({
+      g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
-        data: { label: 'App', outputCount: 2 },
+        data: { label: '@', outputCount: 2 },
         position: { x: 0, y: 0 },
       });
 
@@ -128,7 +128,7 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
     }
 
     case 'Ann': {
-      g.nodes.push({
+      g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
         data: { label: 'Ann', outputCount: 2 },

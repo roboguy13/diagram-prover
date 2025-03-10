@@ -19,8 +19,8 @@ export type Term =
   | { type: 'App'; func: Term; arg: Term; id?: TermId}
   | { type: 'Ann'; term: Term; ty: Type; id?: TermId}
 
-export function varTerm(name: VarId, id?: TermId): Term {
-  return { type: 'Var', name: name, ...(id !== undefined ? { id } : {}) }
+export function varTerm(ix: number, name?: string, id?: TermId): Term {
+  return { type: 'Var', name: { type: 'VarId', ix: ix, ...(name !== undefined) ? { name } : {} }, ...(id !== undefined ? { id } : {}) }
 }
 
 export function unitTyTerm(id?: TermId): Term {
@@ -93,12 +93,18 @@ export function hasAllIds(t: Term): boolean {
 }
 
 // A simple example term
+export let idTerm = (ty: Type): Term =>
+  lamTerm('z', ty, varTerm(0, 'z'));
+
 export let exampleTerm: Term =
-  lamTerm('x', piTerm()(unitTyTerm(), unitTyTerm()),
-    lamTerm('y', unitTyTerm(),
-      appTerm(
-        varTerm({ type: 'VarId', name: 'y', ix: 1 }),
-        varTerm({ type: 'VarId', name: 'x', ix: 0 })
+  appTerm(
+    lamTerm('x', piTerm()(unitTyTerm(), unitTyTerm()),
+      lamTerm('y', unitTyTerm(),
+        appTerm(
+          varTerm(1, 'x'),
+          varTerm(0, 'y')
+        )
       )
-    )
+    ),
+    idTerm(unitTyTerm())
   );
