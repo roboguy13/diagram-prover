@@ -31,16 +31,19 @@ const initialModel0: Model = {
 
 export const initialModel: Model = initializeModel(initialModel0);
 
-export function getNextChangedId(model: Model): string | null {
-  let change = model.termStepHistory.getChangeAfterPresent();
+export function getNextChangedId(model: Model): [Model, string | null] {
+  let [newTermStepHistory, change] = model.termStepHistory.getChangeAfterPresent();
+
+  let newModel = { ...model, termStepHistory: newTermStepHistory };
+
   console.log('Change after present:', change);
 
   if (change && change[0].type !== 'no-change') {
     let id = change[1].id;
     console.log('Next changed id:', id);
-    return id ? id : null;
+    return [newModel, id ? id : null];
   }
-  return null
+  return [newModel, null];
 }
 
 // export function extendHistory(model: Model): Model {
@@ -66,9 +69,7 @@ function updateFlow(model: Model): Model {
 }
 
 export function updateCurrentTerm(model: Model, termIx: number): Model {
-  let newTermStepHistory = produce(model.termStepHistory, (draft) => {
-    draft.setCurrentChangeIx(termIx);
-  });
+  let newTermStepHistory = model.termStepHistory.setCurrentChangeIx(termIx);
 
   let term = newTermStepHistory.getCurrent();
 
@@ -82,21 +83,13 @@ export function updateCurrentTerm(model: Model, termIx: number): Model {
 }
 
 export function advanceChange(model: Model): Model {
-  let newTermStepHistory = produce(model.termStepHistory, (draft) => {
-    let change = draft.advanceChange();
-  });
-
-  let newModel = { ...model, updateCenter: true, termStepHistory: newTermStepHistory };
+  let newModel = { ...model, updateCenter: true, termStepHistory: model.termStepHistory.advanceChange() };
 
   return updateFlow(newModel);
 }
 
 export function rollbackChange(model: Model): Model {
-  let newTermStepHistory = produce(model.termStepHistory, (draft) => {
-    draft.rollbackChange();
-  });
-
-  let newModel = { ...model, updateCenter: true, termStepHistory: newTermStepHistory };
+  let newModel = { ...model, updateCenter: true, termStepHistory: model.termStepHistory.rollbackChange() };
 
   return updateFlow(newModel);
 }

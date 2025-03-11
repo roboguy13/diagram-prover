@@ -73,7 +73,8 @@ const exts = function(sigma: Subst) {
     if (x.ix === 0) {
       return { type: 'Var', name: x };
     } else {
-      return rename((function(y: VarId) { return { ... y, ix: y.ix + 1 } }), sigma(x));
+      let newX = { ...x, ix: x.ix - 1 };
+      return rename((function(y: VarId) { return { ... y, ix: y.ix + 1 } }), sigma(newX));
     }
   }
 }

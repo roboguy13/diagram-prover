@@ -33,7 +33,7 @@ function getTermId(allIds: boolean, term: Term): string {
 function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, term: Term): string {
   let thisId = getTermId(allIds, term);
 
-  let nextChangedId = getNextChangedId(model);
+  let [_, nextChangedId] = getNextChangedId(model); // TODO: Is it okay to ignore the updated model here?
   let isActiveRedex = term.id === nextChangedId;
 
   switch (term.type) {

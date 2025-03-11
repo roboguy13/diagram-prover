@@ -1,5 +1,5 @@
 import { ThickArrowRightIcon } from "@radix-ui/react-icons";
-import { immerable } from "immer";
+import { produce, immerable } from "immer";
 
 export class ChangeTracker<A, B> {
   // Invariant:
@@ -27,49 +27,54 @@ export class ChangeTracker<A, B> {
     return this.history.length;
   }
 
-  public setCurrentChangeIx(ix: number) {
-    this.currentChangeIx = ix;
+  public setCurrentChangeIx(ix: number): ChangeTracker<A, B> {
+    return produce(this, (draft: ChangeTracker<A, B>) => {
+      this.currentChangeIx = ix;
+    });
   }
 
   public getCurrent(): B {
     return this.history[this.currentChangeIx]!;
   }
 
-  public getChangeAfterPresent(): [A, B] | null {
+  public getChangeAfterPresent(): [ChangeTracker<A, B>, [A, B] | null] {
     if (this.currentChangeIx < this.changes.length) {
-      console.log('Returning existing change:', [this.changes[this.currentChangeIx], this.history[this.currentChangeIx]]);
-      return [this.changes[this.currentChangeIx]!, this.history[this.currentChangeIx]!];
+      return [this, [this.changes[this.currentChangeIx]!, this.history[this.currentChangeIx]!]];
     } else {
       let result = this.changer(this.history[this.currentChangeIx]!);
-      console.log('Generated new change:', result);
 
       if (result) {
         let [newChange, newItem] = result;
 
-        this.changes.push(newChange);
-        this.history.push(newItem);
+        let newChangeTracker = produce(this, (draft: ChangeTracker<A, B>) => {
+          draft.changes.push(newChange);
+          draft.history.push(newItem);
+        });
 
-        return [newChange, newItem];
+        return [newChangeTracker, [newChange, newItem]];
       }
 
-      return null;
+      return [this, null];
     }
   }
 
-  public rollbackChange() {
+  public rollbackChange(): ChangeTracker<A, B> {
     let ix = this.currentChangeIx - 1;
 
-    console.log('rolling back')
-
-    this.currentChangeIx = ix >= 0 ? ix : 0;
+    return produce(this, (draft: ChangeTracker<A, B>) => {
+      draft.currentChangeIx = ix >= 0 ? ix : 0;
+    });
   }
 
-  public advanceChange() {
-    let next = this.getChangeAfterPresent();
-    console.log('advancing')
+  public advanceChange(): ChangeTracker<A, B> {
+    let [newChangeTracker, next] = this.getChangeAfterPresent();
+
     if (next) {
-      console.log('advanced')
-      this.currentChangeIx += 1;
+      return produce(this, (draft: ChangeTracker<A, B>) => {
+        draft.currentChangeIx += 1
+      });
     }
+
+    return newChangeTracker
   }
 }

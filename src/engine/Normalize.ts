@@ -1,5 +1,6 @@
 import { VarId, Type, Term } from './Term' 
 import { subst1 } from './Subst'
+import { prettyPrintTerm } from './PrettyPrint';
 
 // TODO: Also include a function that does one step of normalization, and indicates which term(s) change from the
 // input and the output
@@ -87,7 +88,9 @@ export function oneStep(term: Term): [StepChange, Term] {
     case 'App':
       switch (term.func.type) {
         case 'Lam':
-          return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, subst1(term.func.body, term.arg) ];
+          let substResult = subst1(term.func.body, term.arg);
+          console.log(`Substituting ${prettyPrintTerm(term.arg)} for ${term.func.paramName} in ${prettyPrintTerm(term.func.body)} to get ${prettyPrintTerm(substResult)}`);
+          return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, substResult ];
         case 'Pi':
           return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, subst1(term.func.body, term.arg) ];
         default:
