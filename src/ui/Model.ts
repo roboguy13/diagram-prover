@@ -59,7 +59,6 @@ export function initializeModel(model: Model): Model {
 }
 function updateFlow(model: Model): Model {
   let current = model.termStepHistory.getCurrent();
-  console.log('Current term:', current);
 
   let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(model, current);
 

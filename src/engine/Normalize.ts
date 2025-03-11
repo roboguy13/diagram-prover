@@ -88,7 +88,6 @@ export function oneStep(term: Term): [StepChange, Term] {
     case 'App':
       switch (term.func.type) {
         case 'Lam':
-          console.log('Beta-reducing: changedId:', term.id);
           return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, subst1(term.func.body, term.arg) ];
         case 'Pi':
           return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, subst1(term.func.body, term.arg) ];
