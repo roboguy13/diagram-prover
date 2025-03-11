@@ -41,7 +41,7 @@ export class ChangeTracker<A, B> {
     if (this.currentChangeIx < this.changes.length) {
       return [this, [this.changes[this.currentChangeIx]!, this.history[this.currentChangeIx]!]];
     } else {
-      let result = this.changer(this.history[this.currentChangeIx-1]!);
+      let result = this.changer(this.history[this.currentChangeIx]!);
 
       if (result) {
         let [newChange, newItem] = result;
