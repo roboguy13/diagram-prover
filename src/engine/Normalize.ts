@@ -88,9 +88,7 @@ export function oneStep(term: Term): [StepChange, Term] {
     case 'App':
       switch (term.func.type) {
         case 'Lam':
-          let substResult = subst1(term.func.body, term.arg);
-          console.log(`Substituting ${prettyPrintTerm(term.arg)} for ${term.func.paramName} in ${prettyPrintTerm(term.func.body)} to get ${prettyPrintTerm(substResult)}`);
-          return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, substResult ];
+          return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, subst1(term.func.body, term.arg) ];
         case 'Pi':
           return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, subst1(term.func.body, term.arg) ];
         default:

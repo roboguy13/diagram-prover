@@ -41,7 +41,7 @@ export class ChangeTracker<A, B> {
     if (this.currentChangeIx < this.changes.length) {
       return [this, [this.changes[this.currentChangeIx]!, this.history[this.currentChangeIx]!]];
     } else {
-      let result = this.changer(this.history[this.currentChangeIx]!);
+      let result = this.changer(this.history[this.currentChangeIx-1]!);
 
       if (result) {
         let [newChange, newItem] = result;
@@ -70,7 +70,7 @@ export class ChangeTracker<A, B> {
     let [newChangeTracker, next] = this.getChangeAfterPresent();
 
     if (next) {
-      return produce(this, (draft: ChangeTracker<A, B>) => {
+      return produce(newChangeTracker, (draft: ChangeTracker<A, B>) => {
         draft.currentChangeIx += 1
       });
     }

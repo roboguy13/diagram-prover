@@ -9,7 +9,8 @@ import { prettyPrintTerm } from '../../engine/PrettyPrint';
 
 export function toUnlayouted(model: Model, term: Term): NodesAndEdges {
   let g = { nodes: new Map(), edges: [] }
-  toUnlayoutedHelper(model, hasAllIds(term), g, term);
+  // toUnlayoutedHelper(model, hasAllIds(term), g, term);
+  toUnlayoutedHelper(model, false, g, term);
   return g
 }
 
@@ -34,7 +35,7 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
   let thisId = getTermId(allIds, term);
 
   let [_, nextChangedId] = getNextChangedId(model); // TODO: Is it okay to ignore the updated model here?
-  let isActiveRedex = term.id === nextChangedId;
+  let isActiveRedex = term ? term.id === nextChangedId : false;
 
   switch (term.type) {
     case 'Var':

@@ -36,11 +36,8 @@ export function getNextChangedId(model: Model): [Model, string | null] {
 
   let newModel = { ...model, termStepHistory: newTermStepHistory };
 
-  console.log('Change after present:', change);
-
   if (change && change[0].type !== 'no-change') {
     let id = change[1].id;
-    console.log('Next changed id:', id);
     return [newModel, id ? id : null];
   }
   return [newModel, null];
@@ -61,7 +58,10 @@ export function initializeModel(model: Model): Model {
   }
 }
 function updateFlow(model: Model): Model {
-  let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(model, model.termStepHistory.getCurrent());
+  let current = model.termStepHistory.getCurrent();
+  console.log('Current term:', current);
+
+  let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(model, current);
 
   let flowNodesAndEdges = toFlow(model, unlayoutedNodesAndEdges);
 
