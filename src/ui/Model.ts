@@ -37,7 +37,7 @@ export function getNextChangedId(model: Model): [Model, string | null] {
   let newModel = { ...model, termStepHistory: newTermStepHistory };
 
   if (change && change[0].type !== 'no-change') {
-    let id = change[1].id;
+    let id = change[0].changedId;
     return [newModel, id ? id : null];
   }
   return [newModel, null];

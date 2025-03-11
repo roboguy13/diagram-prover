@@ -45,6 +45,10 @@ export function toFlow(model: Model, g: NodesAndEdges, direction = 'TB'): NodesA
  
     return newNode;
   });
+
+  let nodeMap = buildNodeMap(newNodes);
+
+  console.log('nodeMap', nodeMap);
  
-  return { nodes: buildNodeMap(newNodes), edges };
+  return { nodes: nodeMap, edges };
 }

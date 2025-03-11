@@ -35,7 +35,9 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
   let thisId = getTermId(allIds, term);
 
   let [_, nextChangedId] = getNextChangedId(model); // TODO: Is it okay to ignore the updated model here?
+
   let isActiveRedex = term ? term.id === nextChangedId : false;
+  console.log('id', term.id, 'nextChangedId', nextChangedId, 'isActiveRedex', isActiveRedex, 'term-type', term.type);
 
   switch (term.type) {
     case 'Var':
