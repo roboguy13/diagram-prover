@@ -1,7 +1,7 @@
 import { AppNode } from "./components/Nodes/nodeTypes";
 import { Edge } from "@xyflow/react";
 import { NodesAndEdges } from "./render/NodesAndEdges";
-import { Term, exampleTerm } from "../engine/Term";
+import { Term, annotateTermWithIds, exampleTerm } from "../engine/Term";
 import { toUnlayouted } from "./render/ToUnlayoutedNodes";
 import { toFlow } from "./render/ToFlow";
 import { oneStep, StepChange } from "../engine/Normalize";
@@ -17,7 +17,7 @@ export type Model = {
 }
 
 const initialModel0: Model = {
-  termStepHistory: new ChangeTracker(exampleTerm, (term) => {
+  termStepHistory: new ChangeTracker(annotateTermWithIds(exampleTerm), (term) => {
     let result = oneStep(term);
     if (result[0].type === 'no-change') {
       return null
@@ -33,9 +33,11 @@ export const initialModel: Model = initializeModel(initialModel0);
 
 export function getNextChangedId(model: Model): string | null {
   let change = model.termStepHistory.getChangeAfterPresent();
+  console.log('Change after present:', change);
 
   if (change && change[0].type !== 'no-change') {
     let id = change[1].id;
+    console.log('Next changed id:', id);
     return id ? id : null;
   }
   return null
@@ -56,7 +58,7 @@ export function initializeModel(model: Model): Model {
   }
 }
 function updateFlow(model: Model): Model {
-  let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(model.termStepHistory.getCurrent());
+  let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(model, model.termStepHistory.getCurrent());
 
   let flowNodesAndEdges = toFlow(model, unlayoutedNodesAndEdges);
 

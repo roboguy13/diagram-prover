@@ -27,12 +27,9 @@ export function toFlow(model: Model, g: NodesAndEdges, direction = 'TB'): NodesA
  
   dagre.layout(dagreGraph);
  
-  let nextChangedId = getNextChangedId(model);
-    
+
   const newNodes = Array.from(nodes.values()).map((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
-
-    let isNextChangedId = node.id == nextChangedId;
 
     const newNode = {
       ...node,
@@ -44,8 +41,6 @@ export function toFlow(model: Model, g: NodesAndEdges, direction = 'TB'): NodesA
         x: nodeWithPosition.x - NODE_WIDTH / 2,
         y: nodeWithPosition.y - NODE_HEIGHT / 2,
       },
-
-      className: `${isNextChangedId ? 'redex-node' : ''}`
     };
  
     return newNode;

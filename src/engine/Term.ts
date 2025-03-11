@@ -65,6 +65,31 @@ export type Type = Term
 
 export type Context = Array<Type> //Map<VarId, Type>
 
+let nextTermId = 0;
+
+export function annotateTermWithIds(t: Term): Term {
+  switch (t.type) {
+    case 'Var':
+      return { ...t, id: 'term-' + nextTermId++ };
+    case 'UnitTy':
+      return { ...t, id: 'term-' + nextTermId++ };
+    case 'Empty':
+      return { ...t, id: 'term-' + nextTermId++ };
+    case 'Type':
+      return { ...t, id: 'term-' + nextTermId++ };
+    case 'unit':
+      return { ...t, id: 'term-' + nextTermId++ };
+    case 'Pi':
+      return { ...t, id: 'term-' + nextTermId++, paramTy: annotateTermWithIds(t.paramTy), body: annotateTermWithIds(t.body) };
+    case 'Lam':
+      return { ...t, id: 'term-' + nextTermId++, paramTy: annotateTermWithIds(t.paramTy), body: annotateTermWithIds(t.body) };
+    case 'App':
+      return { ...t, id: 'term-' + nextTermId++, func: annotateTermWithIds(t.func), arg: annotateTermWithIds(t.arg) };
+    case 'Ann':
+      return { ...t, id: 'term-' + nextTermId++, term: annotateTermWithIds(t.term), ty: annotateTermWithIds(t.ty) };
+  }
+}
+
 // TODO: Do we need an ID here?
 export type Sequent = { type: 'Sequent'; context: Context; consequent: Type }
 

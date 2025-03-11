@@ -23,7 +23,7 @@ export function TermNode(
     }
 
     return (
-      <div className={`term-node ${selected ? 'selected' : ''}`}>
+      <div className={`term-node ${selected ? 'selected' : ''} ${data.isActiveRedex ? 'redex' : ''}`}>
       {data.label}
       <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
       {

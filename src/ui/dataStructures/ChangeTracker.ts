@@ -37,9 +37,11 @@ export class ChangeTracker<A, B> {
 
   public getChangeAfterPresent(): [A, B] | null {
     if (this.currentChangeIx < this.changes.length) {
+      console.log('Returning existing change:', [this.changes[this.currentChangeIx], this.history[this.currentChangeIx]]);
       return [this.changes[this.currentChangeIx]!, this.history[this.currentChangeIx]!];
     } else {
       let result = this.changer(this.history[this.currentChangeIx]!);
+      console.log('Generated new change:', result);
 
       if (result) {
         let [newChange, newItem] = result;
