@@ -2,7 +2,7 @@ import { Term, hasAllIds } from '../../engine/Term';
 import { AppNode, TermNode } from '../components/Nodes/nodeTypes';
 import { NodesAndEdges } from './NodesAndEdges';
 import { outputHandleName } from '../NodeUtils';
-import { getNextChangedId, Model } from '../Model';
+import { getNextChangedId, Model } from '../architecture/Model';
 
 import * as dagre from 'dagre';
 import { prettyPrintTerm } from '../../engine/PrettyPrint';
@@ -10,7 +10,7 @@ import { prettyPrintTerm } from '../../engine/PrettyPrint';
 export function toUnlayouted(model: Model, term: Term): NodesAndEdges {
   let g = { nodes: new Map(), edges: [] }
   // toUnlayoutedHelper(model, hasAllIds(term), g, term);
-  toUnlayoutedHelper(model, false, g, term);
+  toUnlayoutedHelper(model, false, null, g, term);
   return g
 }
 
@@ -31,7 +31,7 @@ function getTermId(allIds: boolean, term: Term): string {
   }
 }
 
-function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, term: Term): string {
+function toUnlayoutedHelper(model: Model, allIds: boolean, parentId: string | null, g: NodesAndEdges, term: Term): string {
   let thisId = getTermId(allIds, term);
 
   let [_, nextChangedId] = getNextChangedId(model); // TODO: Is it okay to ignore the updated model here?
@@ -45,6 +45,7 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
         type: 'term',
         data: { label: term.name.name ?? ('?' + term.name.ix), outputCount: 0, isActiveRedex },
         position: { x: 0, y: 0 },
+        ... parentId && { parentId: parentId, extent: 'parent' },
       });
       break;
 
@@ -54,6 +55,7 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
         type: 'term',
         data: { label: 'Unit', outputCount: 0, isActiveRedex },
         position: { x: 0, y: 0 },
+        ... parentId && { parentId: parentId, extent: 'parent' },
       });
       break;
 
@@ -63,6 +65,7 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
         type: 'term',
         data: { label: 'Empty', outputCount: 0, isActiveRedex },
         position: { x: 0, y: 0 },
+        ... parentId && { parentId: parentId, extent: 'parent' },
       });
       break;
 
@@ -74,6 +77,7 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
         type: 'term',
         data: { label: 'Type', outputCount: 0, isActiveRedex },
         position: { x: 0, y: 0 },
+        ... parentId && { parentId: parentId, extent: 'parent' },
       });
       break;
 
@@ -83,6 +87,7 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
         type: 'term',
         data: { label: '()', outputCount: 0, isActiveRedex },
         position: { x: 0, y: 0 },
+        ... parentId && { parentId: parentId, extent: 'parent' },
       });
       break;
 
@@ -98,10 +103,11 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
         type: 'term',
         data: { label, outputCount: 2, isActiveRedex },
         position: { x: 0, y: 0 },
+        ... parentId && { parentId: parentId, extent: 'parent' },
       });
 
-      let paramTy = toUnlayoutedHelper(model, allIds, g, term.paramTy);
-      let bodyId = toUnlayoutedHelper(model, allIds, g, term.body);
+      let paramTy = toUnlayoutedHelper(model, allIds, parentId, g, term.paramTy);
+      let bodyId = toUnlayoutedHelper(model, allIds, parentId, g, term.body);
 
       g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: paramTy, id: newEdgeId() });
       g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: bodyId, id: newEdgeId() });
@@ -115,15 +121,29 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
         label += ' ' + term.paramName;
       }
 
+      let newParentId = thisId + '-parent';
+
+      g.nodes.set(newParentId, {
+        id: newParentId,
+        type: 'group',
+        data: { label: 'parent-' + label},
+        position: { x: 0, y: 0 },
+        width: 200,
+        height: 300,
+        // ... parentId && { parentId: parentId, extent: 'parent' },
+      });
+
       g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
         data: { label, outputCount: 2, isActiveRedex },
         position: { x: 0, y: 0 },
+        parentId: newParentId,
+        extent: 'parent',
       });
 
-      let paramTy = toUnlayoutedHelper(model, allIds, g, term.paramTy);
-      let bodyId = toUnlayoutedHelper(model, allIds, g, term.body);
+      let paramTy = toUnlayoutedHelper(model, allIds, newParentId, g, term.paramTy);
+      let bodyId = toUnlayoutedHelper(model, allIds, newParentId, g, term.body);
 
       g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: paramTy, id: newEdgeId() });
       g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: bodyId, id: newEdgeId() });
@@ -136,10 +156,11 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
         type: 'term',
         data: { label: '@', outputCount: 2, isActiveRedex },
         position: { x: 0, y: 0 },
+        ... parentId && { parentId: parentId, extent: 'parent' },
       });
 
-      let funcId = toUnlayoutedHelper(model, allIds, g, term.func);
-      let argId = toUnlayoutedHelper(model, allIds, g, term.arg);
+      let funcId = toUnlayoutedHelper(model, allIds, parentId, g, term.func);
+      let argId = toUnlayoutedHelper(model, allIds, parentId, g, term.arg);
 
       g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: funcId, id: newEdgeId() });
       g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: argId, id: newEdgeId() });
@@ -152,16 +173,26 @@ function toUnlayoutedHelper(model: Model, allIds: boolean, g: NodesAndEdges, ter
         type: 'term',
         data: { label: 'Ann', outputCount: 2, isActiveRedex },
         position: { x: 0, y: 0 },
+        ... parentId && { parentId: parentId, extent: 'parent' },
       });
 
-      let termId = toUnlayoutedHelper(model, allIds, g, term.term);
+      let termId = toUnlayoutedHelper(model, allIds, parentId, g, term.term);
       g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: termId, id: newEdgeId() });
 
-      let tyId = toUnlayoutedHelper(model, allIds, g, term.ty);
+      let tyId = toUnlayoutedHelper(model, allIds, parentId, g, term.ty);
       g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: tyId, id: newEdgeId() });
       break;
     }
   }
 
   return thisId
+}
+
+function setParent(n: AppNode, parentId: string): AppNode {
+  if (n.parentId) {
+    n.parentId = parentId;
+    n.extent = 'parent';
+    return n
+  }
+  return n
 }

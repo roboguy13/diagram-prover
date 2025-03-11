@@ -16,28 +16,32 @@ import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './ui/components/Nodes';
 import { edgeTypes } from './edges';
 import { AppNode } from './ui/components/Nodes/nodeTypes';
-import { update } from './ui/Msg';
-import { initialModel, Model } from './ui/Model';
+import { update } from './ui/architecture/Msg';
+import { initialModel, Model } from './ui/architecture/Model';
 
 import { NodesAndEdges } from './ui/render/NodesAndEdges';
+import { topSortNodes } from './ui/render/TopSort';
+import { useElmish } from './ui/architecture/Elmish';
 
 export interface Props {
   nodesAndEdges: NodesAndEdges;
 }
 
 export default function App() {
-  const [state, dispatch] = useReducer(update, initialModel);
+  // const [state, dispatch] = useReducer(update, initialModel);
+  let [state, dispatch] = useElmish(initialModel)
+
   const reactFlowInstance = useReactFlow();
 
-  let nodes = Array.from(state.graph?.nodes.values() ?? []);
+  let nodes = topSortNodes(state.graph?.nodes ?? new Map<string, AppNode>());
   let edges = state.graph?.edges ?? [];
 
   let handleBetaStep = () => {
-    dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg', reactFlowInstance }});
+    dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' }});
   }
 
   let handleStepBack = () => {
-    dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg', reactFlowInstance }});
+    dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }});
   }
 
   // Fixed implementation

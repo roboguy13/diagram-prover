@@ -1,29 +1,42 @@
-import { rollbackChange, advanceChange, applyModelUpdates, Model, setNode, updateCurrentTerm } from '../../Model';
+import { rollbackChange, advanceChange, applyModelUpdates, Model, setNode, updateCurrentTerm, getCurrentTerm } from '../../architecture/Model';
 import { EditorMsg } from './EditorMsg';
 import { NodeChange, NodePositionChange, NodeSelectionChange, EdgeChange } from '@xyflow/react';
 import { oneStep } from '../../../engine/Normalize';
 import { prettyPrintTerm } from '../../../engine/PrettyPrint';
+import { Cmd } from '../../architecture/Cmd';
+import { Term } from '../../../engine/Term';
+import { NodesAndEdges } from '../../render/NodesAndEdges';
+import { toUnlayouted } from '../../render/ToUnlayoutedNodes';
+import { toFlow } from '../../render/ToFlow';
+import { updateGraphLayout } from '../../render/UpdateGraphLayout';
 
-export function editorUpdate(model: Model, msg: EditorMsg): Model {
+export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] {
   switch (msg.type) {
     case 'ConnectMsg':
-      return connect(model, msg);
+      return [connect(model, msg), null];
     case 'SelectMsg':
-      return model; //select(model, msg.selected);
+      return [model, null]; //select(model, msg.selected);
     case 'NodeChangeMsg':
-      return applyModelUpdates(model, nodeChange, msg.changes);
+      return [applyModelUpdates(model, nodeChange, msg.changes), null];
     case 'EdgeChangeMsg':
-      return applyModelUpdates(model, edgeChange, msg.changes);
+      return [applyModelUpdates(model, edgeChange, msg.changes), null];
 
     case 'ResetUpdateCenter':
-      return { ...model, updateCenter: false };
+      return [{ ...model, updateCenter: false }, null];
+
+    case 'GraphLayoutReady':
+      return [{ ...model, graph: msg.graph }, null];
 
     case 'BetaStepMsg': {
-      return advanceChange(model);
+      let newModel = advanceChange(model)
+      let term = getCurrentTerm(newModel);
+      return [newModel, { kind: 'UpdateFlow', graphPromise: updateGraphLayout(newModel, term) }]
     }
 
     case 'StepBackMsg': {
-      return rollbackChange(model);
+      let newModel = rollbackChange(model)
+      let term = getCurrentTerm(newModel);
+      return [newModel, { kind: 'UpdateFlow', graphPromise: updateGraphLayout(newModel, term) }]
     }
   }
 }

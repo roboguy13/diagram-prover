@@ -16,7 +16,7 @@ import {
 
 import { type GroupedNode, AppNode } from '../nodeTypes';
 
-import { getNode, type Model } from '../../../Model';
+import { getNode, type Model } from '../../../architecture/Model';
 
 const GROUPED_NODE_PADDING = 30;
 
@@ -24,18 +24,17 @@ export const makeGroupedNode = ({ data }: NodeProps<GroupedNode>) => {
   return (
     <div
       style={{
-        position: 'absolute',
-        left: data.x,
-        top: data.y,
-        width: data.width,
-        height: data.height,
+        // position: 'absolute',
+        // left: data.x,
+        // top: data.y,
+        // width: data.width,
+        // height: data.height,
         border: '2px solid #000',
         borderRadius: '5px',
         backgroundColor: 'rgba(240, 240, 240, 0.7)',
         padding: '10px',
       }}
     >
-      {/* <div style={{ textAlign: 'center', fontWeight: 'bold' }}>{data.label}</div> */}
     </div>
     );
 }

@@ -5,7 +5,7 @@ import { TermNode } from './TermNode/TermNodeComponent';
 // import { Subdiagram } from './Subdiagram';
 import { AppNode, type GroupedNode } from './nodeTypes';
 import { makeGroupedNode } from './GroupedNode/GroupedNodeComponent';
-import { Model } from '../../Model';
+import { Model } from '../../architecture/Model';
 
 export const wireYourIdeas = [
   { id: 'a', type: 'input', position: { x: 0, y: 0 }, data: { label: 'wire' }, parentId: 'group-1', extent: 'parent' },

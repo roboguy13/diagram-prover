@@ -1,12 +1,16 @@
-import { AppNode } from "./components/Nodes/nodeTypes";
+import { AppNode } from "../components/Nodes/nodeTypes";
 import { Edge } from "@xyflow/react";
-import { NodesAndEdges } from "./render/NodesAndEdges";
-import { Term, annotateTermWithIds, exampleTerm } from "../engine/Term";
-import { toUnlayouted } from "./render/ToUnlayoutedNodes";
-import { toFlow } from "./render/ToFlow";
-import { oneStep, StepChange } from "../engine/Normalize";
-import { ChangeTracker } from "./dataStructures/ChangeTracker";
+import { NodesAndEdges } from "../render/NodesAndEdges";
+import { Term, annotateTermWithIds, exampleTerm } from "../../engine/Term";
+import { toUnlayouted } from "../render/ToUnlayoutedNodes";
+import { toFlow } from "../render/ToFlow";
+import { oneStep, StepChange } from "../../engine/Normalize";
+import { ChangeTracker } from "../dataStructures/ChangeTracker";
 import { produce } from "immer";
+
+export type Status =
+  | { kind: 'Normal' }
+  | { kind: 'UpdatingGraph' }
 
 export type Model = {
   graph?: NodesAndEdges
@@ -29,7 +33,7 @@ const initialModel0: Model = {
   updateCenter: true,
 };
 
-export const initialModel: Model = initializeModel(initialModel0);
+export const initialModel = initializeModel(initialModel0);
 
 export function getNextChangedId(model: Model): [Model, string | null] {
   let [newTermStepHistory, change] = model.termStepHistory.getChangeAfterPresent();
@@ -53,19 +57,19 @@ export function getNextChangedId(model: Model): [Model, string | null] {
 export function initializeModel(model: Model): Model {
   if (!model.graph) {
     return updateCurrentTerm(model, 0);
-  } else {
-    return model
   }
+  return model
 }
-function updateFlow(model: Model): Model {
-  let current = model.termStepHistory.getCurrent();
 
-  let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(model, current);
+// function updateFlow(dispatch: Dispatch, model: Model): void {
+//   let current = model.termStepHistory.getCurrent();
 
-  let flowNodesAndEdges = toFlow(model, unlayoutedNodesAndEdges);
+//   let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(model, current);
 
-  return { ...model, graph: flowNodesAndEdges };
-}
+//   toFlow(model, unlayoutedNodesAndEdges).then(flowNodesAndEdges => {
+//     dispatch({ kind: 'EditorMsg', msg: { type: 'UpdateGraph', graph: flowNodesAndEdges } });
+//   })
+// }
 
 export function updateCurrentTerm(model: Model, termIx: number): Model {
   let newTermStepHistory = model.termStepHistory.setCurrentChangeIx(termIx);
@@ -76,21 +80,19 @@ export function updateCurrentTerm(model: Model, termIx: number): Model {
     return model;
   }
 
-  let newModel = { ...model, updateCenter: true, termStepHistory: newTermStepHistory };
+  return { ...model, updateCenter: true, termStepHistory: newTermStepHistory };
+}
 
-  return updateFlow(newModel);
+export function getCurrentTerm(model: Model): Term {
+  return model.termStepHistory.getCurrent()
 }
 
 export function advanceChange(model: Model): Model {
-  let newModel = { ...model, updateCenter: true, termStepHistory: model.termStepHistory.advanceChange() };
-
-  return updateFlow(newModel);
+  return { ...model, updateCenter: true, termStepHistory: model.termStepHistory.advanceChange() };
 }
 
 export function rollbackChange(model: Model): Model {
-  let newModel = { ...model, updateCenter: true, termStepHistory: model.termStepHistory.rollbackChange() };
-
-  return updateFlow(newModel);
+  return { ...model, updateCenter: true, termStepHistory: model.termStepHistory.rollbackChange() };
 }
 
 export function applyModelUpdates<A>(model: Model, fn: (model: Model, a: A) => Model, aList: A[]): Model {

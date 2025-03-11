@@ -13,6 +13,7 @@
     "@types/dagre": "^0.7.52",
     "@xyflow/react": "^12.3.6",
     "dagre": "^0.8.5",
+    "elkjs": "^0.9.3",
     "immer": "^10.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
