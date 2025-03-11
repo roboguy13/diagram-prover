@@ -20,6 +20,10 @@
   }
 }
 
+.redex-node {
+  background: rgb(0, 204, 255);
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -32,3 +36,5 @@ body,
   height: 100%;
   margin: 0;
 }
+
+.react-flow { transition: transform 0.3s ease }

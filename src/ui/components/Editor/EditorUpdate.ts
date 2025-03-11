@@ -1,4 +1,4 @@
-import { applyModelUpdates, Model, setNode, updateCurrentTerm } from '../../Model';
+import { rollbackChange, advanceChange, applyModelUpdates, Model, setNode, updateCurrentTerm } from '../../Model';
 import { EditorMsg } from './EditorMsg';
 import { NodeChange, NodePositionChange, NodeSelectionChange, EdgeChange } from '@xyflow/react';
 import { oneStep } from '../../../engine/Normalize';
@@ -19,29 +19,11 @@ export function editorUpdate(model: Model, msg: EditorMsg): Model {
       return { ...model, updateCenter: false };
 
     case 'BetaStepMsg': {
-      if (model.currentTermIx < model.history.length-1) {
-        return updateCurrentTerm(model, model.currentTermIx + 1);
-      }
-
-      let currentTerm = model.history[model.currentTermIx];
-      if (currentTerm) {
-        let [stepChange, newTerm] = oneStep(currentTerm);
-
-        if (stepChange.type !== 'no-change') {
-          let newModel = { ...model, history: [...model.history, newTerm] };
-          return updateCurrentTerm(newModel, model.currentTermIx + 1);
-        }
-
-        return model;
-      }
-      return model;
+      return advanceChange(model);
     }
 
     case 'StepBackMsg': {
-      if (model.currentTermIx > 0) {
-        return updateCurrentTerm(model, model.currentTermIx - 1);
-      }
-      return model;
+      return rollbackChange(model);
     }
   }
 }

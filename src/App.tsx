@@ -40,23 +40,34 @@ export default function App() {
     dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg', reactFlowInstance }});
   }
 
-  // This effect runs when the AST changes
-  useEffect(() => {
-    if (state.updateCenter) {
-      // Use a small timeout to ensure the graph is rendered before fitting
-      setTimeout(() => {
-        reactFlowInstance.fitView({ padding: 0.2, includeHiddenNodes: false }); }, 1);
+  // Fixed implementation
+useEffect(() => {
+  if (state.updateCenter && reactFlowInstance) {
+    // Two key issues with the original code:
+    // 1. reactFlowInstance.fitView might not be stable across renders
+    // 2. We need to ensure the DOM has fully updated
 
+    // Add a small delay to ensure DOM updates are complete
+    const timeoutId = setTimeout(() => {
+      // Try-catch to handle potential errors
+      try {
+        reactFlowInstance.fitView({
+          padding: 0.2,
+          duration: 300,
+          includeHiddenNodes: false
+        });
+      } catch (error) {
+        console.error("Error centering graph:", error);
+      }
+      
+      // Reset the flag after centering
       dispatch({ kind: 'EditorMsg', msg: { type: 'ResetUpdateCenter' } });
-    }
-  }, [state.updateCenter, reactFlowInstance.fitView]);
-
-  // if (state.updateCenter) {
-  //   // const { x, y, zoom } = reactFlowInstance.getViewport();
-  //   // reactFlowInstance.setCenter(x, y, { zoom });
-  //   reactFlowInstance.fitView();
-  //   dispatch({ kind: 'EditorMsg', msg: { type: 'ResetUpdateCenter' } });
-  // }
+    }, 50);
+    
+    // Clean up timeout if component unmounts or effect runs again
+    return () => clearTimeout(timeoutId);
+  }
+}, [state.updateCenter]); // Only depend on the updateCenter flag
 
   return (
     <ReactFlow

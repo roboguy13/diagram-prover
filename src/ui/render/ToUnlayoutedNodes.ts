@@ -4,6 +4,7 @@ import { NodesAndEdges } from './NodesAndEdges';
 import { outputHandleName } from '../NodeUtils';
 
 import * as dagre from 'dagre';
+import { prettyPrintTerm } from '../../engine/PrettyPrint';
 
 export function toUnlayouted(term: Term): NodesAndEdges {
   let g = { nodes: new Map(), edges: [] }
@@ -80,10 +81,16 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
       break;
 
     case 'Pi': {
+      let label = 'Π';
+
+      if (term.paramName) {
+        label += ' ' + term.paramName;
+      }
+
       g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
-        data: { label: 'Π', outputCount: 2 },
+        data: { label, outputCount: 2 },
         position: { x: 0, y: 0 },
       });
 
@@ -96,10 +103,16 @@ function toUnlayoutedHelper(allIds: boolean, g: NodesAndEdges, term: Term): stri
     }
 
     case 'Lam': {
+      let label = 'λ';
+
+      if (term.paramName) {
+        label += ' ' + term.paramName;
+      }
+
       g.nodes.set(thisId, {
         id: thisId,
         type: 'term',
-        data: { label: 'λ', outputCount: 2 },
+        data: { label, outputCount: 2 },
         position: { x: 0, y: 0 },
       });
 
