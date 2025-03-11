@@ -47,29 +47,12 @@ export function getNextChangedId(model: Model): [Model, string | null] {
   return [newModel, null];
 }
 
-// export function extendHistory(model: Model): Model {
-//   if (model.nextChange) {
-//     return { ...model, history: [...model.history, model.nextChange[1]] };
-//   }
-//   return model;
-// }
-
 export function initializeModel(model: Model): Model {
   if (!model.graph) {
     return updateCurrentTerm(model, 0);
   }
   return model
 }
-
-// function updateFlow(dispatch: Dispatch, model: Model): void {
-//   let current = model.termStepHistory.getCurrent();
-
-//   let unlayoutedNodesAndEdges: NodesAndEdges = toUnlayouted(model, current);
-
-//   toFlow(model, unlayoutedNodesAndEdges).then(flowNodesAndEdges => {
-//     dispatch({ kind: 'EditorMsg', msg: { type: 'UpdateGraph', graph: flowNodesAndEdges } });
-//   })
-// }
 
 export function updateCurrentTerm(model: Model, termIx: number): Model {
   let newTermStepHistory = model.termStepHistory.setCurrentChangeIx(termIx);

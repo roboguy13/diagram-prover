@@ -2,6 +2,9 @@ export type VarId = { type: 'VarId'; ix: number; name?: string }
 
 export type TermId = string
 
+// TODO: Is there a way to remove this duplication?
+export type TermKind = 'Var' | 'UnitTy' | 'Empty' | 'Type' | 'unit' | 'Pi' | 'Lam' | 'App' | 'Ann'
+
 // TODO: Add sigma types, identity types and Prop
 export type Term =
   | { type: 'Var'; name: VarId; id?: TermId }

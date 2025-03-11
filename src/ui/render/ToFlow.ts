@@ -18,9 +18,14 @@ const elk = new ELK();
 // - https://www.eclipse.org/elk/reference/algorithms.html
 // - https://www.eclipse.org/elk/reference/options.html
 const elkOptions = {
-  'elk.algorithm': 'layered',
+  // 'elk.algorithm': 'mrtree',
   'elk.layered.spacing.nodeNodeBetweenLayers': '100',
   'elk.spacing.nodeNode': '80',
+  'elk.padding': '[top=10,left=10,bottom=10,right=10]',
+  'elk.insideEdgeRouting': 'ORTHOGONAL',
+  'elk.algorithm': 'layered',
+  'elk.direction': 'RIGHT',
+  'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
 };
 
 export async function toFlow(model: Model, g: NodesAndEdges): Promise<NodesAndEdges> {
@@ -84,46 +89,3 @@ export async function toFlow(model: Model, g: NodesAndEdges): Promise<NodesAndEd
     return { nodes: new Map<string, AppNode>(), edges: edges };
   }
 }
-
-// export function toFlow(model: Model, g: NodesAndEdges, direction = 'TB'): NodesAndEdges {
-//   const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-
-//   const isHorizontal = direction === 'LR';
-//   dagreGraph.setGraph({ rankdir: direction });
-
-//   const nodes = g.nodes;
-//   const edges = g.edges;
- 
-//   nodes.forEach((node) => {
-//     dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-//   });
- 
-//   edges.forEach((edge) => {
-//     dagreGraph.setEdge(edge.source, edge.target);
-//   });
- 
-//   dagre.layout(dagreGraph);
- 
-
-//   const newNodes = Array.from(nodes.values()).map((node) => {
-//     const nodeWithPosition = dagreGraph.node(node.id);
-
-//     const newNode = {
-//       ...node,
-//       targetPosition: isHorizontal ? Position.Left : Position.Top,
-//       sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-//       // We are shifting the dagre node position (anchor=center center) to the top left
-//       // so it matches the React Flow node anchor point (top left).
-//       position: {
-//         x: nodeWithPosition.x - NODE_WIDTH / 2,
-//         y: nodeWithPosition.y - NODE_HEIGHT / 2,
-//       },
-//     };
- 
-//     return newNode;
-//   });
-
-//   let nodeMap = buildNodeMap(newNodes);
-
-//   return { nodes: nodeMap, edges };
-// }
