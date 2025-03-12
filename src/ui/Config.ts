@@ -12,6 +12,6 @@ export const elkOptions = {
   'elk.spacing.nodeNode': '80',
   'elk.padding': '[top=10,left=10,bottom=10,right=10]',
   'elk.insideEdgeRouting': 'ORTHOGONAL',
-  'elk.direction': 'RIGHT',
+  'elk.direction': 'DOWN',
   'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
 };

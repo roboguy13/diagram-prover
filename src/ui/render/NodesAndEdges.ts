@@ -65,14 +65,14 @@ function flattenElkNodes(node: ElkNode, parentId?: string): AppNode[] {
 function collectElkEdges(elk: ElkNode): Edge[] {
   const localEdges: Edge[] = (elk.edges ?? [])
     .filter(edge => edge.sources?.[0] !== undefined && edge.targets?.[0] !== undefined)
-    .map(edge => {
+    .map((edge, index) => {
       console.log('edge: ', edge.id, edge.sources[0], edge.targets[0]);
       return {
         id: edge.id,
         source: edge.sources[0]!,
         target: edge.targets[0]!,
 
-        sourceHandle: outputHandleName(0),
+        sourceHandle: outputHandleName(index),
         targetHandle: inputHandleName(0), // TODO
 
         type: "default", // or custom edge type
