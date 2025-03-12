@@ -1,6 +1,6 @@
 import { NodeChange, EdgeChange } from '@xyflow/react';
 import { ReactFlowInstance } from '@xyflow/react';
-import { NodesAndEdges } from '../../render/NodesAndEdges';
+import { NodesAndEdges } from '../../render/layout/elk/ElkToReactFlow';
 
 export type EditorMsg =
   | { type: 'ConnectMsg', source: string, target: string }

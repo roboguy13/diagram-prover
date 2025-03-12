@@ -1,12 +1,10 @@
 import { ElkNode } from 'elkjs'
-import { AppNode, GroupedNode, TermNode } from '../components/Nodes/nodeTypes'
+import { AppNode, GroupedNode, TermNode } from '../../../components/Nodes/nodeTypes'
 
 import { Edge } from '@xyflow/react'
-import { inputHandleName, outputHandleName } from '../NodeUtils'
-import { calculateGroupBounds } from '../components/Nodes/GroupedNode/GroupedNodeComponent'
-import { NODE_HEIGHT, NODE_WIDTH } from '../Config'
-
-export type NodesAndEdges = { nodes: Map<string, AppNode>, edges: Edge[] }
+import { inputHandleName, outputHandleName } from '../../../NodeUtils'
+import { calculateGroupBounds } from '../../../components/Nodes/GroupedNode/GroupedNodeComponent'
+import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config'
 
 export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
   const nodes = (elkRoot.children || []).flatMap(child => flattenElkNodes(child));
@@ -77,7 +75,8 @@ function flattenElkNodes(node: ElkNode, parentId?: string): AppNode[] {
       const current: TermNode = {
         id: node.id,
         type: 'term',
-        data: { label, outputCount: (node.edges?.length || 0), isActiveRedex: false },
+        // data: { label, inputCount: 1, outputCount: (node.edges?.length || 0), isActiveRedex: false },
+        data: { label, outputCount: 1, inputCount: (node.edges?.length || 0), isActiveRedex: false },
         position: { x: node.x || 0, y: node.y || 0 },
         ...parentId && { parentId: parentId, extent: 'parent' },
       }
@@ -95,8 +94,11 @@ function collectElkEdges(elk: ElkNode): Edge[] {
         source: edge.sources[0]!,
         target: edge.targets[0]!,
 
-        sourceHandle: outputHandleName(index),
-        targetHandle: inputHandleName(0), // TODO
+        sourceHandle: outputHandleName(0),
+        targetHandle: inputHandleName(index), // TODO
+
+        // sourceHandle: outputHandleName(index),
+        // targetHandle: inputHandleName(0), // TODO
 
         type: "default", // or custom edge type
       }});

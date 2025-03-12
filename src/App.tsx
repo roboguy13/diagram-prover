@@ -19,9 +19,9 @@ import { AppNode } from './ui/components/Nodes/nodeTypes';
 import { update } from './ui/architecture/Msg';
 import { initialModel, Model } from './ui/architecture/Model';
 
-import { NodesAndEdges } from './ui/render/NodesAndEdges';
-import { topSortNodes } from './ui/render/TopSort';
+import { topSortNodes } from './ui/render/layout/TopSort';
 import { useElmish } from './ui/architecture/Elmish';
+import { NodesAndEdges } from './ui/render/layout/LayoutEngine';
 
 export interface Props {
   nodesAndEdges: NodesAndEdges;

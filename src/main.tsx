@@ -6,10 +6,9 @@ import App from './App';
 import './index.css';
 
 import { enableMapSet } from 'immer';
-import { toFlow } from './ui/render/ToFlow';
+import { toFlow } from './ui/render/layout/LayoutEngine';
 import { prettyPrintTerm } from './engine/PrettyPrint';
 import { exampleTerm } from './engine/Term';
-import { NodesAndEdges } from './ui/render/NodesAndEdges';
 import { inferType } from './engine/TypeCheck';
 import { ReactFlowProvider } from '@xyflow/react';
 

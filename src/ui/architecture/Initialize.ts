@@ -1,4 +1,4 @@
-import { updateGraphLayout } from "../render/UpdateGraphLayout";
+import { updateGraphLayout } from "../render/layout/UpdateGraphLayout";
 import { Cmd } from "./Cmd";
 import { getCurrentTerm, Model } from "./Model";
 

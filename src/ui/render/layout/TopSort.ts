@@ -1,7 +1,7 @@
 // Topologically sort the node map, since parents must be
 // before children
 
-import { AppNode } from '../components/Nodes/nodeTypes';
+import { AppNode } from '../../components/Nodes/nodeTypes';
 
 export function topSortNodes(nodeMap: Map<string, AppNode>): AppNode[] {
   let remainingIds: Set<string> = new Set(nodeMap.keys())

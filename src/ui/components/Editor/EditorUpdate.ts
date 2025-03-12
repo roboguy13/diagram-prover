@@ -1,13 +1,8 @@
 import { rollbackChange, advanceChange, applyModelUpdates, Model, setNode, updateCurrentTerm, getCurrentTerm } from '../../architecture/Model';
 import { EditorMsg } from './EditorMsg';
 import { NodeChange, NodePositionChange, NodeSelectionChange, EdgeChange } from '@xyflow/react';
-import { oneStep } from '../../../engine/Normalize';
-import { prettyPrintTerm } from '../../../engine/PrettyPrint';
 import { Cmd } from '../../architecture/Cmd';
-import { Term } from '../../../engine/Term';
-import { NodesAndEdges } from '../../render/NodesAndEdges';
-import { toFlow } from '../../render/ToFlow';
-import { updateGraphLayout } from '../../render/UpdateGraphLayout';
+import { updateGraphLayout } from '../../render/layout/UpdateGraphLayout';
 
 export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] {
   switch (msg.type) {

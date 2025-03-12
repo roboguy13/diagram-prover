@@ -1,7 +1,13 @@
 import type { Position, Node, Edge, BuiltInNode } from '@xyflow/react';
 
 export type PositionLoggerNode = Node<{ label: string }, 'position-logger'>;
-export type TermNode = Node<{ label: string, isActiveRedex: boolean, outputCount: number }, 'term'>;
+export type TermNode = Node<
+  { label: string,
+    isActiveRedex: boolean,
+    outputCount: number,
+    inputCount: number,
+  },
+  'term'>;
 export type GroupedNode = Node<
   { label: string,
     // nodeIds: string[],

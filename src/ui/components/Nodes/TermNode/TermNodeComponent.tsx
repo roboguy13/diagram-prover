@@ -4,9 +4,11 @@ import { inputHandleName, outputHandleName, portOffsetPercentages } from '../../
 
 export function mkTermNode(
   { data, selected } : NodeProps<TermNode>) {
-    let portOffsets = portOffsetPercentages(data.outputCount);
+    let outputPortOffets = portOffsetPercentages(data.outputCount);
+    let inputPortOffets = portOffsetPercentages(data.inputCount);
 
-    // Make output Handles
+    // Make Handles
+
     const outputHandles = [];
     for (let i = 0; i < data.outputCount; i++) {
       outputHandles.push(
@@ -16,16 +18,31 @@ export function mkTermNode(
           id={outputHandleName(i)}
           key={i}
           style={{
-            left: portOffsets[i] + '%',
+            left: outputPortOffets[i] + '%',
           }}
         />
+      );
+    }
+
+    const inputHandles = [];
+    for (let i = 0; i < data.inputCount; i++) {
+      inputHandles.push(
+        <Handle
+          type="target"
+          position={Position.Top}
+          id={inputHandleName(i)}
+          key={i}
+          style={{
+            left: inputPortOffets[i] + '%',
+          }}
+          />
       );
     }
 
     return (
       <div className={`term-node ${selected ? 'selected' : ''} ${data.isActiveRedex ? 'redex' : ''}`}>
       {data.label}
-      <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
+      {inputHandles}
       {
         
       }
@@ -35,7 +52,7 @@ export function mkTermNode(
         type="source"
         position={Position.Bottom}
         id="bottom-1"
-        style={{ left: portOffsets[0] + '%', bottom: 0 }}
+        style={{ left: outputPortOffets[0] + '%', bottom: 0 }}
       />
       <Handle
         type="source"
@@ -43,7 +60,7 @@ export function mkTermNode(
         id="bottom-2"
         // style={{ left: '75%', bottom: 0 }}
         style={{
-          left: portOffsets[1] + '%',
+          left: outputPortOffets[1] + '%',
           bottom: 0,
           background: 'orange',
           width: '4px',

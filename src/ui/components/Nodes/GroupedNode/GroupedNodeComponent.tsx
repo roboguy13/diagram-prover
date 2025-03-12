@@ -31,11 +31,11 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
         // top: data.y,
         width: width,
         height: height,
-        border: '2px solid #000',
+        border: 'solid #000',
         // borderRadius: '5px',
-        borderRadius: '20%',
+        // borderRadius: '20%',
         // backgroundColor: 'rgba(240, 240, 240, 0.7)',
-        padding: '10px',
+        // padding: '10px',
       }}
     >
       <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 0 }} />

@@ -1,9 +1,9 @@
 import { AppNode } from "../components/Nodes/nodeTypes";
 import { Edge } from "@xyflow/react";
-import { NodesAndEdges } from "../render/NodesAndEdges";
+import { NodesAndEdges } from "../render/layout/elk/ElkToReactFlow";
 import { Term, annotateTermWithIds, exampleTerm } from "../../engine/Term";
 import { toUnlayouted } from "../render/ToUnlayoutedNodes";
-import { toFlow } from "../render/ToFlow";
+import { toFlow } from '../render/layout/LayoutEngine';
 import { oneStep, StepChange } from "../../engine/Normalize";
 import { ChangeTracker } from "../dataStructures/ChangeTracker";
 import { produce } from "immer";
