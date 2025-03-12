@@ -2,6 +2,8 @@ import { ElkExtendedEdge, ElkNode } from "elkjs";
 import { SemanticNode } from "./SemanticGraph";
 import { elkOptions, NODE_HEIGHT, NODE_WIDTH } from "../ui/Config";
 import { inputHandleName, outputHandleName } from "../ui/NodeUtils";
+import { calculateGroupBounds } from "../ui/components/Nodes/GroupedNode/GroupedNodeComponent";
+import { Dimensions } from "@xyflow/react";
 
 export function semanticNodeToElk(node: SemanticNode): ElkNode {
   let elkList = semanticNodeToElkList(node);
@@ -20,13 +22,17 @@ export function semanticNodeToElk(node: SemanticNode): ElkNode {
 function semanticNodeToElkList(node: SemanticNode): ElkNode[] {
   let kindLabel = node.kind === 'Transpose' ? 'Transpose' : 'Regular'
 
+  let subgraph = node.subgraph ? node.subgraph.flatMap(semanticNodeToElkList) : []
+
+  let bounds: Dimensions = calculateGroupBounds(subgraph.map(child => ({ width: child.width!, height: child.height! })))
+
   let here = {
     id: node.id,
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
+    width: bounds.width || NODE_WIDTH,
+    height: bounds.height || NODE_HEIGHT,
     layoutOptions: elkOptions,
     labels: [{ text: kindLabel }].concat(node.label ? [{ text: node.label }] : []),
-    children: node.subgraph ? node.subgraph.flatMap(semanticNodeToElkList) : [],
+    children: subgraph,
 
     edges: node.children.map((child, index) => ({
       id: `edge-${node.id}-${child.id}-${index}`,

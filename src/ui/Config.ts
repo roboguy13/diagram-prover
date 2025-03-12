@@ -6,8 +6,8 @@ export const NODE_HEIGHT = 40;
 // - https://www.eclipse.org/elk/reference/algorithms.html
 // - https://www.eclipse.org/elk/reference/options.html
 export const elkOptions = {
-  // 'elk.algorithm': 'mrtree',
-  'elk.algorithm': 'layered',
+  'elk.algorithm': 'mrtree',
+  // 'elk.algorithm': 'layered',
   'elk.layered.spacing.nodeNodeBetweenLayers': '100',
   'elk.spacing.nodeNode': '80',
   'elk.padding': '[top=10,left=10,bottom=10,right=10]',

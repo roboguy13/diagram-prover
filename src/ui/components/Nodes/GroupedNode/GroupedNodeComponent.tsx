@@ -18,6 +18,7 @@ import { type GroupedNode, AppNode } from '../nodeTypes';
 
 import { getNode, type Model } from '../../../architecture/Model';
 import { inputHandleName, outputHandleName } from '../../../NodeUtils';
+import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config';
 
 const GROUPED_NODE_PADDING = 30;
 
@@ -31,7 +32,8 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
         width: width,
         height: height,
         border: '2px solid #000',
-        borderRadius: '5px',
+        // borderRadius: '5px',
+        borderRadius: '20%',
         // backgroundColor: 'rgba(240, 240, 240, 0.7)',
         padding: '10px',
       }}
@@ -42,41 +44,39 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
     );
 }
 
-export function calculateGroupBounds(nodes: AppNode[]): { x: number, y: number, width: number, height: number } | null {
-  if (nodes.length === 0) return null;
+export type Dimensions = {
+  width: number;
+  height: number;
+}
 
-  if (nodes[0]) {
-    let firstNode = nodes[0];
+const WIDTH_PADDING_PER_NODE = NODE_WIDTH;
+const HEIGHT_PADDING_PER_NODE = NODE_HEIGHT;
 
-    // Initialize bounds with the first node
-    let minX: number = firstNode.position.x;
-    let minY: number = firstNode.position.y;
-    let maxX: number = firstNode.position.x + (firstNode.width || 150);
-    let maxY: number = firstNode.position.y + (firstNode.height || 40);
-
-    // Find the bounding box of all selected nodes
-    nodes.forEach((node) => {
-      if (node) {
-        minX = Math.min(minX, node.position.x);
-        minY = Math.min(minY, node.position.y);
-        maxX = Math.max(maxX, node.position.x + (node.width || 150));
-        maxY = Math.max(maxY, node.position.y + (node.height || 40));
-      }
-    });
-
-    // Add padding
-    minX -= GROUPED_NODE_PADDING;
-    minY -= GROUPED_NODE_PADDING;
-    maxX += GROUPED_NODE_PADDING;
-    maxY += GROUPED_NODE_PADDING;
-
-    return {
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-    };
-  } else {
-    return null;
+export function calculateGroupBounds(nodeDimensions: Dimensions[]): Dimensions {
+  if (nodeDimensions.length === 0) {
+    return { width: NODE_WIDTH, height: NODE_HEIGHT };
   }
-};
+
+  // Find the min/max coordinates
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  nodeDimensions.forEach(dim => {
+    const width = dim.width || NODE_WIDTH;
+    const height = dim.height || NODE_HEIGHT;
+    
+    minX = Math.min(minX, 0);  // Assuming nodes are positioned relative to (0,0)
+    minY = Math.min(minY, 0);
+    maxX = Math.max(maxX, width);
+    maxY = Math.max(maxY, height);
+  });
+
+  const FIXED_PADDING = 290; // Adjust this value as needed
+  
+  return {
+    width: (maxX - minX) + FIXED_PADDING,
+    height: (maxY - minY) + FIXED_PADDING,
+  };
+}

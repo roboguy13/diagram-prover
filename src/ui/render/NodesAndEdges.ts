@@ -4,6 +4,7 @@ import { AppNode, GroupedNode, TermNode } from '../components/Nodes/nodeTypes'
 import { Edge } from '@xyflow/react'
 import { inputHandleName, outputHandleName } from '../NodeUtils'
 import { calculateGroupBounds } from '../components/Nodes/GroupedNode/GroupedNodeComponent'
+import { NODE_HEIGHT, NODE_WIDTH } from '../Config'
 
 export type NodesAndEdges = { nodes: Map<string, AppNode>, edges: Edge[] }
 
@@ -55,15 +56,15 @@ function flattenElkNodes(node: ElkNode, parentId?: string): AppNode[] {
 
       console.log('children: ', children);
 
-      const bounds = calculateGroupBounds(children)
+      const bounds = calculateGroupBounds(children.map(child => ({ width: child.width!, height: child.height! })));
 
       const current: GroupedNode = {
         id: node.id,
         data: { label },
         type: 'grouped',
         position: { x: node.x || 0, y: node.y || 0 },
-        width: bounds ? bounds.width : 150,
-        height: bounds ? bounds.height : 40,
+        width: bounds.width,
+        height: bounds.height,
         ...parentId && { parentId: parentId, extent: 'parent' },
       }
       return [current, ...children];
