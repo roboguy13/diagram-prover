@@ -6,7 +6,6 @@ import { prettyPrintTerm } from '../../../engine/PrettyPrint';
 import { Cmd } from '../../architecture/Cmd';
 import { Term } from '../../../engine/Term';
 import { NodesAndEdges } from '../../render/NodesAndEdges';
-import { toUnlayouted } from '../../render/ToUnlayoutedNodes';
 import { toFlow } from '../../render/ToFlow';
 import { updateGraphLayout } from '../../render/UpdateGraphLayout';
 

@@ -34,7 +34,9 @@ export function termToSemanticNode(t: Term): SemanticNode {
       return { id: t.id ? t.id : 'pi', label: 'Π', kind: 'Pi', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)] };
     case 'Lam':
       // TODO: Exponential transpose
-      return { id: t.id ? t.id : 'lam', label: 'λ', kind: 'Lam', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)] };
+      let lamNode: SemanticNode = { id: t.id ? t.id : 'lam', label: 'λ', kind: 'Lam', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)] }
+      let parentNode: SemanticNode = { id: 'transpose-' + (t.id ? t.id : 'lam'), kind: 'Transpose', subgraph: [lamNode], children: [] };
+      return parentNode
     case 'App':
       // TODO: Exponential transpose
       return { id: t.id ? t.id : 'app', label: '@', kind: 'App', children: [termToSemanticNode(t.func), termToSemanticNode(t.arg)] };

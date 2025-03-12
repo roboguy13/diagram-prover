@@ -7,192 +7,192 @@ import { getNextChangedId, Model } from '../architecture/Model';
 import * as dagre from 'dagre';
 import { prettyPrintTerm } from '../../engine/PrettyPrint';
 
-export function toUnlayouted(model: Model, term: Term): NodesAndEdges {
-  let g = { nodes: new Map(), edges: [] }
-  // toUnlayoutedHelper(model, hasAllIds(term), g, term);
-  toUnlayoutedHelper(model, false, null, g, term);
-  return g
-}
+// export function toUnlayouted(model: Model, term: Term): NodesAndEdges {
+//   let g = { nodes: new Map(), edges: [] }
+//   // toUnlayoutedHelper(model, hasAllIds(term), g, term);
+//   toUnlayoutedHelper(model, false, null, g, term);
+//   return g
+// }
 
-let edgeId = 0
-let nodeId = 0
+// let edgeId = 0
+// let nodeId = 0
 
-function newEdgeId(): string {
-  edgeId += 1;
-  return 'edge' + edgeId;
-}
+// function newEdgeId(): string {
+//   edgeId += 1;
+//   return 'edge' + edgeId;
+// }
 
-function getTermId(allIds: boolean, term: Term): string {
-  if (allIds) {
-    return term.id ?? '';
-  } else {
-    nodeId += 1;
-    return 'node' + nodeId;
-  }
-}
+// function getTermId(allIds: boolean, term: Term): string {
+//   if (allIds) {
+//     return term.id ?? '';
+//   } else {
+//     nodeId += 1;
+//     return 'node' + nodeId;
+//   }
+// }
 
-function toUnlayoutedHelper(model: Model, allIds: boolean, parentId: string | null, g: NodesAndEdges, term: Term): string {
-  let thisId = getTermId(allIds, term);
+// function toUnlayoutedHelper(model: Model, allIds: boolean, parentId: string | null, g: NodesAndEdges, term: Term): string {
+//   let thisId = getTermId(allIds, term);
 
-  let [_, nextChangedId] = getNextChangedId(model); // TODO: Is it okay to ignore the updated model here?
+//   let [_, nextChangedId] = getNextChangedId(model); // TODO: Is it okay to ignore the updated model here?
 
-  let isActiveRedex = term ? term.id === nextChangedId : false;
+//   let isActiveRedex = term ? term.id === nextChangedId : false;
 
-  switch (term.type) {
-    case 'Var':
-      g.nodes.set(thisId, {
-        id: thisId,
-        type: 'term',
-        data: { label: term.name.name ?? ('?' + term.name.ix), outputCount: 0, isActiveRedex },
-        position: { x: 0, y: 0 },
-        ... parentId && { parentId: parentId, extent: 'parent' },
-      });
-      break;
+//   switch (term.type) {
+//     case 'Var':
+//       g.nodes.set(thisId, {
+//         id: thisId,
+//         type: 'term',
+//         data: { label: term.name.name ?? ('?' + term.name.ix), outputCount: 0, isActiveRedex },
+//         position: { x: 0, y: 0 },
+//         ... parentId && { parentId: parentId, extent: 'parent' },
+//       });
+//       break;
 
-    case 'UnitTy':
-      g.nodes.set(thisId,{
-        id: thisId,
-        type: 'term',
-        data: { label: 'Unit', outputCount: 0, isActiveRedex },
-        position: { x: 0, y: 0 },
-        ... parentId && { parentId: parentId, extent: 'parent' },
-      });
-      break;
+//     case 'UnitTy':
+//       g.nodes.set(thisId,{
+//         id: thisId,
+//         type: 'term',
+//         data: { label: 'Unit', outputCount: 0, isActiveRedex },
+//         position: { x: 0, y: 0 },
+//         ... parentId && { parentId: parentId, extent: 'parent' },
+//       });
+//       break;
 
-    case 'Empty':
-      g.nodes.set(thisId, {
-        id: thisId,
-        type: 'term',
-        data: { label: 'Empty', outputCount: 0, isActiveRedex },
-        position: { x: 0, y: 0 },
-        ... parentId && { parentId: parentId, extent: 'parent' },
-      });
-      break;
+//     case 'Empty':
+//       g.nodes.set(thisId, {
+//         id: thisId,
+//         type: 'term',
+//         data: { label: 'Empty', outputCount: 0, isActiveRedex },
+//         position: { x: 0, y: 0 },
+//         ... parentId && { parentId: parentId, extent: 'parent' },
+//       });
+//       break;
 
-    case 'Type':
-      // TODO: Show universe level
+//     case 'Type':
+//       // TODO: Show universe level
 
-      g.nodes.set(thisId, {
-        id: thisId,
-        type: 'term',
-        data: { label: 'Type', outputCount: 0, isActiveRedex },
-        position: { x: 0, y: 0 },
-        ... parentId && { parentId: parentId, extent: 'parent' },
-      });
-      break;
+//       g.nodes.set(thisId, {
+//         id: thisId,
+//         type: 'term',
+//         data: { label: 'Type', outputCount: 0, isActiveRedex },
+//         position: { x: 0, y: 0 },
+//         ... parentId && { parentId: parentId, extent: 'parent' },
+//       });
+//       break;
 
-    case 'unit':
-      g.nodes.set(thisId, {
-        id: thisId,
-        type: 'term',
-        data: { label: '()', outputCount: 0, isActiveRedex },
-        position: { x: 0, y: 0 },
-        ... parentId && { parentId: parentId, extent: 'parent' },
-      });
-      break;
+//     case 'unit':
+//       g.nodes.set(thisId, {
+//         id: thisId,
+//         type: 'term',
+//         data: { label: '()', outputCount: 0, isActiveRedex },
+//         position: { x: 0, y: 0 },
+//         ... parentId && { parentId: parentId, extent: 'parent' },
+//       });
+//       break;
 
-    case 'Pi': {
-      let label = 'Π';
+//     case 'Pi': {
+//       let label = 'Π';
 
-      if (term.paramName) {
-        label += ' ' + term.paramName;
-      }
+//       if (term.paramName) {
+//         label += ' ' + term.paramName;
+//       }
 
-      g.nodes.set(thisId, {
-        id: thisId,
-        type: 'term',
-        data: { label, outputCount: 2, isActiveRedex },
-        position: { x: 0, y: 0 },
-        ... parentId && { parentId: parentId, extent: 'parent' },
-      });
+//       g.nodes.set(thisId, {
+//         id: thisId,
+//         type: 'term',
+//         data: { label, outputCount: 2, isActiveRedex },
+//         position: { x: 0, y: 0 },
+//         ... parentId && { parentId: parentId, extent: 'parent' },
+//       });
 
-      let paramTy = toUnlayoutedHelper(model, allIds, parentId, g, term.paramTy);
-      let bodyId = toUnlayoutedHelper(model, allIds, parentId, g, term.body);
+//       let paramTy = toUnlayoutedHelper(model, allIds, parentId, g, term.paramTy);
+//       let bodyId = toUnlayoutedHelper(model, allIds, parentId, g, term.body);
 
-      g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: paramTy, id: newEdgeId() });
-      g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: bodyId, id: newEdgeId() });
-      break;
-    }
+//       g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: paramTy, id: newEdgeId() });
+//       g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: bodyId, id: newEdgeId() });
+//       break;
+//     }
 
-    case 'Lam': {
-      let label = 'λ';
+//     case 'Lam': {
+//       let label = 'λ';
 
-      if (term.paramName) {
-        label += ' ' + term.paramName;
-      }
+//       if (term.paramName) {
+//         label += ' ' + term.paramName;
+//       }
 
-      let newParentId = thisId + '-parent';
+//       let newParentId = thisId + '-parent';
 
-      g.nodes.set(newParentId, {
-        id: newParentId,
-        type: 'group',
-        data: { label: 'parent-' + label},
-        position: { x: 0, y: 0 },
-        width: 200,
-        height: 300,
-        // ... parentId && { parentId: parentId, extent: 'parent' },
-      });
+//       g.nodes.set(newParentId, {
+//         id: newParentId,
+//         type: 'group',
+//         data: { label: 'parent-' + label},
+//         position: { x: 0, y: 0 },
+//         width: 200,
+//         height: 300,
+//         // ... parentId && { parentId: parentId, extent: 'parent' },
+//       });
 
-      g.nodes.set(thisId, {
-        id: thisId,
-        type: 'term',
-        data: { label, outputCount: 2, isActiveRedex },
-        position: { x: 0, y: 0 },
-        parentId: newParentId,
-        extent: 'parent',
-      });
+//       g.nodes.set(thisId, {
+//         id: thisId,
+//         type: 'term',
+//         data: { label, outputCount: 2, isActiveRedex },
+//         position: { x: 0, y: 0 },
+//         parentId: newParentId,
+//         extent: 'parent',
+//       });
 
-      let paramTy = toUnlayoutedHelper(model, allIds, newParentId, g, term.paramTy);
-      let bodyId = toUnlayoutedHelper(model, allIds, newParentId, g, term.body);
+//       let paramTy = toUnlayoutedHelper(model, allIds, newParentId, g, term.paramTy);
+//       let bodyId = toUnlayoutedHelper(model, allIds, newParentId, g, term.body);
 
-      g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: paramTy, id: newEdgeId() });
-      g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: bodyId, id: newEdgeId() });
-      break;
-    }
+//       g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: paramTy, id: newEdgeId() });
+//       g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: bodyId, id: newEdgeId() });
+//       break;
+//     }
 
-    case 'App': {
-      g.nodes.set(thisId, {
-        id: thisId,
-        type: 'term',
-        data: { label: '@', outputCount: 2, isActiveRedex },
-        position: { x: 0, y: 0 },
-        ... parentId && { parentId: parentId, extent: 'parent' },
-      });
+//     case 'App': {
+//       g.nodes.set(thisId, {
+//         id: thisId,
+//         type: 'term',
+//         data: { label: '@', outputCount: 2, isActiveRedex },
+//         position: { x: 0, y: 0 },
+//         ... parentId && { parentId: parentId, extent: 'parent' },
+//       });
 
-      let funcId = toUnlayoutedHelper(model, allIds, parentId, g, term.func);
-      let argId = toUnlayoutedHelper(model, allIds, parentId, g, term.arg);
+//       let funcId = toUnlayoutedHelper(model, allIds, parentId, g, term.func);
+//       let argId = toUnlayoutedHelper(model, allIds, parentId, g, term.arg);
 
-      g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: funcId, id: newEdgeId() });
-      g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: argId, id: newEdgeId() });
-      break;
-    }
+//       g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: funcId, id: newEdgeId() });
+//       g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: argId, id: newEdgeId() });
+//       break;
+//     }
 
-    case 'Ann': {
-      g.nodes.set(thisId, {
-        id: thisId,
-        type: 'term',
-        data: { label: 'Ann', outputCount: 2, isActiveRedex },
-        position: { x: 0, y: 0 },
-        ... parentId && { parentId: parentId, extent: 'parent' },
-      });
+//     case 'Ann': {
+//       g.nodes.set(thisId, {
+//         id: thisId,
+//         type: 'term',
+//         data: { label: 'Ann', outputCount: 2, isActiveRedex },
+//         position: { x: 0, y: 0 },
+//         ... parentId && { parentId: parentId, extent: 'parent' },
+//       });
 
-      let termId = toUnlayoutedHelper(model, allIds, parentId, g, term.term);
-      g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: termId, id: newEdgeId() });
+//       let termId = toUnlayoutedHelper(model, allIds, parentId, g, term.term);
+//       g.edges.push({ source: thisId, sourceHandle: outputHandleName(0), target: termId, id: newEdgeId() });
 
-      let tyId = toUnlayoutedHelper(model, allIds, parentId, g, term.ty);
-      g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: tyId, id: newEdgeId() });
-      break;
-    }
-  }
+//       let tyId = toUnlayoutedHelper(model, allIds, parentId, g, term.ty);
+//       g.edges.push({ source: thisId, sourceHandle: outputHandleName(1), target: tyId, id: newEdgeId() });
+//       break;
+//     }
+//   }
 
-  return thisId
-}
+//   return thisId
+// }
 
-function setParent(n: AppNode, parentId: string): AppNode {
-  if (n.parentId) {
-    n.parentId = parentId;
-    n.extent = 'parent';
-    return n
-  }
-  return n
-}
+// function setParent(n: AppNode, parentId: string): AppNode {
+//   if (n.parentId) {
+//     n.parentId = parentId;
+//     n.extent = 'parent';
+//     return n
+//   }
+//   return n
+// }

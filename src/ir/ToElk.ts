@@ -18,12 +18,15 @@ export function semanticNodeToElk(node: SemanticNode): ElkNode {
 }
 
 function semanticNodeToElkList(node: SemanticNode): ElkNode[] {
+  let kindLabel = node.kind === 'Transpose' ? 'Transpose' : 'Regular'
+
   let here = {
     id: node.id,
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
     layoutOptions: elkOptions,
-    labels: node.label ? [{ text: node.label }] : [],
+    labels: [{ text: kindLabel }].concat(node.label ? [{ text: node.label }] : []),
+    children: node.subgraph ? node.subgraph.flatMap(semanticNodeToElkList) : [],
 
     edges: node.children.map((child, index) => ({
       id: `edge-${node.id}-${child.id}-${index}`,
@@ -56,47 +59,8 @@ function collectElkEdges(elk: ElkNode): ElkExtendedEdge[] {
         // Add target handle
         targetHandle: inputHandleName(0)
       }});
-    // .map(edge => ({
-    //   id: edge.id,
-    //   source: edge.sources[0]!,
-    //   target: edge.targets[0]!,
-    // }));
-  // const localEdges: ElkExtendedEdge[] = zipWith(filteredEdges, range(filteredEdges.length - 1), (edge, index) => ({
-  //   id: edge.id || newEdgeId(),
-
-  //   sources: [elk.id],
-  //   targets: [edge.targets[0]],
-
-  //   sourceHandle: outputHandleName(index),
-  //   // targetHandle: inputHandleName(0) // TODO
-  // }));
 
   const childEdges = (elk.children ?? []).flatMap(collectElkEdges);
 
   return [...localEdges, ...childEdges];
 }
-
-// export function semanticNodeToElk(node: SemanticNode): ElkNode {
-//   let subgraphElkNodes = node.subgraph?.map(semanticNodeToElk)
-
-//   return {
-//     id: node.id,
-
-//     ...subgraphElkNodes ? { children: subgraphElkNodes } : {},
-
-//     edges: node.children.map(child => ({
-//       id: `${node.id}-${child.id}`,
-//       sources: [node.id],
-//       targets: [child.id],
-
-//       ...node.label ? { text: node.label } : {},
-
-//       // TODO: Move these things somewhere else?
-//       targetPosition: 'top',
-//       sourcePosition: 'bottom',
- 
-//       width: 150,
-//       height: 50,
-//     })),
-//   };
-// } 

@@ -1,8 +1,9 @@
 import { ElkNode } from 'elkjs'
-import { AppNode, TermNode } from '../components/Nodes/nodeTypes'
+import { AppNode, GroupedNode, TermNode } from '../components/Nodes/nodeTypes'
 
 import { Edge } from '@xyflow/react'
 import { inputHandleName, outputHandleName } from '../NodeUtils'
+import { calculateGroupBounds } from '../components/Nodes/GroupedNode/GroupedNodeComponent'
 
 export type NodesAndEdges = { nodes: Map<string, AppNode>, edges: Edge[] }
 
@@ -43,23 +44,44 @@ function buildNodeMap(nodes: AppNode[]): Map<string, AppNode> {
 }
 
 function flattenElkNodes(node: ElkNode, parentId?: string): AppNode[] {
-  const firstLabel = node.labels ? node.labels[0] : { text: '' };
+  const kindLabel = node.labels ? node.labels[0] : { text: '' };
+  const theLabel = node.labels ? node.labels[1] : { text: '' };
 
-  const label = firstLabel?.text ? firstLabel.text : '';
+  const label = theLabel?.text ? theLabel.text : '';
 
-  console.log('node position: ', node.id, node.x, node.y);
+  switch (kindLabel!.text) {
+    case 'Transpose': {
+      const children = (node.children || []).flatMap(child => flattenElkNodes(child, node.id));
 
-  const current: TermNode = {
-    id: node.id,
-    type: 'term',
-    data: { label, outputCount: (node.edges?.length || 0) , isActiveRedex: false },
-    position: { x: node.x || 0, y: node.y || 0 },
-    // ...parentId && { parentId: parentId, extent: 'parent' },
+      console.log('children: ', children);
+
+      const bounds = calculateGroupBounds(children)
+
+      const current: GroupedNode = {
+        id: node.id,
+        data: { label },
+        type: 'grouped',
+        position: { x: node.x || 0, y: node.y || 0 },
+        width: bounds ? bounds.width : 150,
+        height: bounds ? bounds.height : 40,
+        ...parentId && { parentId: parentId, extent: 'parent' },
+      }
+      return [current, ...children];
+    }
+    default: //case 'Regular':
+      const children = (node.children || []).flatMap(child => flattenElkNodes(child));
+
+      console.log('parentId: ', parentId);
+
+      const current: TermNode = {
+        id: node.id,
+        type: 'term',
+        data: { label, outputCount: (node.edges?.length || 0), isActiveRedex: false },
+        position: { x: node.x || 0, y: node.y || 0 },
+        ...parentId && { parentId: parentId, extent: 'parent' },
+      }
+      return [current, ...children];
   }
-
-  const children = (node.children || []).flatMap(child => flattenElkNodes(child, node.id));
-
-  return [current, ...children];
 }
 
 function collectElkEdges(elk: ElkNode): Edge[] {

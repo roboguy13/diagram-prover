@@ -11,7 +11,7 @@ export type GroupedNode = Node<
     // height: number,
     // onSubdiagramChange?: (updatedDiagram: { nodes: Node[]; edges: Edge[] }) => void
   },
-  'group'>;
+  'grouped'>;
 
 // export type GroupNode = Node<{ label: string }, 'group'>;
 

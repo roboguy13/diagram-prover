@@ -6,7 +6,6 @@ import App from './App';
 import './index.css';
 
 import { enableMapSet } from 'immer';
-import { toUnlayouted } from './ui/render/ToUnlayoutedNodes';
 import { toFlow } from './ui/render/ToFlow';
 import { prettyPrintTerm } from './engine/PrettyPrint';
 import { exampleTerm } from './engine/Term';

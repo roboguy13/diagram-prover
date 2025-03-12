@@ -44,5 +44,5 @@ export const initialNodes: AppNode[] = [
 export const nodeTypes = {
   'term': mkTermNode,
   // 'subdiagram': Subdiagram,
-  'group': makeGroupedNode,
+  'grouped': makeGroupedNode,
 } satisfies NodeTypes;
