@@ -1,13 +1,84 @@
-import { AppNode, TermNode } from '../components/Nodes/nodeTypes';
+import { ElkNode } from 'elkjs'
+import { AppNode, TermNode } from '../components/Nodes/nodeTypes'
 
-import { Edge } from '@xyflow/react';
+import { Edge } from '@xyflow/react'
+import { inputHandleName, outputHandleName } from '../NodeUtils'
 
 export type NodesAndEdges = { nodes: Map<string, AppNode>, edges: Edge[] }
 
-export function buildNodeMap(nodes: AppNode[]): Map<string, AppNode> {
+export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
+  const nodes = (elkRoot.children || []).flatMap(child => flattenElkNodes(child));
+  
+  // Deduplicate edges using a Map with edge ID as key
+  const edgeMap = new Map<string, Edge>();
+  collectElkEdges(elkRoot).forEach(edge => {
+    // Convert ELK extended edge to React Flow edge
+    const flowEdge: Edge = {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle || outputHandleName(0),
+      targetHandle: edge.targetHandle || inputHandleName(0),
+      type: "default"
+    };
+    
+    edgeMap.set(flowEdge.id, flowEdge);
+  });
+  
+  const edges = Array.from(edgeMap.values());
+  const nodeMap = buildNodeMap(nodes);
+  
+  console.log('nodeMap: ', nodeMap);
+  console.log('edges: ', edges);
+  
+  return { nodes: nodeMap, edges: edges };
+}
+
+function buildNodeMap(nodes: AppNode[]): Map<string, AppNode> {
   const nodeMap = new Map<string, AppNode>();
   for (const node of nodes) {
     nodeMap.set(node.id, node);
   }
   return nodeMap;
+}
+
+function flattenElkNodes(node: ElkNode, parentId?: string): AppNode[] {
+  const firstLabel = node.labels ? node.labels[0] : { text: '' };
+
+  const label = firstLabel?.text ? firstLabel.text : '';
+
+  console.log('node position: ', node.id, node.x, node.y);
+
+  const current: TermNode = {
+    id: node.id,
+    type: 'term',
+    data: { label, outputCount: (node.edges?.length || 0) , isActiveRedex: false },
+    position: { x: node.x || 0, y: node.y || 0 },
+    // ...parentId && { parentId: parentId, extent: 'parent' },
+  }
+
+  const children = (node.children || []).flatMap(child => flattenElkNodes(child, node.id));
+
+  return [current, ...children];
+}
+
+function collectElkEdges(elk: ElkNode): Edge[] {
+  const localEdges: Edge[] = (elk.edges ?? [])
+    .filter(edge => edge.sources?.[0] !== undefined && edge.targets?.[0] !== undefined)
+    .map(edge => {
+      console.log('edge: ', edge.id, edge.sources[0], edge.targets[0]);
+      return {
+        id: edge.id,
+        source: edge.sources[0]!,
+        target: edge.targets[0]!,
+
+        sourceHandle: outputHandleName(0),
+        targetHandle: inputHandleName(0), // TODO
+
+        type: "default", // or custom edge type
+      }});
+
+  const childEdges = (elk.children ?? []).flatMap(collectElkEdges);
+
+  return [...localEdges, ...childEdges];
 }

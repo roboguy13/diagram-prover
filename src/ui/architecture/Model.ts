@@ -7,13 +7,12 @@ import { toFlow } from "../render/ToFlow";
 import { oneStep, StepChange } from "../../engine/Normalize";
 import { ChangeTracker } from "../dataStructures/ChangeTracker";
 import { produce } from "immer";
-
-export type Status =
-  | { kind: 'Normal' }
-  | { kind: 'UpdatingGraph' }
+import { SemanticNode } from "../../ir/SemanticGraph";
+import { ElkNode } from "elkjs";
 
 export type Model = {
-  graph?: NodesAndEdges
+  semanticGraph?: SemanticNode
+  graph?: NodesAndEdges // The laid-out graph
 
   termStepHistory: ChangeTracker<StepChange, Term>
 

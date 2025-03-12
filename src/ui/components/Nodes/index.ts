@@ -1,7 +1,7 @@
 import type { NodeTypes } from '@xyflow/react';
 
 // import { PositionLoggerNode } from './PositionLoggerNode';
-import { TermNode } from './TermNode/TermNodeComponent';
+import { mkTermNode } from './TermNode/TermNodeComponent';
 // import { Subdiagram } from './Subdiagram';
 import { AppNode, type GroupedNode } from './nodeTypes';
 import { makeGroupedNode } from './GroupedNode/GroupedNodeComponent';
@@ -42,7 +42,7 @@ export const initialNodes: AppNode[] = [
 ];
 
 export const nodeTypes = {
-  'term': TermNode,
+  'term': mkTermNode,
   // 'subdiagram': Subdiagram,
   'group': makeGroupedNode,
 } satisfies NodeTypes;

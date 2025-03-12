@@ -44,34 +44,35 @@ export default function App() {
     dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }});
   }
 
-  // Fixed implementation
-useEffect(() => {
-  if (state.updateCenter && reactFlowInstance) {
-    // Two key issues with the original code:
-    // 1. reactFlowInstance.fitView might not be stable across renders
-    // 2. We need to ensure the DOM has fully updated
+  useEffect(() => {
+    if (state.updateCenter && reactFlowInstance) {
+      // Two key issues with the original code:
+      // 1. reactFlowInstance.fitView might not be stable across renders
+      // 2. We need to ensure the DOM has fully updated
 
-    // Add a small delay to ensure DOM updates are complete
-    const timeoutId = setTimeout(() => {
-      // Try-catch to handle potential errors
-      try {
-        reactFlowInstance.fitView({
-          padding: 0.2,
-          duration: 300,
-          includeHiddenNodes: false
-        });
-      } catch (error) {
-        console.error("Error centering graph:", error);
-      }
+      // Add a small delay to ensure DOM updates are complete
+      const timeoutId = setTimeout(() => {
+        // Try-catch to handle potential errors
+        try {
+          reactFlowInstance.fitView({
+            padding: 0.2,
+            duration: 300,
+            includeHiddenNodes: false
+          });
+        } catch (error) {
+          console.error("Error centering graph:", error);
+        }
+        
+        // Reset the flag after centering
+        dispatch({ kind: 'EditorMsg', msg: { type: 'ResetUpdateCenter' } });
+      }, 50);
       
-      // Reset the flag after centering
-      dispatch({ kind: 'EditorMsg', msg: { type: 'ResetUpdateCenter' } });
-    }, 50);
-    
-    // Clean up timeout if component unmounts or effect runs again
-    return () => clearTimeout(timeoutId);
-  }
-}, [state.updateCenter]); // Only depend on the updateCenter flag
+      // Clean up timeout if component unmounts or effect runs again
+      return () => clearTimeout(timeoutId);
+    }
+  }, [state.updateCenter]); // Only depend on the updateCenter flag
+
+  // console.log("Rendering React Flow with nodes:", nodes, "and edges:", edges);
 
   return (
     <ReactFlow

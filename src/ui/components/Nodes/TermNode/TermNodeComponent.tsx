@@ -2,7 +2,7 @@ import { NodeProps, Position, Handle } from '@xyflow/react';
 import { type TermNode } from '../nodeTypes';
 import { inputHandleName, outputHandleName, portOffsetPercentages } from '../../../NodeUtils';
 
-export function TermNode(
+export function mkTermNode(
   { data, selected } : NodeProps<TermNode>) {
     let portOffsets = portOffsetPercentages(data.outputCount);
 

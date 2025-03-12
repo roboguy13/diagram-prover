@@ -25,6 +25,7 @@ export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] 
       return [{ ...model, updateCenter: false }, null];
 
     case 'GraphLayoutReady':
+      console.log('Graph layout ready:', msg.graph);
       return [{ ...model, graph: msg.graph }, null];
 
     case 'BetaStepMsg': {

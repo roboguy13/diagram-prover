@@ -7,7 +7,12 @@ import { Term, TermKind } from "../engine/Term";
 
 export type SemanticNode = {
   id: string;
-  kind: TermKind;
+
+  label?: string;
+
+  kind: 'Transpose' // We represent the exponential transpose (currying/using a function as a value) as a nested subgraph
+        | TermKind;
+
   subgraph?: SemanticNode[];
   children: SemanticNode[];
 }
@@ -15,22 +20,25 @@ export type SemanticNode = {
 export function termToSemanticNode(t: Term): SemanticNode {
   switch (t.type) {
     case 'Var':
-      return { id: t.id ? t.id : 'var', kind: 'Var', children: [] };
+      return { id: t.id ? t.id : 'var', label: 'Var', kind: 'Var', children: [] };
     case 'UnitTy':
-      return { id: t.id ? t.id : 'unitTy', kind: 'UnitTy', children: [] };
+      return { id: t.id ? t.id : 'unitTy', label: 'UnitTy', kind: 'UnitTy', children: [] };
     case 'Empty':
-      return { id: t.id ? t.id : 'empty', kind: 'Empty', children: [] };
+      return { id: t.id ? t.id : 'empty', label: 'Empty', kind: 'Empty', children: [] };
     case 'Type':
-      return { id: t.id ? t.id : 'type', kind: 'Type', children: [] };
+      // TODO: Show universe in label
+      return { id: t.id ? t.id : 'type', label: 'Type', kind: 'Type', children: [] };
     case 'unit':
-      return { id: t.id ? t.id : 'unit', kind: 'unit', children: [] };
+      return { id: t.id ? t.id : 'unit', label: '()', kind: 'unit', children: [] };
     case 'Pi':
-      return { id: t.id ? t.id : 'pi', kind: 'Pi', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)] };
+      return { id: t.id ? t.id : 'pi', label: 'Π', kind: 'Pi', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)] };
     case 'Lam':
-      return { id: t.id ? t.id : 'lam', kind: 'Lam', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)] };
+      // TODO: Exponential transpose
+      return { id: t.id ? t.id : 'lam', label: 'λ', kind: 'Lam', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)] };
     case 'App':
-      return { id: t.id ? t.id : 'app', kind: 'App', children: [termToSemanticNode(t.func), termToSemanticNode(t.arg)] };
+      // TODO: Exponential transpose
+      return { id: t.id ? t.id : 'app', label: '@', kind: 'App', children: [termToSemanticNode(t.func), termToSemanticNode(t.arg)] };
     case 'Ann':
-      return { id: t.id ? t.id : 'ann', kind: 'Ann', children: [termToSemanticNode(t.term), termToSemanticNode(t.ty)] };
+      return { id: t.id ? t.id : 'ann', label: 'Ann', kind: 'Ann', children: [termToSemanticNode(t.term), termToSemanticNode(t.ty)] };
   }
 }
