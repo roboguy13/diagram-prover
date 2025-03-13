@@ -3,17 +3,26 @@ import { AppNode, GroupedNode, TermNode } from "../../../components/Nodes/nodeTy
 import { NODE_HEIGHT, NODE_WIDTH } from "../../../Config";
 import { LayoutEngine, NodeMap, NodesAndEdges } from "../LayoutEngine";
 import { BoxNode, Dimensions } from "./BoxNode";
-import { above, BoundingBox, contains, getBoundingBox } from "./BoundingBox";
+import { BoundingBox, BoundingConstraintCalculator, getBoundingBox } from "./BoundingBox";
 
-import { Cell } from '../../../../constraint/propagator/Propagator'
-import { getMin, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange";
+import { Cell, known, unknown } from '../../../../constraint/propagator/Propagator'
+import { addNumericRange, atLeast, atMost, between, getMin, NumericRange, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { Edge } from "@xyflow/react";
+import { addPropagator } from "../../../../constraint/propagator/Arithmetic";
+import { eqPartialSemigroup } from "../../../../constraint/propagator/PartialSemigroup";
 
 export class RecursiveBoxEngine implements LayoutEngine<[BoxNode, Edge[]]> {
   private static readonly VERTICAL_PADDING = 10;
   private static readonly HORIZONTAL_PADDING = 10;
 
   private static readonly SUBTREE_PADDING = this.HORIZONTAL_PADDING;
+  
+  private static readonly MAX_WIDTH = 800;
+  private static readonly MAX_HEIGHT = 800;
+  private static readonly boundingCalc = new BoundingConstraintCalculator(
+    { kind: 'Range', min: 0, max: RecursiveBoxEngine.MAX_WIDTH },
+    { kind: 'Range', min: 0, max: RecursiveBoxEngine.MAX_HEIGHT },
+  )
 
   fromSemanticNode(n: SemanticNode<void>): Promise<[BoxNode, Edge[]]> {
     return new Promise<[BoxNode, Edge[]]>((resolve, _reject) => {
@@ -28,11 +37,15 @@ export class RecursiveBoxEngine implements LayoutEngine<[BoxNode, Edge[]]> {
   }
 
   toReactFlow(pair: [BoxNode, Edge[]]): Promise<NodesAndEdges> {
-    let [node, edges] = pair;
+    let [node, edges] = pair
+
+    let appNodes = new Map<string, AppNode>()
+
+    this.boxNodeToAppNodes(node, appNodes)
 
     // TODO
     return Promise.resolve({
-      nodes: new Map(),
+      nodes: appNodes,
       edges
     })
   }
@@ -73,13 +86,16 @@ export class RecursiveBoxEngine implements LayoutEngine<[BoxNode, Edge[]]> {
   }
 
   private makeInitialBoundingBoxConstraint(node: SemanticNode<void>): BoxNode {
+    let width = NODE_WIDTH
+    let height = NODE_HEIGHT
+
     return {
       ... node,
       payload: {
-        x: new Cell(partialSemigroupNumericRange(), { kind: 'Known', value: { kind: 'Range', min: 0, max: Infinity } }),
-        y: new Cell(partialSemigroupNumericRange(), { kind: 'Known', value: { kind: 'Range', min: 0, max: Infinity } }),
-        width: new Cell(partialSemigroupNumericRange(), { kind: 'Known', value: { kind: 'Range', min: NODE_WIDTH, max: NODE_WIDTH } }),
-        height: new Cell(partialSemigroupNumericRange(), { kind: 'Known', value: { kind: 'Range', min: NODE_HEIGHT, max: NODE_HEIGHT } }),
+        x: new Cell(partialSemigroupNumericRange(), { kind: 'Known', value: { kind: 'Range', min: 0, max: 800 } }),
+        y: new Cell(partialSemigroupNumericRange(), { kind: 'Known', value: { kind: 'Range', min: 0, max: 800 } }),
+        width: width,
+        height: height
       },
       children: node.children.map(child => this.makeInitialBoundingBoxConstraint(child)),
       subgraph: node.subgraph ? node.subgraph.map(subgraphNode => this.makeInitialBoundingBoxConstraint(subgraphNode)) : []
@@ -89,65 +105,27 @@ export class RecursiveBoxEngine implements LayoutEngine<[BoxNode, Edge[]]> {
   private makeConstraints(node: BoxNode): void {
     if (node.kind === 'Transpose') {
       if (node.subgraph) {
-        contains(RecursiveBoxEngine.SUBTREE_PADDING, node.payload, node.subgraph.map(subgraphNode => subgraphNode.payload))
+        // RecursiveBoxEngine.boundingCalc.contains(RecursiveBoxEngine.SUBTREE_PADDING, node.payload, node.subgraph.map(subgraphNode => subgraphNode.payload))
 
-        node.subgraph.map(subgraphNode => this.makeConstraints(subgraphNode))
+        // node.subgraph.map(subgraphNode => this.makeConstraints(subgraphNode))
       }
+    }
+
+    // Horizontal constraints between siblings
+    for (let i = 0; i < node.children.length - 1; i++) {
+      if (!node.children[i+1]) {
+        break
+      }
+
+      RecursiveBoxEngine.boundingCalc.toTheLeftOf(RecursiveBoxEngine.HORIZONTAL_PADDING, 
+        node.children[i]!.payload, 
+        node.children[i+1]!.payload)
     }
 
     // node is above its children
     node.children.map(child =>
-      above(RecursiveBoxEngine.VERTICAL_PADDING, node.payload, child.payload))
+      RecursiveBoxEngine.boundingCalc.above(RecursiveBoxEngine.VERTICAL_PADDING, node.payload, child.payload))
 
     node.children.map(child => this.makeConstraints(child))
   }
-
-  // private centerLayout(node: BoxNode): AppNode[] {
-  //   return []
-  // }
-
-  // private computeLayout(node: BoxNode): AppNode[] {
-  //   // TODO
-  //   return []
-  // }
-
-  // // // We put the root node at (0,0). This is adjusted by centerLayout later.
-  // // private computeBoundingBox(node: SemanticNode<void>): BoxNode {
-  // //   const dimensions = this.computeDimensions(node)
-
-  // //   // TODO
-  // //   return node
-  // // }
-
-  // private computeDimensions<A>(node: SemanticNode<A>): SemanticNode<Dimensions> {
-  //   let childrenDims = node.children.map(child => this.computeDimensions(child))
-
-  //   if (!node.subgraph) {
-  //     return {
-  //       ...node,
-  //       payload: { width: NODE_WIDTH, height: NODE_HEIGHT },
-  //       subgraph: [],
-  //       children: childrenDims
-  //     }
-  //   }
-
-  //   if (node.subgraph?.length == 0) {
-  //     return {
-  //       ...node,
-  //       payload: { width: NODE_WIDTH, height: NODE_HEIGHT },
-  //       subgraph: [],
-  //       children: childrenDims
-  //     }
-  //   }
-
-  //   let width = Math.max(...childrenDims.map(dim => dim.payload.width)) + RecursiveBoxEngine.HORIZONTAL_PADDING
-  //   let height = childrenDims.reduce((acc, dim) => acc + dim.payload.height, 0) + RecursiveBoxEngine.VERTICAL_PADDING
-
-  //   return {
-  //     ...node,
-  //     payload: { width, height },
-  //     subgraph: [], // TODO
-  //     children: childrenDims
-  //   }
-  // }
 }

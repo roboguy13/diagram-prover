@@ -2,25 +2,26 @@ import { PartialSemigroup } from './PartialSemigroup'
 
 export type NumericRange =
   | { kind: 'Exact', value: number }
-  | { kind: 'Range', min?: number, max?: number }
+  | { kind: 'Range', min: number, max: number }
 
 export function addNumericRange(a: NumericRange, b: NumericRange): NumericRange {
-  switch (a.kind) {
-    case 'Exact':
-      switch (b.kind) {
-        case 'Exact':
-          return { kind: 'Exact', value: a.value + b.value }
-        case 'Range':
-          return { kind: 'Range', min: (b.min || -Infinity) + a.value, max: (b.max || Infinity) + a.value }
-      }
-    case 'Range':
-      switch (b.kind) {
-        case 'Exact':
-          return { kind: 'Range', min: (a.min || -Infinity) + b.value, max: (a.max || Infinity) + b.value }
-        case 'Range':
-          return { kind: 'Range', min: (a.min || -Infinity) + (b.min || -Infinity), max: (a.max || Infinity) + (b.max || Infinity) }
-      }
-  }
+  let aMin = getMin(a)
+  let aMax = getMax(a)
+  let bMin = getMin(b)
+  let bMax = getMax(b)
+
+  return between(aMin + bMin, aMax + bMax)
+}
+
+export function subNumericRange(a: NumericRange, b: NumericRange): NumericRange {
+  let aMin = getMin(a)
+  let aMax = getMax(a)
+  let bMin = getMin(b)
+  let bMax = getMax(b)
+  let theMin = aMin - bMax
+  let theMax = aMax - bMin
+
+  return between(theMin, theMax)
 }
 
 export function getMidpoint(range: NumericRange): number {
@@ -30,7 +31,7 @@ export function getMidpoint(range: NumericRange): number {
     case 'Range':
       if (!range.min) {
         if (!range.max) {
-          return 0
+          return -Infinity
         } else {
           return range.max
         }
@@ -40,7 +41,7 @@ export function getMidpoint(range: NumericRange): number {
         return range.min
       }
 
-      return range.min + range.max / 2
+      return (range.min + range.max) / 2
   }
 }
 
@@ -49,7 +50,7 @@ export function getMin(range: NumericRange): number {
     case 'Exact':
       return range.value
     case 'Range':
-      return range.min || -Infinity
+      return range.min
   }
 }
 
@@ -58,7 +59,7 @@ export function getMax(range: NumericRange): number {
     case 'Exact':
       return range.value
     case 'Range':
-      return range.max || Infinity
+      return range.max
   }
 }
 
@@ -67,51 +68,43 @@ export function exactly(value: number): NumericRange {
 }
 
 export function atLeast(min: number): NumericRange {
-  return { kind: 'Range', min }
+  return { kind: 'Range', min, max: Infinity }
 }
 
 export function atMost(max: number): NumericRange {
-  return { kind: 'Range', max }
+  return { kind: 'Range', min: -Infinity, max }
 }
 
 export function between(min: number, max: number): NumericRange {
   return { kind: 'Range', min, max }
 }
 
+export function lessThan(a: NumericRange): NumericRange {
+  return { kind: 'Range', min: -Infinity, max: getMin(a) }
+}
+
+export function greaterThan(a: NumericRange): NumericRange {
+  return { kind: 'Range', min: getMax(a), max: Infinity }
+}
+
 export function partialSemigroupNumericRange(): PartialSemigroup<NumericRange> {
   return {
     combine: (a, b) => {
-      if (a.kind === 'Exact' && b.kind === 'Exact') {
-        if (a.value === b.value) {
-          return a
-        } else {
-          return null
-        }
+      let aMin = getMin(a)
+      let aMax = getMax(a)
+      let bMin = getMin(b)
+      let bMax = getMax(b)
+
+      let theMin = Math.max(aMin, bMin)
+      let theMax = Math.min(aMax, bMax)
+
+      if (theMin === theMax) {
+        return { kind: 'Exact', value: theMin }
+      } else if (theMin < theMax) {
+        return { kind: 'Range', min: theMin, max: theMax }
+      } else {
+        return null
       }
-      if (a.kind === 'Exact' && b.kind === 'Range') {
-        if ((!b.min || a.value >= b.min) && (!b.max || a.value <= b.max)) {
-          return a
-        } else {
-          return null
-        }
-      }
-      if (a.kind === 'Range' && b.kind === 'Exact') {
-        if ((!a.min || b.value >= a.min) && (!a.max || b.value <= a.max)) {
-          return b
-        } else {
-          return null
-        }
-      }
-      if (a.kind === 'Range' && b.kind === 'Range') {
-        let min = Math.max(a.min || -Infinity, b.min || -Infinity)
-        let max = Math.min(a.max || Infinity, b.max || Infinity)
-        if (min <= max) {
-          return { kind: 'Range', min, max }
-        } else {
-          return null
-        }
-      }
-      return null
     }
   }
 }

@@ -5,6 +5,7 @@
     "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
+    "strictNullChecks": true,
     
     // Force explicit returns
     "noImplicitReturns": true,

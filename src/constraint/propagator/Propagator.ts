@@ -3,7 +3,7 @@
 
 import { Semigroup } from 'fp-ts/Semigroup'
 import { PartialSemigroup } from './PartialSemigroup'
-import { Functor, map } from 'fp-ts/lib/Functor'
+import { isEqual } from 'lodash'
 
 export type Content<A> =
   | { kind: 'Inconsistent' }
@@ -66,6 +66,25 @@ export function map2Content<A, B, C>(f: (a: A, b: B) => C): (content1: Content<A
   }
 }
 
+export function bindContent<A, B>(f: (a: A) => Content<B>): (content: Content<A>) => Content<B> {
+  return content => {
+    switch (content.kind) {
+      case 'Inconsistent':
+        return { kind: 'Inconsistent' }
+      case 'Unknown':
+        return { kind: 'Unknown' }
+      case 'Known':
+        return f(content.value)
+    }
+  }
+}
+
+export function bindContent2<A, B, C>(f: (a: A, b: B) => Content<C>): (content1: Content<A>, content2: Content<B>) => Content<C> {
+  return (content1, content2) => {
+    return bindContent<A, C>(val1 => bindContent<B, C>(val2 => f(val1, val2))(content2))(content1)
+  }
+}
+
 export function sequenceContentList<A>(contentList: Content<A>[]): Content<A[]> {
   let knownValues = []
 
@@ -86,6 +105,23 @@ export function sequenceContentList<A>(contentList: Content<A>[]): Content<A[]> 
 export function mapContentList<A, B>(f: (as: A[]) => B): (contentList: Content<A>[]) => Content<B> {
   return contentList => mapContent(f)(sequenceContentList(contentList))
 }
+
+// TODO:
+// export function traverseContentList<A, B>(f: (a: A) => Content<B>): (contentList: Content<A>[]) => Content<B[]> {
+//   return contentList => {
+//     let mappedContentList = contentList.map(content => {
+//       switch (content.kind) {
+//         case 'Inconsistent':
+//           return inconsistent()
+//         case 'Unknown':
+//           return unknown()
+//         case 'Known':
+//           return f(content.value)
+//       }
+//     })
+//     return sequenceContentList(mappedContentList)
+//   }
+// }
 
 export function known<A>(value: A): Content<A> {
   return { kind: 'Known', value }
@@ -135,8 +171,21 @@ export class Cell<A> {
   }
 
   write(content: Content<A>) {
+    const previousContent = this.content
     this.content = semigroupContent<A>(this.pSemigroup).concat(this.content, content)
-    this.subscribers.forEach(subscriber => subscriber(content))
+
+    switch (this.content.kind) {
+      case 'Inconsistent':
+        throw new Error('Inconsistent content: ' + JSON.stringify(previousContent) + ' and ' + JSON.stringify(content))
+        break
+      case 'Known':
+        if (previousContent.kind === 'Known') {
+          if (!isEqual(previousContent.value, this.content.value)) {
+            console.log('Content changed: ' + JSON.stringify(previousContent.value) + ' to ' + JSON.stringify(this.content.value))
+            this.subscribers.forEach(subscriber => subscriber(content))
+          }
+        }
+    }
   }
 
   writeKnown(value: A) {
@@ -176,6 +225,24 @@ export function binaryPropagator<A, B, C>(input1: Cell<A>, input2: Cell<B>, outp
   input2.watch(content2 => {
     let content1 = input1.read()
     output.write(map2Content(f)(content1, content2))
+  })
+}
+
+export function unaryPropagatorBind<A, B>(input: Cell<A>, output: Cell<B>, f: (a: A) => Content<B>) {
+  input.watch(content => {
+    output.write(bindContent(f)(content))
+  })
+}
+
+export function binaryPropagatorBind<A, B, C>(input1: Cell<A>, input2: Cell<B>, output: Cell<C>, f: (a: A, b: B) => Content<C>) {
+  input1.watch(content1 => {
+    let content2 = input2.read()
+    output.write(bindContent2(f)(content1, content2))
+  })
+
+  input2.watch(content2 => {
+    let content1 = input1.read()
+    output.write(bindContent2(f)(content1, content2))
   })
 }
 
