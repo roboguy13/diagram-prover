@@ -2,31 +2,22 @@ import { Dimensions } from "./BoxNode";
 import { addNumericRange, atLeast, atMost, exactly, getMax, getMidpoint, getMin, greaterThan, lessThan, NumericRange, subNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { Cell, Content, known, naryPropagator, unaryPropagator, unaryPropagatorBind } from "../../../../constraint/propagator/Propagator";
 import { clamp } from "lodash";
+import { XYPosition } from "@xyflow/react";
 
-export type BoundingBox = { x: number; y: number; dimensions: Dimensions; };
-
-export function getBoundingBox(constraint: BoundingBoxConstraint): BoundingBox {
+export function getRegionPosition(constraint: RegionConstraint): XYPosition {
   let x = constraint.x.readKnownOrError('bounding box x')
   let y = constraint.y.readKnownOrError('bounding box y')
-  // let width = constraint.width.readKnownOrError('bounding box width')
-  // let height = constraint.height.readKnownOrError('bounding box height')
 
   return {
     x: getMidpoint(x),
     y: getMidpoint(y),
-    dimensions: {
-      width: constraint.width, //getMin(width),
-      height: constraint.height, //getMin(height)
-    }
   }
 }
 
 // (0,0) is the top left corner
-export type BoundingBoxConstraint = {
+export type RegionConstraint = {
   x: Cell<NumericRange>;
   y: Cell<NumericRange>;
-  width: number;
-  height: number;
 }
 
 function leftSideX(cornerX: number, width: number): number {
@@ -75,7 +66,7 @@ function addNumericRangeList(xs: NumericRange[]): NumericRange {
   return sum
 }
 
-export class BoundingConstraintCalculator {
+export class RegionConstraintCalculator {
   private widthBoundLimits: NumericRange
   private heightBoundLimits: NumericRange
   private verticalPadding: number
@@ -89,7 +80,7 @@ export class BoundingConstraintCalculator {
     this.horizontalPadding = horizontalPadding
   }
 
-  toTheLeftOf(left: BoundingBoxConstraint, right: BoundingBoxConstraint): void {
+  toTheLeftOf(left: RegionConstraint, right: RegionConstraint): void {
     // TODO: use width?
     unaryPropagatorBind(
       right.x,
@@ -98,7 +89,7 @@ export class BoundingConstraintCalculator {
         // console.log('here')
         return this.clampWidthToContent(subNumericRange(
           lessThan(rightX),
-          exactly(left.width + this.horizontalPadding)
+          exactly(this.horizontalPadding)
         ))
       }
       // atMost(getMin(rightX) - padding)
@@ -111,14 +102,14 @@ export class BoundingConstraintCalculator {
         // console.log('here')
         return this.clampWidthToContent(addNumericRange(
           greaterThan(leftX),
-          exactly(left.width + this.horizontalPadding)
+          exactly(this.horizontalPadding)
         ))
         // atLeast(getMax(leftX) + padding)
       }
     )
   }
 
-  above(top: BoundingBoxConstraint, bottom: BoundingBoxConstraint): void {
+  above(top: RegionConstraint, bottom: RegionConstraint): void {
     // TODO: use height?
     unaryPropagatorBind(
       bottom.y,
@@ -126,7 +117,7 @@ export class BoundingConstraintCalculator {
       (bottomY: NumericRange) => {
         return this.clampHeightToContent(subNumericRange(
           lessThan(bottomY),
-          exactly(top.height + this.verticalPadding)
+          exactly(this.verticalPadding)
         ))
         // console.log('bottomY', bottomY, 'top.height', top.height, 'padding', padding)
         // return atMost(getMin(bottomY) - top.height - padding)
@@ -139,7 +130,7 @@ export class BoundingConstraintCalculator {
       (topY: NumericRange) =>
         this.clampHeightToContent(addNumericRange(
           greaterThan(topY),
-          exactly(top.height + this.verticalPadding)
+          exactly(this.verticalPadding)
         ))
       // atLeast(getMax(topY) + top.height + padding)
     )

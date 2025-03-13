@@ -22,8 +22,8 @@ export type SemanticNode<A> = {
   children: SemanticNode<A>[];
 }
 
-export function getEdges(n: SemanticNode<void>): Edge[] {
-  let edgesHere = n.children.map((child, index) => ({
+export function getImmediateEdges(n: SemanticNode<void>): Edge[] {
+  return n.children.map((child, index) => ({
     id: `edge-${n.id}-${child.id}-${index}`,
     source: n.id,
     target: child.id,
@@ -31,6 +31,10 @@ export function getEdges(n: SemanticNode<void>): Edge[] {
     sourceHandle: inputHandleName(index),
     targetHandle: outputHandleName(0),
   }));
+}
+
+export function getEdges(n: SemanticNode<void>): Edge[] {
+  let edgesHere = getImmediateEdges(n)
 
   let edgesThere = n.children ? n.children.flatMap((child, index) => getEdges(child)) : [];
   let edges = [...edgesHere, ...edgesThere];

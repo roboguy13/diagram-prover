@@ -1,6 +1,6 @@
 import { SemanticNode } from "../../../../ir/SemanticGraph";
-import { BoundingBoxConstraint } from "./BoundingBox";
+import { RegionConstraint } from "./Region";
 
-export type BoxNode = SemanticNode<BoundingBoxConstraint>
+export type BoxNode = SemanticNode<RegionConstraint>
 
 export type Dimensions = { width: number, height: number }
