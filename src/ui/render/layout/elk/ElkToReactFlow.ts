@@ -5,6 +5,7 @@ import { Edge } from '@xyflow/react'
 import { inputHandleName, outputHandleName } from '../../../NodeUtils'
 import { calculateGroupBounds } from '../../../components/Nodes/GroupedNode/GroupedNodeComponent'
 import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config'
+import { NodesAndEdges } from '../LayoutEngine'
 
 export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
   const nodes = (elkRoot.children || []).flatMap(child => flattenElkNodes(child));

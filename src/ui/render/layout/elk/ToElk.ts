@@ -6,7 +6,7 @@ import { calculateGroupBounds } from "../../../components/Nodes/GroupedNode/Grou
 import { Dimensions } from "@xyflow/react";
 import { elkOptions } from "./ElkConfig";
 
-export function semanticNodeToElk(node: SemanticNode): ElkNode {
+export function semanticNodeToElk(node: SemanticNode<void>): ElkNode {
   let elkList = semanticNodeToElkList(node);
   let edges = elkList.flatMap(collectElkEdges);
 
@@ -20,7 +20,7 @@ export function semanticNodeToElk(node: SemanticNode): ElkNode {
   };
 }
 
-function semanticNodeToElkList(node: SemanticNode): ElkNode[] {
+function semanticNodeToElkList(node: SemanticNode<void>): ElkNode[] {
   let kindLabel = node.kind === 'Transpose' ? 'Transpose' : 'Regular'
 
   let subgraph = node.subgraph ? node.subgraph.flatMap(semanticNodeToElkList) : []
