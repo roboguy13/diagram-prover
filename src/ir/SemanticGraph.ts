@@ -5,6 +5,8 @@
 
 import { Edge } from "@xyflow/react";
 import { Term, TermKind } from "../engine/Term";
+import { TargetIcon } from "@radix-ui/react-icons";
+import { inputHandleName, outputHandleName } from "../ui/NodeUtils";
 
 export type SemanticNode<A> = {
   id: string;
@@ -21,21 +23,28 @@ export type SemanticNode<A> = {
 }
 
 export function getEdges(n: SemanticNode<void>): Edge[] {
-  return n.children.map((child, index) => ({
+  let edgesHere = n.children.map((child, index) => ({
     id: `edge-${n.id}-${child.id}-${index}`,
     source: n.id,
     target: child.id,
+
+    sourceHandle: inputHandleName(index),
+    targetHandle: outputHandleName(0),
   }));
+
+  let edgesThere = n.children ? n.children.flatMap((child, index) => getEdges(child)) : [];
+  let edges = [...edgesHere, ...edgesThere];
+  return edges
 }
 
 export function termToSemanticNode(t: Term): SemanticNode<void> {
   switch (t.type) {
     case 'Var':
-      return { id: t.id ? t.id : 'type', label: 'Type', kind: 'Type', children: [], payload: undefined };
+      return { id: t.id ? t.id : 'type', label: 'Var', kind: 'Var', children: [], payload: undefined };
     case 'UnitTy':
-      return { id: t.id ? t.id : 'type', label: 'Type', kind: 'Type', children: [], payload: undefined };
+      return { id: t.id ? t.id : 'type', label: 'Unit', kind: 'UnitTy', children: [], payload: undefined };
     case 'Empty':
-      return { id: t.id ? t.id : 'type', label: 'Type', kind: 'Type', children: [], payload: undefined };
+      return { id: t.id ? t.id : 'type', label: 'Empty', kind: 'Empty', children: [], payload: undefined };
     case 'Type':
       // TODO: Show universe in label
       return { id: t.id ? t.id : 'type', label: 'Type', kind: 'Type', children: [], payload: undefined };
@@ -46,8 +55,8 @@ export function termToSemanticNode(t: Term): SemanticNode<void> {
     case 'Lam':
       // TODO: Exponential transpose
       let lamNode: SemanticNode<void> = { id: t.id ? t.id : 'lam', label: 'λ', kind: 'Lam', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)], payload: undefined };
-      let parentNode: SemanticNode<void> = { id: 'transpose-' + (t.id ? t.id : 'lam'), kind: 'Transpose', subgraph: [lamNode], children: [], payload: undefined };
-      return parentNode
+      // let parentNode: SemanticNode<void> = { id: 'transpose-' + (t.id ? t.id : 'lam'), kind: 'Transpose', subgraph: [lamNode], children: [], payload: undefined };
+      return lamNode
     case 'App':
       // TODO: Exponential transpose
       return { id: t.id ? t.id : 'app', label: '@', kind: 'App', children: [termToSemanticNode(t.func), termToSemanticNode(t.arg)], payload: undefined };

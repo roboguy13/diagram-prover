@@ -6,7 +6,7 @@ import { BoxNode, Dimensions } from "./BoxNode";
 import { BoundingBox, BoundingConstraintCalculator, getBoundingBox } from "./BoundingBox";
 
 import { Cell, known, unknown } from '../../../../constraint/propagator/Propagator'
-import { addNumericRange, atLeast, atMost, between, getMin, NumericRange, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange";
+import { addNumericRange, atLeast, atMost, between, exactly, getMin, NumericRange, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { Edge } from "@xyflow/react";
 import { addPropagator } from "../../../../constraint/propagator/Arithmetic";
 import { eqPartialSemigroup } from "../../../../constraint/propagator/PartialSemigroup";
@@ -18,15 +18,18 @@ export class RecursiveBoxEngine implements LayoutEngine<[BoxNode, Edge[]]> {
   private static readonly SUBTREE_PADDING = this.HORIZONTAL_PADDING;
   
   private static readonly MAX_WIDTH = 800;
-  private static readonly MAX_HEIGHT = 800;
+  private static readonly MAX_HEIGHT = 500;
+
   private static readonly boundingCalc = new BoundingConstraintCalculator(
     { kind: 'Range', min: 0, max: RecursiveBoxEngine.MAX_WIDTH },
     { kind: 'Range', min: 0, max: RecursiveBoxEngine.MAX_HEIGHT },
+    this.VERTICAL_PADDING,
+    this.HORIZONTAL_PADDING,
   )
 
   fromSemanticNode(n: SemanticNode<void>): Promise<[BoxNode, Edge[]]> {
     return new Promise<[BoxNode, Edge[]]>((resolve, _reject) => {
-      let node = this.makeInitialBoundingBoxConstraint(n)
+      let node = this.makeInitialBoundingBoxConstraint(n, true)
 
       this.makeConstraints(node)
 
@@ -59,8 +62,8 @@ export class RecursiveBoxEngine implements LayoutEngine<[BoxNode, Edge[]]> {
         type: 'grouped',
         data: { label: g.label ?? '' },
         position: { x: bounds.x, y: bounds.y },
-        width: bounds.dimensions.width,
-        height: bounds.dimensions.height,
+        // width: bounds.dimensions.width,
+        // height: bounds.dimensions.height,
         style: { backgroundColor: 'lightblue' },
       };
 
@@ -73,10 +76,13 @@ export class RecursiveBoxEngine implements LayoutEngine<[BoxNode, Edge[]]> {
       const current: TermNode = {
         id: g.id,
         type: 'term',
-        data: { label: g.label ?? '', isActiveRedex: false, outputCount: 1, inputCount: g.children.length },
+        data: {
+          label: g.label ?? '',
+          isActiveRedex: false,
+          outputCount: 1,
+          inputCount: g.children.length
+        },
         position: { x: bounds.x, y: bounds.y },
-        width: NODE_WIDTH,
-        height: NODE_HEIGHT
       };
 
       appNodes.set(g.id, current);
@@ -85,20 +91,26 @@ export class RecursiveBoxEngine implements LayoutEngine<[BoxNode, Edge[]]> {
     }
   }
 
-  private makeInitialBoundingBoxConstraint(node: SemanticNode<void>): BoxNode {
+  private makeInitialBoundingBoxConstraint(node: SemanticNode<void>, isRoot: boolean): BoxNode {
     let width = NODE_WIDTH
     let height = NODE_HEIGHT
+
+    let position =
+      isRoot ? { x: known(exactly(100)), y: known(exactly(100)) }
+
+             : { x: known(between(0, RecursiveBoxEngine.MAX_WIDTH)),
+                 y: known(between(0, RecursiveBoxEngine.MAX_HEIGHT)) }
 
     return {
       ... node,
       payload: {
-        x: new Cell(partialSemigroupNumericRange(), { kind: 'Known', value: { kind: 'Range', min: 0, max: 800 } }),
-        y: new Cell(partialSemigroupNumericRange(), { kind: 'Known', value: { kind: 'Range', min: 0, max: 800 } }),
+        x: new Cell(partialSemigroupNumericRange(), position.x),
+        y: new Cell(partialSemigroupNumericRange(), position.y),
         width: width,
         height: height
       },
-      children: node.children.map(child => this.makeInitialBoundingBoxConstraint(child)),
-      subgraph: node.subgraph ? node.subgraph.map(subgraphNode => this.makeInitialBoundingBoxConstraint(subgraphNode)) : []
+      children: node.children.map(child => this.makeInitialBoundingBoxConstraint(child, false)),
+      subgraph: node.subgraph ? node.subgraph.map(subgraphNode => this.makeInitialBoundingBoxConstraint(subgraphNode, false)) : []
     }
   }
 
@@ -117,14 +129,16 @@ export class RecursiveBoxEngine implements LayoutEngine<[BoxNode, Edge[]]> {
         break
       }
 
-      RecursiveBoxEngine.boundingCalc.toTheLeftOf(RecursiveBoxEngine.HORIZONTAL_PADDING, 
+      RecursiveBoxEngine.boundingCalc.toTheLeftOf(
         node.children[i]!.payload, 
         node.children[i+1]!.payload)
     }
 
+    console.log('the parent node: ', node);
+
     // node is above its children
     node.children.map(child =>
-      RecursiveBoxEngine.boundingCalc.above(RecursiveBoxEngine.VERTICAL_PADDING, node.payload, child.payload))
+      RecursiveBoxEngine.boundingCalc.above(node.payload, child.payload))
 
     node.children.map(child => this.makeConstraints(child))
   }

@@ -13,8 +13,8 @@ export function mkTermNode(
     for (let i = 0; i < data.outputCount; i++) {
       outputHandles.push(
         <Handle
-          type="source"
-          position={Position.Bottom}
+          type="target"
+          position={Position.Top}
           id={outputHandleName(i)}
           key={i}
           style={{
@@ -28,8 +28,8 @@ export function mkTermNode(
     for (let i = 0; i < data.inputCount; i++) {
       inputHandles.push(
         <Handle
-          type="target"
-          position={Position.Top}
+          type="source"
+          position={Position.Bottom}
           id={inputHandleName(i)}
           key={i}
           style={{

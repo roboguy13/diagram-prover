@@ -1,3 +1,3 @@
 
-export const NODE_WIDTH = 150;
-export const NODE_HEIGHT = 40;
+export const NODE_WIDTH = 30;
+export const NODE_HEIGHT = 30;

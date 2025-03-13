@@ -1,6 +1,6 @@
 import { Dimensions } from "./BoxNode";
 import { addNumericRange, atLeast, atMost, exactly, getMax, getMidpoint, getMin, greaterThan, lessThan, NumericRange, subNumericRange } from "../../../../constraint/propagator/NumericRange";
-import { Cell, Content, naryPropagator, unaryPropagator, unaryPropagatorBind } from "../../../../constraint/propagator/Propagator";
+import { Cell, Content, known, naryPropagator, unaryPropagator, unaryPropagatorBind } from "../../../../constraint/propagator/Propagator";
 import { clamp } from "lodash";
 
 export type BoundingBox = { x: number; y: number; dimensions: Dimensions; };
@@ -76,121 +76,74 @@ function addNumericRangeList(xs: NumericRange[]): NumericRange {
 }
 
 export class BoundingConstraintCalculator {
-  widthBoundLimits: NumericRange
-  heightBoundLimits: NumericRange
+  private widthBoundLimits: NumericRange
+  private heightBoundLimits: NumericRange
+  private verticalPadding: number
+  private horizontalPadding: number
 
-  constructor(widthBoundLimits: NumericRange, heightBoundLimits: NumericRange) {
+
+  constructor(widthBoundLimits: NumericRange, heightBoundLimits: NumericRange, verticalPadding: number, horizontalPadding: number) {
     this.widthBoundLimits = widthBoundLimits
     this.heightBoundLimits = heightBoundLimits
+    this.verticalPadding = verticalPadding
+    this.horizontalPadding = horizontalPadding
   }
 
-  toTheLeftOf(padding: number, left: BoundingBoxConstraint, right: BoundingBoxConstraint): void {
-    // First set up the right box based on the left box
-    unaryPropagatorBind(
-      left.x,
-      right.x, // Output
-      (leftX: NumericRange) => {
-        // Right should be positioned to the right of left + width + padding
-        const minRightPos = getMin(leftX) + left.width + padding;
-        return this.clampWidthToContent(exactly(minRightPos));
-      }
-    );
-  
-    // Then set the left box based on the right box
+  toTheLeftOf(left: BoundingBoxConstraint, right: BoundingBoxConstraint): void {
+    // TODO: use width?
     unaryPropagatorBind(
       right.x,
       left.x, // Output
       (rightX: NumericRange) => {
-        // Left should be positioned to the left of right - width - padding
-        const maxLeftPos = getMin(rightX) - left.width - padding;
-        // But should be at least 0
-        const safeLeftPos = Math.max(0, maxLeftPos);
-        return this.clampWidthToContent(exactly(safeLeftPos));
+        // console.log('here')
+        return this.clampWidthToContent(subNumericRange(
+          lessThan(rightX),
+          exactly(left.width + this.horizontalPadding)
+        ))
       }
-    );
-  }
-  
-  above(padding: number, top: BoundingBoxConstraint, bottom: BoundingBoxConstraint): void {
-    // First set up the bottom box based on the top box
+      // atMost(getMin(rightX) - padding)
+    )
+
     unaryPropagatorBind(
-      top.y,
-      bottom.y, // Output
-      (topY: NumericRange) => {
-        // Bottom should be positioned below top + height + padding
-        const minBottomPos = getMin(topY) + top.height + padding;
-        return this.clampHeightToContent(exactly(minBottomPos));
+      left.x,
+      right.x, // Output
+      (leftX: NumericRange) => {
+        // console.log('here')
+        return this.clampWidthToContent(addNumericRange(
+          greaterThan(leftX),
+          exactly(left.width + this.horizontalPadding)
+        ))
+        // atLeast(getMax(leftX) + padding)
       }
-    );
-  
-    // Then set the top box based on the bottom box
+    )
+  }
+
+  above(top: BoundingBoxConstraint, bottom: BoundingBoxConstraint): void {
+    // TODO: use height?
     unaryPropagatorBind(
       bottom.y,
       top.y, // Output
       (bottomY: NumericRange) => {
-        // Top should be positioned above bottom - height - padding
-        const maxTopPos = getMin(bottomY) - top.height - padding;
-        // But should be at least 0
-        const safeTopPos = Math.max(0, maxTopPos);
-        return this.clampHeightToContent(exactly(safeTopPos));
+        return this.clampHeightToContent(subNumericRange(
+          lessThan(bottomY),
+          exactly(top.height + this.verticalPadding)
+        ))
+        // console.log('bottomY', bottomY, 'top.height', top.height, 'padding', padding)
+        // return atMost(getMin(bottomY) - top.height - padding)
       }
-    );
+    )
+
+    unaryPropagatorBind(
+      top.y,
+      bottom.y, // Output
+      (topY: NumericRange) =>
+        this.clampHeightToContent(addNumericRange(
+          greaterThan(topY),
+          exactly(top.height + this.verticalPadding)
+        ))
+      // atLeast(getMax(topY) + top.height + padding)
+    )
   }
-
-  // toTheLeftOf(padding: number, left: BoundingBoxConstraint, right: BoundingBoxConstraint): void {
-  //   // TODO: use width?
-  //   unaryPropagatorBind(
-  //     right.x,
-  //     left.x, // Output
-  //     (rightX: NumericRange) => {
-  //       // console.log('here')
-  //       return this.clampWidthToContent(subNumericRange(
-  //         exactly(getMax(rightX)),
-  //         exactly(left.width + padding)
-  //       ))
-  //     }
-  //     // atMost(getMin(rightX) - padding)
-  //   )
-
-  //   unaryPropagatorBind(
-  //     left.x,
-  //     right.x, // Output
-  //     (leftX: NumericRange) => {
-  //       // console.log('here')
-  //       return this.clampWidthToContent(addNumericRange(
-  //         exactly(getMin(leftX)),
-  //         exactly(left.width + padding)
-  //       ))
-  //       // atLeast(getMax(leftX) + padding)
-  //     }
-  //   )
-  // }
-
-  // above(padding: number, top: BoundingBoxConstraint, bottom: BoundingBoxConstraint): void {
-  //   // TODO: use height?
-  //   unaryPropagatorBind(
-  //     bottom.y,
-  //     top.y, // Output
-  //     (bottomY: NumericRange) => {
-  //       return this.clampHeightToContent(subNumericRange(
-  //         lessThan(bottomY),
-  //         exactly(top.height + padding)
-  //       ))
-  //       // console.log('bottomY', bottomY, 'top.height', top.height, 'padding', padding)
-  //       // return atMost(getMin(bottomY) - top.height - padding)
-  //     }
-  //   )
-
-  //   unaryPropagatorBind(
-  //     top.y,
-  //     bottom.y, // Output
-  //     (topY: NumericRange) =>
-  //       this.clampHeightToContent(addNumericRange(
-  //         greaterThan(topY),
-  //         exactly(top.height + padding)
-  //       ))
-  //     // atLeast(getMax(topY) + top.height + padding)
-  //   )
-  // }
 
   private clampWidth(r: NumericRange): NumericRange {
     return { kind: 'Range', min: Math.max(getMin(r), getMin(this.widthBoundLimits)), max: Math.min(getMax(r), getMax(this.widthBoundLimits)) }
@@ -201,20 +154,22 @@ export class BoundingConstraintCalculator {
   }
 
   private clampWidthToContent(r: NumericRange): Content<NumericRange> {
-    let clamped = this.clampWidth(r)
-    if (getMin(clamped) > getMax(clamped)) {
-      return { kind: 'Unknown' }
-    } else {
-      return { kind: 'Known', value: clamped }
-    }
+    return known(r)
+    // let clamped = this.clampWidth(r)
+    // if (getMin(clamped) > getMax(clamped)) {
+    //   return { kind: 'Unknown' }
+    // } else {
+    //   return { kind: 'Known', value: clamped }
+    // }
   }
 
   private clampHeightToContent(r: NumericRange): Content<NumericRange> {
-    let clamped = this.clampHeight(r)
-    if (getMin(clamped) > getMax(clamped)) {
-      return { kind: 'Unknown' }
-    } else {
-      return { kind: 'Known', value: clamped }
-    }
+    return known(r)
+    // let clamped = this.clampHeight(r)
+    // if (getMin(clamped) > getMax(clamped)) {
+    //   return { kind: 'Unknown' }
+    // } else {
+    //   return { kind: 'Known', value: clamped }
+    // }
   }
 }
