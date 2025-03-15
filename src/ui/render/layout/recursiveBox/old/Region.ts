@@ -1,6 +1,6 @@
 import { Dimensions } from "./BoxNode";
-import { addNumericRange, atLeast, atMost, exactly, getMax, getMidpoint, getMin, greaterThan, lessThan, NumericRange, subNumericRange } from "../../../../constraint/propagator/NumericRange";
-import { Cell, Content, known, naryPropagator, unaryPropagator, unaryPropagatorBind } from "../../../../constraint/propagator/Propagator";
+import { addNumericRange, atLeast, atMost, exactly, getMax, getMidpoint, getMin, greaterThan, lessThan, NumericRange, subNumericRange } from "../../../../../constraint/propagator/NumericRange";
+import { Cell, Content, known, naryPropagator, unaryPropagator, unaryPropagatorBind } from "../../../../../constraint/propagator/Propagator";
 import { clamp } from "lodash";
 import { XYPosition } from "@xyflow/react";
 

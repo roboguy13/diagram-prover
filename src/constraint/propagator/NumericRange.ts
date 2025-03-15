@@ -13,6 +13,17 @@ export function addNumericRange(a: NumericRange, b: NumericRange): NumericRange 
   return between(aMin + bMin, aMax + bMax)
 }
 
+export function divNumericRangeNumber(a: NumericRange, b: number): NumericRange {
+  if (b === 0) {
+    throw new Error('Division by zero')
+  } else {
+    let aMin = getMin(a)
+    let aMax = getMax(a)
+
+    return between(aMin / b, aMax / b)
+  }
+}
+
 export function subNumericRange(a: NumericRange, b: NumericRange): NumericRange {
   let aMin = getMin(a)
   let aMax = getMax(a)
@@ -76,7 +87,11 @@ export function atMost(max: number): NumericRange {
 }
 
 export function between(min: number, max: number): NumericRange {
-  return { kind: 'Range', min, max }
+  if (min === max) {
+    return { kind: 'Exact', value: min }
+  } else {
+    return { kind: 'Range', min, max }
+  }
 }
 
 export function lessThan(a: NumericRange): NumericRange {

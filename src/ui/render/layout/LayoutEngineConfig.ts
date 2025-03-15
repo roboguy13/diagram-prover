@@ -1,4 +1,4 @@
 import { ElkEngine } from "./elk/ElkEngine";
-import { RecursiveBoxEngine } from "./recursiveBox/RecursiveBoxEngine";
+import { RecursiveBoxEngine } from "./recursiveBox/old/RecursiveBoxEngine";
 
-export const theLayoutEngine = new RecursiveBoxEngine();
+export const theLayoutEngine = new ElkEngine();

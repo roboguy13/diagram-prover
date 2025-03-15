@@ -1,4 +1,4 @@
-import { SemanticNode } from "../../../../ir/SemanticGraph";
+import { SemanticNode } from "../../../../../ir/SemanticGraph";
 import { RegionConstraint } from "./Region";
 
 export type BoxNode = SemanticNode<RegionConstraint>

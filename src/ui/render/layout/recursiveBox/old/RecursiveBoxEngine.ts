@@ -11,27 +11,22 @@
 //      of each node
 //
 
-import { getEdges, getImmediateEdges, SemanticNode } from "../../../../ir/SemanticGraph";
-import { AppNode, GroupedNode, TermNode } from "../../../components/Nodes/nodeTypes";
-import { NODE_HEIGHT, NODE_WIDTH } from "../../../Config";
-import { LayoutEngine, NodeMap, NodesAndEdges } from "../LayoutEngine";
+import { getEdges, getImmediateEdges, SemanticNode } from "../../../../../ir/SemanticGraph";
+import { AppNode, GroupedNode, TermNode } from "../../../../components/Nodes/nodeTypes";
+import { NODE_HEIGHT, NODE_WIDTH } from "../../../../Config";
+import { LayoutEngine, NodeMap, NodesAndEdges } from "../../LayoutEngine";
 import { BoxNode, Dimensions } from "./BoxNode";
 import { RegionConstraint, RegionConstraintCalculator, getRegionPosition } from "./Region";
+import { BreadthIndexMap, computeIndexedNodes, IndexedNode, indexedNodePairs, LevelMap, makeEdgeKey } from "../../NodeLevels";
 
-import { Cell, known, unknown } from '../../../../constraint/propagator/Propagator'
-import { addNumericRange, atLeast, atMost, between, exactly, getMin, NumericRange, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange";
+import { Cell, known, unknown } from '../../../../../constraint/propagator/Propagator'
+import { addNumericRange, atLeast, atMost, between, exactly, getMin, NumericRange, partialSemigroupNumericRange } from "../../../../../constraint/propagator/NumericRange";
 import { Edge, XYPosition } from "@xyflow/react";
-import { addPropagator } from "../../../../constraint/propagator/Arithmetic";
-import { eqPartialSemigroup } from "../../../../constraint/propagator/PartialSemigroup";
+import { addPropagator } from "../../../../../constraint/propagator/Arithmetic";
+import { eqPartialSemigroup } from "../../../../../constraint/propagator/PartialSemigroup";
 import { get } from "lodash";
 
-type IndexedNode =
-  { nodeId: string,
-    level: number,
-    breadthIndex: number,
-  }
-
-type InternalRep = [SemanticNode<void>, [LevelMap, IndexedNode[]], Edge[]]
+type InternalRep = [SemanticNode<void>, [LevelMap, BreadthIndexMap, IndexedNode[]], Edge[]]
 
 export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
   private static readonly VERTICAL_PADDING = 50;
@@ -60,7 +55,7 @@ export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
 
   toReactFlow(pair: InternalRep): Promise<NodesAndEdges> {
     // TODO: Put all of the actual processing into fromSemanticNode
-    let [semNode, [levelMap, ixNodes], edges] = pair
+    let [semNode, [levelMap, _, ixNodes], edges] = pair
 
     let constraints = this.initializeConstraints(ixNodes)
     this.computeConstraints(constraints)
@@ -98,6 +93,7 @@ export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
       let newX = currentPos.x + getMin(constraint.spacingConstraint.x.readKnownOrError('constraintsToAppNodes'))
       let newY = currentPos.y + getMin(constraint.spacingConstraint.y.readKnownOrError('constraintsToAppNodes'))
 
+      // TODO: This should happen in the propagator network
       let cousins = levelMap.get(currentLevel)
       for (let i = 0; i < cousins!.length; i++) {
         if (cousins![i] !== child.id) {
@@ -173,82 +169,10 @@ function lookupNodePair(nodeId1: string, nodeId2: string, map: NodePairConstrain
   }
 }
 
-type LevelMap = Map<number, string[]>
-
 type NodePairConstraintMap = Map<string, NodePairConstraint>
 
 type NodePairConstraint = {
   node1: IndexedNode,
   node2: IndexedNode,
   spacingConstraint: RegionConstraint
-}
-
-type NodePair = {
-  nodeId1: string
-  nodeId2: string
-}
-
-function indexedNodePairs(node: IndexedNode[]): [IndexedNode, IndexedNode][] {
-  let result: [IndexedNode, IndexedNode][] = []
-
-  console.log('node length: ', node.length)
-
-  for (let i = 0; i < node.length; i++) {
-    for (let j = 0; j < node.length; j++) {
-      if (i !== j) {
-        result.push([node[i]!, node[j]!])
-      }
-    }
-  }
-
-  console.log('result: ', result)
-
-  return result
-}
-
-function makeEdgeKey(nodeId1: string, nodeId2: string): string {
-  return nodeId1 + '-' + nodeId2
-}
-
-function computeIndexedNodes(n: SemanticNode<void>): [LevelMap, IndexedNode[]] {
-  let result = new Array<IndexedNode>()
-
-  let levelMap: LevelMap = new Map<number, string[]>()
-
-  // TODO: Is using an array here a performance bottleneck?
-  let queue: SemanticNode<void>[] = [n]
-  let marked = new Set<string>()
-
-  for (let level = 0; true; ++level) {
-    levelMap.set(level, queue.map((node: SemanticNode<void>) => node.id!))
-
-    for (let i = 0; i < queue.length; i++) {
-      marked.add(queue[i]!.id)
-
-      result.push({
-        nodeId: queue[i]!.id,
-        level: level,
-        breadthIndex: i
-      })
-    }
-
-    let newQueue: SemanticNode<void>[] = []
-    for (let i = 0; i < queue.length; ++i) {
-      let v = queue[i]!
-
-      for (let j = 0; j < v.children.length; j++) {
-        if (v.children[j]!.id && !marked.has(v.children[j]!.id)) {
-          newQueue.push(v.children[j]!)
-        }
-      }
-    }
-
-    if (newQueue.length === 0) {
-      break
-    }
-
-    queue = newQueue
-  }
-
-  return [levelMap, result]
 }
