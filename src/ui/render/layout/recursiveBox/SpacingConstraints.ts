@@ -1,7 +1,9 @@
 import { XYPosition } from "@xyflow/react"
-import { IndexedNode, makeEdgeKey } from "../NodeLevels"
-import { addNumericRange, atLeast, between, divNumericRangeNumber, NumericRange, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange"
-import { Cell, known, naryPropagator } from "../../../../constraint/propagator/Propagator"
+import { computeIndexedNodes, IndexedNode, indexedNodePairs, makeEdgeKey } from "../NodeLevels"
+import { addNumericRange, atLeast, between, divNumericRangeNumber, exactly, NumericRange, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange"
+import { binaryPropagator, Cell, known, naryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
+import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
+import { build } from "esbuild";
 
 export const MAX_WIDTH: number = 800;
 export const MAX_HEIGHT: number = 500;
@@ -10,69 +12,116 @@ export const HORIZONTAL_PADDING = 70;
 
 export type ConstraintMap = Map<string, PropagatorConstraint[]>
 
-export function lookupHorizontalSpacing(nodeId1: string, nodeId2: string, constraintMap: ConstraintMap): NumericRange {
-  let nodeB = nodeId2
+export class ConstraintCalculator {
+  private readonly _absolutePositionMap: AbsolutePositionMap
+  private readonly _nodeRelationConstraints: NodeRelationConstraint[]
+  private readonly _midpointConstraints: MidpointConstraint[]
 
-  let constraints = constraintMap.get(nodeId1)
+  constructor(n: SemanticNode<void>) {
+    this._absolutePositionMap = new AbsolutePositionMap({ x: 0, y: 0 }, n.id, getNodeIds(n))
+    this._nodeRelationConstraints = []
+    this._midpointConstraints = []
 
-  if (!constraints) {
-    nodeB = nodeId1
-    constraints = constraintMap.get(nodeId2)!
+    this.buildNodeRelationConstraints(n)
+    this.buildMidpointConstraints(n)
   }
 
-  for (let i = 0; i < constraints.length; i++) {
-    let constraint = constraints[i]!
+  get absolutePositionMap(): AbsolutePositionMap {
+    return this._absolutePositionMap
+  }
 
-    if (constraint instanceof NodeRelationConstraint && constraint.hasNodeId(nodeB)) {
-      return constraint.readKnownOrError('lookupHorizontalSpacing')
+  buildNodeRelationConstraints(n: SemanticNode<void>): void {
+    let [_a, _b, indexedNodes] = computeIndexedNodes(n)
+    let nodePairs = indexedNodePairs(indexedNodes)
+
+    for (let [nodeA, nodeB] of nodePairs) {
+      let constraint = new NodeRelationConstraint(this._absolutePositionMap, nodeA, nodeB, MAX_WIDTH)
+      this._nodeRelationConstraints.push(constraint)
     }
   }
 
-  throw new Error(`No horizontal spacing found for ${nodeId1} and ${nodeId2} in ${JSON.stringify(constraints)}`)
-}
+  buildMidpointConstraints(n: SemanticNode<void>): void {
+    let childRelationCells: Cell<NumericRange>[] = []
 
-export function lookupVerticalSpacing(nodeId1: string, nodeId2: string, constraintMap: ConstraintMap): NumericRange {
-  let nodeB = nodeId2
-  
-  let constraints = constraintMap.get(nodeId1)
-  if (!constraints) {
-    nodeB = nodeId1
-    constraints = constraintMap.get(nodeId2)!
-  }
+    for (let child of n.children) {
+      let childId = child.id
+      let constraint  = this._nodeRelationConstraints.find((c) => c.hasNodeId(childId))!
+      let childCell = constraint.cell
+      let otherId = constraint.getOtherNodeId(childId)
 
-  for (let i = 0; i < constraints.length; i++) {
-    let constraint = constraints[i]!
-
-    if (constraint instanceof NodeRelationConstraint && constraint.hasNodeId(nodeB)) {
-      if (constraint.ancestorDescendant()) {
-        return constraint.readKnownOrError('lookupVerticalSpacing')
+      if (n.children.some((c) => c.id === otherId)) {
+        childRelationCells.push(childCell)
       }
     }
-  }
 
-  throw new Error(`No vertical spacing found for ${nodeId1} and ${nodeId2} in ${JSON.stringify(constraints)}`)
+    this._midpointConstraints.push(new MidpointConstraint(n.id, this._absolutePositionMap, childRelationCells))
+  }
 }
 
 export interface PropagatorConstraint {
   readKnownOrError(msg: string): NumericRange;
 }
 
-// This gives the horizontal spacing relative to the leftmost child
-export class MidpointConstraint implements PropagatorConstraint {
-  private readonly _parent: IndexedNode
-  private readonly _midpointCell: Cell<NumericRange>
-  private readonly _childRelationCells: Cell<NumericRange>[] = []
+export class AbsolutePositionMap {
+  private readonly _mapX: Map<string, Cell<NumericRange>> = new Map()
+  private readonly _mapY: Map<string, Cell<NumericRange>> = new Map()
 
-  constructor(parent: IndexedNode, childRelationCells: Cell<NumericRange>[]) {
-    this._midpointCell = new Cell(partialSemigroupNumericRange(), known(between(0, MAX_WIDTH)))
-    this._childRelationCells = childRelationCells
-    this._parent = parent
+  constructor(rootPosition: XYPosition, rootId: string, nodeIds: string[]) {
+    this._mapX.set(rootId, new Cell(partialSemigroupNumericRange(), known(exactly(rootPosition.x))))
+    this._mapY.set(rootId, new Cell(partialSemigroupNumericRange(), known(exactly(rootPosition.y))))
 
-    this.makePropagator()
+    for (let nodeId of nodeIds) {
+      if (nodeId === rootId) {
+        continue
+      }
+
+      // TODO: Is it okay to set these to unknown?
+      this._mapX.set(nodeId, new Cell(partialSemigroupNumericRange(), unknown()))
+      this._mapY.set(nodeId, new Cell(partialSemigroupNumericRange(), unknown()))
+    }
   }
 
-  get parent(): IndexedNode {
-    return this._parent
+  public getX(nodeId: string): Cell<NumericRange> {
+    return this._mapX.get(nodeId)!
+  }
+
+  public getY(nodeId: string): Cell<NumericRange> {
+    return this._mapY.get(nodeId)!
+  }
+
+  public setXSpacingConstraint(nodeId: string, otherX: Cell<NumericRange>, spacing: Cell<NumericRange>): void {
+    binaryPropagator(otherX, spacing, this.getX(nodeId),
+      (x1: NumericRange, x2: NumericRange): NumericRange => {
+        return addNumericRange(x1, x2)
+      }
+    )
+  }
+
+  public setYSpacingConstraint(nodeId: string, otherY: Cell<NumericRange>, spacing: Cell<NumericRange>): void {
+    binaryPropagator(otherY, spacing, this.getY(nodeId),
+      (y1: NumericRange, y2: NumericRange): NumericRange => {
+        return addNumericRange(y1, y2)
+      }
+    )
+  }
+}
+
+// This gives the horizontal spacing relative to the leftmost child
+export class MidpointConstraint implements PropagatorConstraint {
+  private readonly _parentId: string
+  private readonly _midpointCell: Cell<NumericRange>
+  private readonly _childRelationCells: Cell<NumericRange>[] = []
+  private readonly _absolutePositionMap: AbsolutePositionMap
+
+  // Precondition: The order of the childRelationCells must be the same as the order of the children in the tree, going from left to right
+  constructor(parentId: string, absolutePositionMap: AbsolutePositionMap, childRelationCells: Cell<NumericRange>[]) {
+    this._midpointCell = new Cell(partialSemigroupNumericRange(), known(between(0, MAX_WIDTH)))
+    this._childRelationCells = childRelationCells
+    this._parentId = parentId
+    this._absolutePositionMap = absolutePositionMap
+
+    this.makePropagator()
+    this.relateToAbsolutePositions()
   }
 
   get midpointCell(): Cell<NumericRange> {
@@ -81,6 +130,19 @@ export class MidpointConstraint implements PropagatorConstraint {
 
   get childRelationCells(): Cell<NumericRange>[] {
     return this._childRelationCells
+  }
+
+  relateToAbsolutePositions(): void {
+    let leftmostChild = this._childRelationCells[0]
+
+    if (!leftmostChild) {
+      return
+    }
+
+    let rightmostChild = this._childRelationCells[this._childRelationCells.length - 1]!
+
+    this._absolutePositionMap.setXSpacingConstraint(this._parentId, leftmostChild, this._midpointCell)
+    this._absolutePositionMap.setXSpacingConstraint(this._parentId, rightmostChild, this._midpointCell)
   }
 
   makePropagator(): void {
@@ -96,8 +158,7 @@ export class MidpointConstraint implements PropagatorConstraint {
       }
     )
 
-    // TODO: I'm missing some part here
-    // The midpoint cell should affect the parent-child relation cell
+    // TODO: I think I'm missing some part here: The midpoint cell should affect the parent-child relation cell
   }
 
   public readKnownOrError(msg: string): NumericRange {
@@ -109,13 +170,16 @@ export class NodeRelationConstraint implements PropagatorConstraint {
   private readonly _nodeA: IndexedNode;
   private readonly _nodeB: IndexedNode;
   private readonly _cell: Cell<NumericRange>
+  private readonly _absolutePositionMap: AbsolutePositionMap
 
-  constructor(nodeA: IndexedNode, nodeB: IndexedNode, maxValue: number) {
+  constructor(absolutePositionMap: AbsolutePositionMap, nodeA: IndexedNode, nodeB: IndexedNode, maxValue: number) {
     this._nodeA = nodeA;
     this._nodeB = nodeB;
     this._cell = new Cell(partialSemigroupNumericRange(), known(between(0, maxValue)));
+    this._absolutePositionMap = absolutePositionMap
 
     this.initialize()
+    this.relateToAbsolutePositions()
   }
 
   initialize(): void {
@@ -130,6 +194,13 @@ export class NodeRelationConstraint implements PropagatorConstraint {
 
       this._cell.write(known(atLeast(MAX_WIDTH + HORIZONTAL_PADDING)))
     }
+  }
+
+  relateToAbsolutePositions(): void {
+    this._absolutePositionMap.setXSpacingConstraint(this._nodeA.nodeId!, this._absolutePositionMap.getX(this._nodeB.nodeId!), this._cell)
+    this._absolutePositionMap.setYSpacingConstraint(this._nodeA.nodeId!, this._absolutePositionMap.getY(this._nodeB.nodeId!), this._cell)
+    this._absolutePositionMap.setXSpacingConstraint(this._nodeB.nodeId!, this._absolutePositionMap.getX(this._nodeA.nodeId!), this._cell)
+    this._absolutePositionMap.setYSpacingConstraint(this._nodeB.nodeId!, this._absolutePositionMap.getY(this._nodeA.nodeId!), this._cell)
   }
 
   get cell(): Cell<NumericRange> {
@@ -154,6 +225,16 @@ export class NodeRelationConstraint implements PropagatorConstraint {
 
   public hasNodeId(nodeId: string): boolean {
     return this._nodeA.nodeId === nodeId || this._nodeB.nodeId === nodeId;
+  }
+
+  public getOtherNodeId(nodeId: string): string {
+    if (this._nodeA.nodeId === nodeId) {
+      return this._nodeB.nodeId;
+    } else if (this._nodeB.nodeId === nodeId) {
+      return this._nodeA.nodeId;
+    } else {
+      throw new Error('Node id not found in constraint: ' + nodeId)
+    }
   }
 
   public readKnownOrError(msg: string): NumericRange {
