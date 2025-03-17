@@ -1,5 +1,5 @@
 import { ElkNode } from "elkjs";
-import { LayoutEngine, NodeMap, NodesAndEdges } from "../LayoutEngine";
+import { LayoutEngine, NodesAndEdges } from "../LayoutEngine";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
 import { semanticNodeToElk } from "./ToElk";
 import { toFlow } from '../LayoutEngine';
@@ -20,7 +20,7 @@ export class ElkEngine implements LayoutEngine<ElkNode> {
       });
   }
 
-  async toReactFlow(g: ElkNode): Promise<NodeMap> {
+  async toReactFlow(g: ElkNode): Promise<NodesAndEdges> {
     return elkToReactFlow(g)
   }
 }

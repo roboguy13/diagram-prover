@@ -256,3 +256,8 @@ export function naryPropagator<A, B>(inputs: Cell<A>[], output: Cell<B>, f: (as:
     })
   })
 }
+
+export function equalPropagator<A>(input1: Cell<A>, input2: Cell<A>, output: Cell<boolean>): void {
+  binaryPropagator(input1, input2, output, (a, b) => isEqual(a, b))
+  binaryPropagator(input2, input1, output, (b, a) => isEqual(a, b)) // Ensure symmetry
+}

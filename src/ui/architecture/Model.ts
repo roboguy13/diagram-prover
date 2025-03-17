@@ -1,8 +1,7 @@
 import { AppNode } from "../components/Nodes/nodeTypes";
 import { Edge } from "@xyflow/react";
-import { NodesAndEdges } from "../render/layout/elk/ElkToReactFlow";
+import { NodesAndEdges } from "../render/layout/LayoutEngine";
 import { Term, annotateTermWithIds, exampleTerm } from "../../engine/Term";
-import { toUnlayouted } from "../render/ToUnlayoutedNodes";
 import { toFlow } from '../render/layout/LayoutEngine';
 import { oneStep, StepChange } from "../../engine/Normalize";
 import { ChangeTracker } from "../dataStructures/ChangeTracker";
@@ -11,7 +10,7 @@ import { SemanticNode } from "../../ir/SemanticGraph";
 import { ElkNode } from "elkjs";
 
 export type Model = {
-  semanticGraph?: SemanticNode
+  semanticGraph?: SemanticNode<void>
   graph?: NodesAndEdges // The laid-out graph
 
   termStepHistory: ChangeTracker<StepChange, Term>

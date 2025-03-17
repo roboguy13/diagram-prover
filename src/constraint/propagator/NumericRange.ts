@@ -1,4 +1,5 @@
 import { PartialSemigroup } from './PartialSemigroup'
+import { binaryPropagator, Cell, known, naryPropagator, unaryPropagator } from './Propagator'
 
 export type NumericRange =
   | { kind: 'Exact', value: number }
@@ -33,6 +34,18 @@ export function subNumericRange(a: NumericRange, b: NumericRange): NumericRange 
   let theMax = aMax - bMin
 
   return between(theMin, theMax)
+}
+
+export function addNumericRangeList(aList: NumericRange[]): NumericRange {
+  if (aList.length === 0) {
+    return exactly(0)
+  }
+
+  let result = aList[0]!
+  for (let i = 0; i < aList.length; i++) {
+    result = addNumericRange(result, aList[i]!)
+  }
+  return result
 }
 
 export function getMidpoint(range: NumericRange): number {
@@ -122,4 +135,75 @@ export function partialSemigroupNumericRange(): PartialSemigroup<NumericRange> {
       }
     }
   }
+}
+
+export function addRangePropagator(a: Cell<NumericRange>, b: Cell<NumericRange>, result: Cell<NumericRange>): void {
+  // a + b = result
+  binaryPropagator(a, b, result, (aVal: NumericRange, bVal: NumericRange): NumericRange => {
+    return addNumericRange(aVal, bVal)
+  })
+
+  // result - a = b
+  binaryPropagator(result, a, b, (resultVal: NumericRange, aVal: NumericRange): NumericRange => {
+    return subNumericRange(resultVal, aVal)
+  })
+
+  // result - b = a
+  binaryPropagator(result, b, a, (resultVal: NumericRange, bVal: NumericRange): NumericRange => {
+    return subNumericRange(resultVal, bVal)
+  })
+}
+
+export function addRangeListPropagator(aList: Cell<NumericRange>[], result: Cell<NumericRange>): void {
+  // a1 + a2 + ... + an = result
+  naryPropagator(aList, result, (aListVals: NumericRange[]): NumericRange => {
+    let result = aListVals[0]!
+
+    for (let i = 0; i < aListVals.length; i++) {
+      result = addNumericRange(result, aListVals[i]!)
+    }
+
+    return result
+  })
+
+  for (let i = 0; i < aList.length; i++) {
+    // result - (a1 + ... + a(i-1) + a(i+1) + ... + an) = ai
+    let contentsBeforeIx = aList.slice(0, i)
+    let contentsAfterIx = aList.slice(i + 1)
+
+    naryPropagator([result, ...contentsBeforeIx, ...contentsAfterIx], aList[i]!, (theRanges: NumericRange[]): NumericRange => {
+      let result = theRanges[0]!
+      let otherRanges = theRanges.slice(1)
+
+      return subNumericRange(result, addNumericRangeList(otherRanges))
+    })
+  }
+}
+
+export function divNumericRangeNumberPropagator(a: Cell<NumericRange>, b: number, result: Cell<NumericRange>): void {
+  // a / b = result
+  unaryPropagator(a, result, (aVal: NumericRange): NumericRange => {
+    return divNumericRangeNumber(aVal, b)
+  })
+
+  // result * b = a
+  unaryPropagator(result, a, (resultVal: NumericRange): NumericRange => {
+    return addNumericRange(resultVal, exactly(b))
+  })
+}
+
+export function negateNumericRangePropagator(a: Cell<NumericRange>, result: Cell<NumericRange>): void {
+  // -a = result
+  unaryPropagator(a, result, (aVal: NumericRange): NumericRange => {
+    return { kind: 'Range', min: -getMax(aVal), max: -getMin(aVal) }
+  })
+
+  // -result = a
+  unaryPropagator(result, a, (resultVal: NumericRange): NumericRange => {
+    return { kind: 'Range', min: -getMax(resultVal), max: -getMin(resultVal) }
+  })
+}
+
+export function makeZeroCell(): Cell<NumericRange> {
+  return new Cell<NumericRange>(partialSemigroupNumericRange(), known(exactly(0)))
 }
