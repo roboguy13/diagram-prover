@@ -1,3 +1,4 @@
+import { make } from "fp-ts/lib/Tree"
 import { SemanticNode } from "../../../ir/SemanticGraph"
 
 export type IndexedNode =
