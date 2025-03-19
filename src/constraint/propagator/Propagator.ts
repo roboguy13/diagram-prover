@@ -181,7 +181,7 @@ export class Cell<A> {
       case 'Known':
         if (previousContent.kind === 'Known') {
           if (!isEqual(previousContent.value, this.content.value)) {
-            console.log('Content changed: ' + JSON.stringify(previousContent.value) + ' to ' + JSON.stringify(this.content.value))
+            // console.log('Content changed: ' + JSON.stringify(previousContent.value) + ' to ' + JSON.stringify(this.content.value))
             this.subscribers.forEach(subscriber => subscriber(content))
           }
         }
