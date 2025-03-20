@@ -1,8 +1,8 @@
 import { XYPosition } from "@xyflow/react"
-import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMin, makeZeroCell, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange"
+import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, makeZeroCell, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange"
 import { Cell, equalPropagator, known, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
 import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
-import { makeEdgeKey } from "../NodeLevels";
+import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
 
 export const MAX_WIDTH: number = 1000;
 export const MAX_HEIGHT: number = 500;
@@ -19,7 +19,12 @@ export class ConstraintCalculator {
   constructor(root: SemanticNode<void>) {
     this._spacingMap = new SpacingMap(root.id)
     this._rootId = root.id
+
     this.generateConstraints(root)
+
+    let [levelMap, breadthIndexMap, indexedNodes] = computeIndexedNodes(root)
+    this.generateCousinConstraints(levelMap)
+
     let nodeIds = getNodeIds(root)
     this.generateAbsolutePositionMap(nodeIds)
   }
@@ -48,21 +53,19 @@ export class ConstraintCalculator {
     }
   }
 
-  private generateConstraints(n: SemanticNode<void>): void {
-    // Set up sibling constraints
-    for (let i = 0; i < n.children.length - 1; i++) {
-      let child1 = n.children[i]!
-      let child2 = n.children[i + 1]!
-
-      let siblingConstraint = new SiblingConstraint(child1.id, child2.id)
-      siblingConstraint.apply(this._spacingMap)
+  private generateCousinConstraints(levelMap: LevelMap): void {
+    for (let [level, nodeIds] of levelMap) {
+      for (let i = 0; i < nodeIds.length - 1; i++) {
+        let siblingConstraint = new SiblingConstraint(nodeIds[i]!, nodeIds[i + 1]!)
+        siblingConstraint.apply(this._spacingMap)
+        this._spacingMap.refineRootSpacing(nodeIds[i]!, nodeIds[i + 1]!)
+      }
     }
+  }
 
+  private generateConstraints(n: SemanticNode<void>): void {
     // Set up parent-child constraints
     for (let child of n.children) {
-      // console.log('child: ', child.id, 'parent: ', n.id)
-      // let ySpacing = this._spacingMap.getYSpacing(n.id, child.id)
-      // ySpacing.write(known(exactly(VERTICAL_PADDING)))
       let parentChildConstraint = new ParentChildConstraint(n.id, child.id)
       parentChildConstraint.apply(this._spacingMap)
     }
@@ -82,7 +85,16 @@ export class ConstraintCalculator {
     for (let i = 0; i < n.children.length - 1; i++) {
       let child1 = n.children[i]!
       let child2 = n.children[i + 1]!
-      this._spacingMap.refineRootSpacing(child2.id, child1.id)
+
+      let siblingConstraint = new SiblingConstraint(child1.id, child2.id)
+      siblingConstraint.apply(this._spacingMap)
+
+      // this._spacingMap.refineRootSpacing(child2.id, child1.id)
+      this.refineSubtreeSpacing(child1, child2)
+      this.refineSubtreeSpacing(child2, child1)
+      // this.refineSubtreeSpacing(n, child1)
+      // this.refineSubtreeSpacing(n, child2)
+      // this.refineSubtreeSpacing(child2, child1)
       this._spacingMap.refineRootSpacing(n.id, child1.id)
       this._spacingMap.refineRootSpacing(n.id, child2.id)
     }
@@ -90,6 +102,13 @@ export class ConstraintCalculator {
     // Recurse over children
     for (let child of n.children) {
       this.generateConstraints(child)
+    }
+  }
+
+  private refineSubtreeSpacing(a: SemanticNode<void>, b: SemanticNode<void>) {
+    this._spacingMap.refineRootSpacing(a.id, b.id)
+    for (let child of b.children) {
+      this.refineSubtreeSpacing(a, child)
     }
   }
 }
@@ -216,7 +235,7 @@ class MidpointConstraint implements Constraint {
       let childId = this._childIds[0]!
       let xSpacing = spacingMap.getXSpacing(this._parentId, childId)
 
-      xSpacing.write(known(exactly(0)))
+      // xSpacing.write(known(exactly(0)))
 
       return
     }
@@ -226,8 +245,8 @@ class MidpointConstraint implements Constraint {
 
     let parentToRightSpacing = spacingMap.getXSpacing(this._parentId, rightmostChild)
     let parentToLeftSpacing = spacingMap.getXSpacing(this._parentId, leftmostChild)
-    parentToRightSpacing.write(known(atLeast(HORIZONTAL_PADDING)))
-    parentToLeftSpacing.write(known(atLeast(-HORIZONTAL_PADDING)))
+    parentToRightSpacing.write(known(atLeast(HORIZONTAL_PADDING / 2)))
+    parentToLeftSpacing.write(known(atMost(-HORIZONTAL_PADDING / 2)))
 
     negateNumericRangePropagator(parentToLeftSpacing, parentToRightSpacing)
   }
