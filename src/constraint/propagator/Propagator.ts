@@ -151,14 +151,147 @@ export function waitForKnown<A>(cell: Cell<A>): Promise<A> {
   });
 }
 
-export class Cell<A> {
+export type CellRef = number
+
+export class PropagatorNetwork<A> {
+  private _cells: Cell<A>[] = []
+  private _pSemigroup: PartialSemigroup<A>
+
+  constructor(pSemigroup: PartialSemigroup<A>) {
+    this._pSemigroup = pSemigroup
+  }
+
+  save(): void {
+    for (let cell of this._cells) {
+      cell.save()
+    }
+  }
+
+  restore(): void {
+    for (let cell of this._cells) {
+      cell.restore()
+    }
+  }
+
+  newCell(content: Content<A>): CellRef {
+    this._cells.push(new Cell(this._pSemigroup, content))
+    return this._cells.length - 1
+  }
+
+  watchCell(cellRef: CellRef, subscriber: (content: Content<A>) => void) {
+    this._cells[cellRef]!.watch(subscriber)
+  }
+
+  readCell(cellRef: CellRef): Content<A> {
+    return this._cells[cellRef]!.read()
+  }
+
+  writeCell(cellRef: CellRef, content: Content<A>) {
+    return this._cells[cellRef]!.write(content)
+  }
+
+  updateCell(cellRef: CellRef, f: (content: Content<A>) => Content<A>) {
+    return this._cells[cellRef]!.update(f)
+  }
+
+  updateCellKnown(cellRef: CellRef, f: (value: A) => A) {
+    return this._cells[cellRef]!.updateKnown(f)
+  }
+
+  readKnownOrError(cellRef: CellRef, errMsg: string): A {
+    return this._cells[cellRef]!.readKnownOrError(errMsg)
+  }
+
+  unaryPropagator(input: CellRef, output: CellRef, f: (a: A) => A) {
+    let inputCell = this._cells[input]!
+    let outputCell = this._cells[output]!
+
+    inputCell.watch(content => {
+      outputCell.write(mapContent(f)(content))
+    })
+  }
+
+  binaryPropagator(input1: CellRef, input2: CellRef, output: CellRef, f: (a: A, b: A) => A) {
+    let input1Cell = this._cells[input1]!
+    let input2Cell = this._cells[input2]!
+    let outputCell = this._cells[output]!
+
+    input1Cell.watch(content1 => {
+      let content2 = input2Cell.read()
+      outputCell.write(map2Content(f)(content1, content2))
+    })
+
+    input2Cell.watch(content2 => {
+      let content1 = input1Cell.read()
+      outputCell.write(map2Content(f)(content1, content2))
+    })
+  }
+
+  unaryPropagatorBind(input: CellRef, output: CellRef, f: (a: A) => Content<A>) {
+    let inputCell = this._cells[input]!
+    let outputCell = this._cells[output]!
+
+    inputCell.watch(content => {
+      outputCell.write(bindContent(f)(content))
+    })
+  }
+
+  binaryPropagatorBind(input1: CellRef, input2: CellRef, output: CellRef, f: (a: A, b: A) => Content<A>) {
+    let input1Cell = this._cells[input1]!
+    let input2Cell = this._cells[input2]!
+    let outputCell = this._cells[output]!
+
+    input1Cell.watch(content1 => {
+      let content2 = input2Cell.read()
+      outputCell.write(bindContent2(f)(content1, content2))
+    })
+
+    input2Cell.watch(content2 => {
+      let content1 = input1Cell.read()
+      outputCell.write(bindContent2(f)(content1, content2))
+    })
+  }
+
+  naryPropagator(inputs: CellRef[], output: CellRef, f: (as: A[]) => A) {
+    let inputCells = inputs.map(input => this._cells[input]!)
+    let outputCell = this._cells[output]!
+
+    inputCells.forEach((inputCell, i) => {
+      inputCell.watch(content => {
+        let contentsBeforeIx = inputCells.slice(0, i).map(inputCell => inputCell.read())
+        let contentsAfterIx = inputCells.slice(i + 1).map(inputCell => inputCell.read())
+        let contents = [...contentsBeforeIx, content, ...contentsAfterIx]
+        outputCell.write(mapContentList(f)(contents))
+      })
+    })
+  }
+
+  equalPropagator(cell1: CellRef, cell2: CellRef): void {
+    this.unaryPropagator(cell1, cell2, a => a)
+    this.unaryPropagator(cell2, cell1, a => a)
+  }
+}
+
+class Cell<A> {
   private content: Content<A>
   private subscribers: Array<(content: Content<A>) => void> = []
   private pSemigroup: PartialSemigroup<A>
 
+  private previousContent: Content<A> = { kind: 'Unknown' }
+
+  // private undoStack: Array<Content<A>> = []
+
   constructor(pSemigroup: PartialSemigroup<A>, content: Content<A> = { kind: 'Unknown' }) {
     this.pSemigroup = pSemigroup
     this.content = content
+  }
+
+  save(): void {
+    this.previousContent = structuredClone(this.content)
+  }
+
+  restore(): void {
+    this.content = structuredClone(this.previousContent)
   }
 
   watch(subscriber: (content: Content<A>) => void) {
@@ -171,21 +304,29 @@ export class Cell<A> {
   }
 
   write(content: Content<A>) {
-    const previousContent = this.content
+    this.previousContent = this.content
     this.content = semigroupContent<A>(this.pSemigroup).concat(this.content, content)
 
     switch (this.content.kind) {
       case 'Inconsistent':
-        throw new Error('Inconsistent content: ' + JSON.stringify(previousContent) + ' and ' + JSON.stringify(content))
+        throw new Error('Inconsistent content: ' + JSON.stringify(this.previousContent) + ' and ' + JSON.stringify(content))
         break
       case 'Known':
-        if (previousContent.kind === 'Known') {
-          if (!isEqual(previousContent.value, this.content.value)) {
+        if (this.previousContent.kind === 'Known') {
+          if (!isEqual(this.previousContent.value, this.content.value)) {
             // console.log('Content changed: ' + JSON.stringify(previousContent.value) + ' to ' + JSON.stringify(this.content.value))
             this.subscribers.forEach(subscriber => subscriber(content))
           }
         }
     }
+  }
+
+  update(f: (content: Content<A>) => Content<A>) {
+    this.write(f(this.content))
+  }
+
+  updateKnown(f: (value: A) => A) {
+    this.update(content => mapContent(f)(content))
   }
 
   writeKnown(value: A) {

@@ -1,8 +1,10 @@
 import { XYPosition } from "@xyflow/react"
-import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, makeZeroCell, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange } from "../../../../constraint/propagator/NumericRange"
-import { Cell, equalPropagator, known, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
+import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
+import { CellRef, equalPropagator, known, mapContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
 import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
 import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
+import { isArrayLike } from "lodash";
+import { node } from "webpack";
 
 export const MAX_WIDTH: number = 1000;
 export const MAX_HEIGHT: number = 500;
@@ -25,6 +27,8 @@ export class ConstraintCalculator {
     let [levelMap, breadthIndexMap, indexedNodes] = computeIndexedNodes(root)
     this.generateCousinConstraints(levelMap)
 
+    // this.minimizeSpacings()
+
     let nodeIds = getNodeIds(root)
     this.generateAbsolutePositionMap(nodeIds)
   }
@@ -43,11 +47,11 @@ export class ConstraintCalculator {
       let xSpacing = this._spacingMap.getXSpacing(this._rootId, nodeId)
       let ySpacing = this._spacingMap.getYSpacing(this._rootId, nodeId)
 
-      let x = this.chooseFromRange(xSpacing.readKnownOrError('x')) ?? 0
-      let y = this.chooseFromRange(ySpacing.readKnownOrError('y')) ?? 0
+      let x = this.chooseFromRange(this._spacingMap.net.readKnownOrError(xSpacing, 'x')) ?? 0
+      let y = this.chooseFromRange(this._spacingMap.net.readKnownOrError(ySpacing, 'y')) ?? 0
 
-      console.log('x: ', xSpacing.readKnownOrError('x'))
-      console.log('y: ', ySpacing.readKnownOrError('y'))
+      console.log('x: ', this._spacingMap.net.readKnownOrError(xSpacing, 'x'))
+      console.log('y: ', this._spacingMap.net.readKnownOrError(ySpacing, 'y'))
 
       this._absolutePositionMap.set(nodeId, { x, y })
     }
@@ -111,24 +115,44 @@ export class ConstraintCalculator {
       this.refineSubtreeSpacing(a, child)
     }
   }
+
+  private minimizeSpacings(): void {
+    this._spacingMap.mapRelativeSpacings(selectMin)
+  }
 }
 
 type Spacing = {
-  xSpacing: Cell<NumericRange>
-  ySpacing: Cell<NumericRange>
+  isRelative: boolean
+  xSpacing: CellRef
+  ySpacing: CellRef
 }
 
 class SpacingMap {
   private _spacings: Map<string, Spacing> = new Map()
+  private _net: PropagatorNetwork<NumericRange> = new PropagatorNetwork(partialSemigroupNumericRange())
   private _rootNodeId: string
 
   constructor(rootNodeId: string) {
     this._rootNodeId = rootNodeId
 
     this._spacings.set(makeEdgeKey(rootNodeId, rootNodeId), {
-      xSpacing: makeZeroCell(),
-      ySpacing: makeZeroCell(),
+      isRelative: false,
+      xSpacing: this._net.newCell(known(exactly(0))),
+      ySpacing: this._net.newCell(known(exactly(0))),
     })
+  }
+
+  public get net(): PropagatorNetwork<NumericRange> {
+    return this._net
+  }
+
+  public mapRelativeSpacings(f: (spacing: NumericRange) => NumericRange): void {
+    for (let [key, spacing] of this._spacings) {
+      if (spacing.isRelative) {
+        this._net.updateCellKnown(spacing.xSpacing, f)
+        this._net.updateCellKnown(spacing.ySpacing, f)
+      }
+    }
   }
 
   // Refines the root spacing for currNodeId given the root spacing of
@@ -143,12 +167,14 @@ class SpacingMap {
     let otherCurrSpacing = this.getSpacing(otherNodeId, currNodeId)
 
     addRangePropagator(
+      this._net,
       otherRootSpacing.xSpacing,
       otherCurrSpacing.xSpacing,
       currRootSpacing.xSpacing
     )
 
     addRangePropagator(
+      this._net,
       otherRootSpacing.ySpacing,
       otherCurrSpacing.ySpacing,
       currRootSpacing.ySpacing
@@ -166,17 +192,19 @@ class SpacingMap {
     if (!spacing) {
       console.log('nodeId1: ', nodeId1, 'nodeId2: ', nodeId2)
       spacing = {
-        xSpacing: new Cell(partialSemigroupNumericRange(), known(atMost(MAX_WIDTH))),
-        ySpacing: new Cell(partialSemigroupNumericRange(), known(atMost(MAX_HEIGHT))),
+        isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
+        xSpacing: this._net.newCell(known(atMost(MAX_WIDTH))),
+        ySpacing: this._net.newCell(known(atMost(MAX_HEIGHT))),
       }
 
       let negativeSpacing = {
-        xSpacing: new Cell(partialSemigroupNumericRange(), unknown()),
-        ySpacing: new Cell(partialSemigroupNumericRange(), unknown()),
+        isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
+        xSpacing: this._net.newCell(unknown()),
+        ySpacing: this._net.newCell(unknown()),
       }
 
-      negateNumericRangePropagator(spacing.xSpacing, negativeSpacing.xSpacing)
-      negateNumericRangePropagator(spacing.ySpacing, negativeSpacing.ySpacing)
+      negateNumericRangePropagator(this._net, spacing.xSpacing, negativeSpacing.xSpacing)
+      negateNumericRangePropagator(this._net, spacing.ySpacing, negativeSpacing.ySpacing)
 
       this._spacings.set(makeEdgeKey(nodeId1, nodeId2), spacing)
       this._spacings.set(makeEdgeKey(nodeId2, nodeId1), negativeSpacing)
@@ -187,11 +215,11 @@ class SpacingMap {
     return spacing
   }
 
-  public getXSpacing(nodeId1: string, nodeId2: string): Cell<NumericRange> { 
+  public getXSpacing(nodeId1: string, nodeId2: string): CellRef { 
     return this.getSpacing(nodeId1, nodeId2).xSpacing
   }
 
-  public getYSpacing(nodeId1: string, nodeId2: string): Cell<NumericRange> {
+  public getYSpacing(nodeId1: string, nodeId2: string): CellRef {
     return this.getSpacing(nodeId1, nodeId2).ySpacing
   }
 }
@@ -212,7 +240,7 @@ class SiblingConstraint implements Constraint {
   public apply(spacingMap: SpacingMap): void {
     let xSpacing = spacingMap.getXSpacing(this._nodeId1, this._nodeId2)
 
-    xSpacing.write(known(atLeast(HORIZONTAL_PADDING)))
+    spacingMap.net.writeCell(xSpacing, known(atLeast(HORIZONTAL_PADDING)))
   }
 }
 class MidpointConstraint implements Constraint {
@@ -245,10 +273,11 @@ class MidpointConstraint implements Constraint {
 
     let parentToRightSpacing = spacingMap.getXSpacing(this._parentId, rightmostChild)
     let parentToLeftSpacing = spacingMap.getXSpacing(this._parentId, leftmostChild)
-    parentToRightSpacing.write(known(atLeast(HORIZONTAL_PADDING / 2)))
-    parentToLeftSpacing.write(known(atMost(-HORIZONTAL_PADDING / 2)))
 
-    negateNumericRangePropagator(parentToLeftSpacing, parentToRightSpacing)
+    spacingMap.net.writeCell(parentToRightSpacing, known(atLeast(HORIZONTAL_PADDING / 2)))
+    spacingMap.net.writeCell(parentToLeftSpacing, known(atMost(-HORIZONTAL_PADDING / 2)))
+
+    negateNumericRangePropagator(spacingMap.net, parentToLeftSpacing, parentToRightSpacing)
   }
 }
 
@@ -263,6 +292,6 @@ class ParentChildConstraint implements Constraint {
 
   public apply(spacingMap: SpacingMap): void {
     let ySpacing = spacingMap.getYSpacing(this._parentId, this._childId)
-    ySpacing.write(known(atLeast(VERTICAL_PADDING)))
+    spacingMap.net.writeCell(ySpacing, known(atLeast(VERTICAL_PADDING)))
   }
 }
