@@ -5,6 +5,7 @@ import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
 import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
 import { isArrayLike } from "lodash";
 import { node } from "webpack";
+import { Minimizer } from "../../../../constraint/propagator/Minimize";
 
 export const MAX_WIDTH: number = 1000;
 export const MAX_HEIGHT: number = 500;
@@ -27,7 +28,7 @@ export class ConstraintCalculator {
     let [levelMap, breadthIndexMap, indexedNodes] = computeIndexedNodes(root)
     this.generateCousinConstraints(levelMap)
 
-    // this.minimizeSpacings()
+    this.minimizeSpacings()
 
     let nodeIds = getNodeIds(root)
     this.generateAbsolutePositionMap(nodeIds)
@@ -117,7 +118,9 @@ export class ConstraintCalculator {
   }
 
   private minimizeSpacings(): void {
-    this._spacingMap.mapRelativeSpacings(selectMin)
+    // this._spacingMap.net.updateAllCells(this._spacingMap.getRelativeSpacingCells(), (range) => exactly(getMax(range)))
+    let minimizer = new Minimizer(this._spacingMap.net, this._spacingMap.getRelativeSpacingCells())
+    minimizer.minimize()
   }
 }
 
@@ -137,22 +140,26 @@ class SpacingMap {
 
     this._spacings.set(makeEdgeKey(rootNodeId, rootNodeId), {
       isRelative: false,
-      xSpacing: this._net.newCell(known(exactly(0))),
-      ySpacing: this._net.newCell(known(exactly(0))),
+      xSpacing: this._net.newCell('root self spacing X', known(exactly(0))),
+      ySpacing: this._net.newCell('root self spacing Y', known(exactly(0))),
     })
+  }
+
+  public getRelativeSpacingCells(): CellRef[] {
+    let result: CellRef[] = []
+
+    for (let [edgeKey, spacing] of this._spacings) {
+      if (spacing.isRelative) {
+        result.push(spacing.xSpacing)
+        result.push(spacing.ySpacing)
+      }
+    }
+
+    return result
   }
 
   public get net(): PropagatorNetwork<NumericRange> {
     return this._net
-  }
-
-  public mapRelativeSpacings(f: (spacing: NumericRange) => NumericRange): void {
-    for (let [key, spacing] of this._spacings) {
-      if (spacing.isRelative) {
-        this._net.updateCellKnown(spacing.xSpacing, f)
-        this._net.updateCellKnown(spacing.ySpacing, f)
-      }
-    }
   }
 
   // Refines the root spacing for currNodeId given the root spacing of
@@ -193,14 +200,14 @@ class SpacingMap {
       console.log('nodeId1: ', nodeId1, 'nodeId2: ', nodeId2)
       spacing = {
         isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
-        xSpacing: this._net.newCell(known(atMost(MAX_WIDTH))),
-        ySpacing: this._net.newCell(known(atMost(MAX_HEIGHT))),
+        xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(MAX_WIDTH))),
+        ySpacing: this._net.newCell('Y spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(MAX_HEIGHT))),
       }
 
       let negativeSpacing = {
         isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
-        xSpacing: this._net.newCell(unknown()),
-        ySpacing: this._net.newCell(unknown()),
+        xSpacing: this._net.newCell('negative X spacing between ' + nodeId1 + ' and ' + nodeId2, unknown()),
+        ySpacing: this._net.newCell('negative Y spacing between ' + nodeId1 + ' and ' + nodeId2, unknown()),
       }
 
       negateNumericRangePropagator(this._net, spacing.xSpacing, negativeSpacing.xSpacing)

@@ -112,6 +112,9 @@ export function between(min: number, max: number): NumericRange {
   if (min === max) {
     return { kind: 'Exact', value: min }
   } else {
+    if (min > max) {
+      throw new Error(`Invalid range: ${min} > ${max}`)
+    }
     return { kind: 'Range', min, max }
   }
 }
@@ -122,6 +125,16 @@ export function lessThan(a: NumericRange): NumericRange {
 
 export function greaterThan(a: NumericRange): NumericRange {
   return { kind: 'Range', min: getMax(a), max: Infinity }
+}
+
+const INCREMENT = 1e-4
+
+export function splitRange(range: NumericRange): [NumericRange, NumericRange] {
+  let min = getMin(range)
+  let max = getMax(range)
+  let midpoint = getMidpoint(range)
+
+  return [between(min, midpoint), between(midpoint + INCREMENT, max)]
 }
 
 export function partialSemigroupNumericRange(): PartialSemigroup<NumericRange> {

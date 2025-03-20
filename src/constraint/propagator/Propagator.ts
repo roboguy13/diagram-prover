@@ -5,6 +5,8 @@ import { Semigroup } from 'fp-ts/Semigroup'
 import { PartialSemigroup } from './PartialSemigroup'
 import { isEqual } from 'lodash'
 
+const DEBUG_PROPAGATOR_NETWORK = true
+
 export type Content<A> =
   | { kind: 'Inconsistent' }
   | { kind: 'Unknown' }
@@ -161,20 +163,46 @@ export class PropagatorNetwork<A> {
     this._pSemigroup = pSemigroup
   }
 
-  save(): void {
+  checkpoint(): void {
     for (let cell of this._cells) {
-      cell.save()
+      cell.checkpoint()
     }
   }
 
-  restore(): void {
+  revert(): void {
     for (let cell of this._cells) {
-      cell.restore()
+      cell.revert()
+    }
+    if (DEBUG_PROPAGATOR_NETWORK) {
+      try {
+        for (let cell of this._cells) {
+          cell.updateSubscribers()
+        }
+      } catch (e) {
+        if (e instanceof InconsistentError) {
+          throw new Error('Inconsistent content after revert')
+        }
+      }
     }
   }
 
-  newCell(content: Content<A>): CellRef {
-    this._cells.push(new Cell(this._pSemigroup, content))
+  updateAllCells(cells: CellRef[], f: (a: A) => A) {
+    for (let cellRef of cells) {
+      let cell = this._cells[cellRef]!
+      cell.basicUpdate(f)
+    }
+    for (let cellRef of cells) {
+      let cell = this._cells[cellRef]!
+      cell.updateSubscribers()
+    }
+  }
+
+  cells(): CellRef[] {
+    return this._cells.map((_, i) => i)
+  }
+
+  newCell(description: string, content: Content<A>): CellRef {
+    this._cells.push(new Cell(this._pSemigroup, description, content))
     return this._cells.length - 1
   }
 
@@ -200,6 +228,10 @@ export class PropagatorNetwork<A> {
 
   readKnownOrError(cellRef: CellRef, errMsg: string): A {
     return this._cells[cellRef]!.readKnownOrError(errMsg)
+  }
+
+  cellDescription(cellRef: CellRef): string {
+    return this._cells[cellRef]!.description
   }
 
   unaryPropagator(input: CellRef, output: CellRef, f: (a: A) => A) {
@@ -272,26 +304,40 @@ export class PropagatorNetwork<A> {
   }
 }
 
+export class InconsistentError extends Error {
+  constructor(a: string, b: string) {
+    super(`Inconsistent content: ${a} and ${b}`)
+  }
+}
+
 class Cell<A> {
   private content: Content<A>
   private subscribers: Array<(content: Content<A>) => void> = []
   private pSemigroup: PartialSemigroup<A>
+  private readonly _description: string
 
-  private previousContent: Content<A> = { kind: 'Unknown' }
+  private undoStack: Content<A>[] = []
 
-  // private undoStack: Array<Content<A>> = []
-
-  constructor(pSemigroup: PartialSemigroup<A>, content: Content<A> = { kind: 'Unknown' }) {
+  constructor(pSemigroup: PartialSemigroup<A>, description: string, content: Content<A> = { kind: 'Unknown' }) {
     this.pSemigroup = pSemigroup
     this.content = content
+    this._description = description
   }
 
-  save(): void {
-    this.previousContent = structuredClone(this.content)
+  get description(): string {
+    return this._description
   }
 
-  restore(): void {
-    this.content = structuredClone(this.previousContent)
+  checkpoint(): void {
+    this.undoStack.push(structuredClone(this.content))
+  }
+
+  revert(): void {
+    this.content = structuredClone(this.undoStack.pop()!)
+  }
+
+  updateSubscribers() {
+    this.subscribers.forEach(subscriber => subscriber(this.content))
   }
 
   watch(subscriber: (content: Content<A>) => void) {
@@ -299,21 +345,26 @@ class Cell<A> {
     this.subscribers.push(subscriber)
   }
 
+  // This updates without notifying subscribers.
+  // This is useful for updating all the cells in a network before notifying subscribers.
+  basicUpdate(f: (a: A) => A) {
+    this.content = mapContent(f)(this.content)
+  }
+
   read(): Content<A> {
     return this.content
   }
 
   write(content: Content<A>) {
-    this.previousContent = this.content
+    let previousContent = this.content
     this.content = semigroupContent<A>(this.pSemigroup).concat(this.content, content)
 
     switch (this.content.kind) {
       case 'Inconsistent':
-        throw new Error('Inconsistent content: ' + JSON.stringify(this.previousContent) + ' and ' + JSON.stringify(content))
-        break
+        throw new InconsistentError(JSON.stringify(previousContent), JSON.stringify(content))
       case 'Known':
-        if (this.previousContent.kind === 'Known') {
-          if (!isEqual(this.previousContent.value, this.content.value)) {
+        if (previousContent.kind === 'Known') {
+          if (!isEqual(previousContent.value, this.content.value)) {
             // console.log('Content changed: ' + JSON.stringify(previousContent.value) + ' to ' + JSON.stringify(this.content.value))
             this.subscribers.forEach(subscriber => subscriber(content))
           }
