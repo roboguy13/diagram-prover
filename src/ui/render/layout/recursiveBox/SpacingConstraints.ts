@@ -25,7 +25,7 @@ export class ConstraintCalculator {
 
     this.generateConstraints(root)
 
-    let [levelMap, breadthIndexMap, indexedNodes] = computeIndexedNodes(root)
+    let [levelMap, _breadthIndexMap, _indexedNodes] = computeIndexedNodes(root)
     this.generateCousinConstraints(levelMap)
 
     this.minimizeSpacings()
@@ -94,12 +94,8 @@ export class ConstraintCalculator {
       let siblingConstraint = new SiblingConstraint(child1.id, child2.id)
       siblingConstraint.apply(this._spacingMap)
 
-      // this._spacingMap.refineRootSpacing(child2.id, child1.id)
       this.refineSubtreeSpacing(child1, child2)
       this.refineSubtreeSpacing(child2, child1)
-      // this.refineSubtreeSpacing(n, child1)
-      // this.refineSubtreeSpacing(n, child2)
-      // this.refineSubtreeSpacing(child2, child1)
       this._spacingMap.refineRootSpacing(n.id, child1.id)
       this._spacingMap.refineRootSpacing(n.id, child2.id)
     }
@@ -118,7 +114,6 @@ export class ConstraintCalculator {
   }
 
   private minimizeSpacings(): void {
-    // this._spacingMap.net.updateAllCells(this._spacingMap.getRelativeSpacingCells(), (range) => exactly(getMax(range)))
     let minimizer = new Minimizer(this._spacingMap.net, this._spacingMap.getRelativeSpacingCells())
     minimizer.minimize()
   }
@@ -248,7 +243,7 @@ class SiblingConstraint implements Constraint {
     let xSpacing = spacingMap.getXSpacing(this._nodeId1, this._nodeId2)
     let ySpacing = spacingMap.getYSpacing(this._nodeId1, this._nodeId2)
 
-    spacingMap.net.writeCell(xSpacing, known(atLeast(HORIZONTAL_PADDING)))
+    spacingMap.net.writeCell(xSpacing, known(between(HORIZONTAL_PADDING, HORIZONTAL_PADDING * 2)))
 
     spacingMap.net.writeCell(ySpacing, known(exactly(0)))
   }
@@ -266,15 +261,6 @@ class MidpointConstraint implements Constraint {
 
   public apply(spacingMap: SpacingMap): void {
     if (this._childIds.length === 0) {
-      return
-    }
-    
-    if (this._childIds.length === 1) {
-      let childId = this._childIds[0]!
-      let xSpacing = spacingMap.getXSpacing(this._parentId, childId)
-
-      // xSpacing.write(known(exactly(0)))
-
       return
     }
     
@@ -302,6 +288,6 @@ class ParentChildConstraint implements Constraint {
 
   public apply(spacingMap: SpacingMap): void {
     let ySpacing = spacingMap.getYSpacing(this._parentId, this._childId)
-    spacingMap.net.writeCell(ySpacing, known(atLeast(VERTICAL_PADDING)))
+    spacingMap.net.writeCell(ySpacing, known(between(VERTICAL_PADDING, VERTICAL_PADDING * 1.5)))
   }
 }
