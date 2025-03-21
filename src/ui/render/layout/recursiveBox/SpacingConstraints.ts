@@ -246,8 +246,11 @@ class SiblingConstraint implements Constraint {
 
   public apply(spacingMap: SpacingMap): void {
     let xSpacing = spacingMap.getXSpacing(this._nodeId1, this._nodeId2)
+    let ySpacing = spacingMap.getYSpacing(this._nodeId1, this._nodeId2)
 
     spacingMap.net.writeCell(xSpacing, known(atLeast(HORIZONTAL_PADDING)))
+
+    spacingMap.net.writeCell(ySpacing, known(exactly(0)))
   }
 }
 class MidpointConstraint implements Constraint {
