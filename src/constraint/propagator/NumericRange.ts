@@ -127,14 +127,19 @@ export function greaterThan(a: NumericRange): NumericRange {
   return { kind: 'Range', min: getMax(a), max: Infinity }
 }
 
-const INCREMENT = 1e-4
+const EPSILON = 1e-4
 
 export function splitRange(range: NumericRange): [NumericRange, NumericRange] {
   let min = getMin(range)
   let max = getMax(range)
+
+  if (min === max) {
+    return [exactly(min), exactly(max)]
+  }
+
   let midpoint = getMidpoint(range)
 
-  return [between(min, midpoint), between(midpoint + INCREMENT, max)]
+  return [between(min, midpoint), between(midpoint + EPSILON, max)]
 }
 
 export function partialSemigroupNumericRange(): PartialSemigroup<NumericRange> {
