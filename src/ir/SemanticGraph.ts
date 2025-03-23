@@ -7,6 +7,7 @@ import { Edge } from "@xyflow/react";
 import { Term, TermKind } from "../engine/Term";
 import { TargetIcon } from "@radix-ui/react-icons";
 import { inputHandleName, outputHandleName } from "../ui/NodeUtils";
+import { json } from "fp-ts";
 
 export type SemanticNode<A> = {
   id: string;
@@ -49,7 +50,7 @@ export function getEdges(n: SemanticNode<void>): Edge[] {
 export function termToSemanticNode(t: Term): SemanticNode<void> {
   switch (t.type) {
     case 'Var':
-      return { id: t.id ? t.id : 'type', label: 'Var', kind: 'Var', children: [], payload: undefined };
+      return { id: t.id ? t.id : 'type', label: JSON.stringify(t.name.ix), kind: 'Var', children: [], payload: undefined };
     case 'UnitTy':
       return { id: t.id ? t.id : 'type', label: 'Unit', kind: 'UnitTy', children: [], payload: undefined };
     case 'Empty':
