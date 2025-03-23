@@ -6,12 +6,12 @@ export type NodeMap = Map<string, AppNode>;
 export type NodesAndEdges = { nodes: NodeMap, edges: Edge[] }
 
 export interface LayoutEngine<A> {
-  fromSemanticNode(n: SemanticNode<void>): Promise<A>
+  fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<A>
   toReactFlow(g: A): Promise<NodesAndEdges>
 }
 
-export async function toFlow<A>(layoutEngine: LayoutEngine<A>, g: SemanticNode<void>): Promise<NodesAndEdges> {
-  let promise = layoutEngine.fromSemanticNode(g)
+export async function toFlow<A>(layoutEngine: LayoutEngine<A>, g: SemanticNode<void>, activeRedexId: string | null): Promise<NodesAndEdges> {
+  let promise = layoutEngine.fromSemanticNode(g, activeRedexId)
 
   let result = await promise;
 
