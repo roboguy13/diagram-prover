@@ -36,14 +36,6 @@ export default function App() {
   let nodes = topSortNodes(state.graph?.nodes ?? new Map<string, AppNode>());
   let edges = state.graph?.edges ?? [];
 
-  let handleBetaStep = () => {
-    dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' }});
-  }
-
-  let handleStepBack = () => {
-    dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }});
-  }
-
   useEffect(() => {
     if (state.updateCenter && reactFlowInstance) {
       // Two key issues with the original code:
@@ -73,6 +65,41 @@ export default function App() {
   }, [state.updateCenter]); // Only depend on the updateCenter flag
 
   // console.log("Rendering React Flow with nodes:", nodes, "and edges:", edges);
+
+  const handleBetaStep = useCallback(() => {
+    dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' }});
+  }, [dispatch]);
+
+  const handleStepBack = useCallback(() => {
+    dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }});
+  }, [dispatch]);
+
+  // Keyboard events
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Skip if focus is on input elements
+      if (
+        event.target instanceof HTMLInputElement || 
+        event.target instanceof HTMLTextAreaElement || 
+        (event.target as HTMLElement).isContentEditable
+      ) {
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        handleBetaStep();
+      } else if (event.key === 'ArrowLeft') {
+        handleStepBack();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // Clean up on unmount
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  })
+
 
   return (
     <ReactFlow
