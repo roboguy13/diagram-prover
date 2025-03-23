@@ -67,6 +67,8 @@ export class Minimizer {
     this._net.checkpoint()
     try {
       this._net.writeCell(cell, known(upper))
+
+      // Keep splitting
       if (this.minimizeCellsBacktracking(index)) {
         return true
       }
@@ -82,11 +84,6 @@ export class Minimizer {
     if (!success) {
       this._net.revert()
     }
-    // ----------------------------------
-    // (5) If neither subrange worked, revert the cell to its original range.
-    //     Then either skip it or declare total failure.
-    //     We’ll do a “skip” approach here:
-    // ----------------------------------
 
     return success
   }

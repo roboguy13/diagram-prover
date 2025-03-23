@@ -96,8 +96,10 @@ export class ConstraintCalculator {
 
       this.refineSubtreeSpacing(child1, child2)
       this.refineSubtreeSpacing(child2, child1)
-      this._spacingMap.refineRootSpacing(n.id, child1.id)
-      this._spacingMap.refineRootSpacing(n.id, child2.id)
+      this._spacingMap.refineRootSpacing(child1.id, n.id)
+      this._spacingMap.refineRootSpacing(child2.id, n.id)
+      // this._spacingMap.refineRootSpacing(n.id, child1.id)
+      // this._spacingMap.refineRootSpacing(n.id, child2.id)
     }
 
     // Recurse over children
@@ -248,6 +250,7 @@ class SiblingConstraint implements Constraint {
     spacingMap.net.writeCell(ySpacing, known(exactly(0)))
   }
 }
+
 class MidpointConstraint implements Constraint {
   private _parentId: string
   private _childIds: string[]
@@ -271,7 +274,7 @@ class MidpointConstraint implements Constraint {
     let parentToLeftSpacing = spacingMap.getXSpacing(this._parentId, leftmostChild)
 
     spacingMap.net.writeCell(parentToRightSpacing, known(atLeast(HORIZONTAL_PADDING / 2)))
-    spacingMap.net.writeCell(parentToLeftSpacing, known(atMost(-HORIZONTAL_PADDING / 2)))
+    // spacingMap.net.writeCell(parentToLeftSpacing, known(atMost(-HORIZONTAL_PADDING / 2)))
 
     negateNumericRangePropagator(spacingMap.net, parentToLeftSpacing, parentToRightSpacing)
   }
