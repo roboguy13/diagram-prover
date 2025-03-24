@@ -74,6 +74,10 @@ export default function App() {
     dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }});
   }, [dispatch]);
 
+  const handleLayoutDebug = useCallback(() => {
+    dispatch({ kind: 'EditorMsg', msg: { type: 'ToggleDebugPropagatorsMode' }});
+  }, [dispatch]);
+
   // Keyboard events
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -115,6 +119,11 @@ export default function App() {
       <Background />
       <MiniMap />
       <Controls>
+        {/* Button for rendering the propagator network as a graph to debug it */}
+        <ControlButton onClick={handleLayoutDebug} >
+          <MagicWandIcon />
+        </ControlButton>
+
         <ControlButton onClick={handleBetaStep}>
           <ChevronRightIcon />
         </ControlButton>

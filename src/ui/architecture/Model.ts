@@ -8,10 +8,16 @@ import { ChangeTracker } from "../dataStructures/ChangeTracker";
 import { produce } from "immer";
 import { SemanticNode } from "../../ir/SemanticGraph";
 import { ElkNode } from "elkjs";
+import { PropagatorNetwork } from "../../constraint/propagator/Propagator";
+import { NumericRange } from "../../constraint/propagator/NumericRange";
+
+export type Mode = 'normal-mode' | 'debug-propagators-mode'
 
 export type Model = {
   semanticGraph?: SemanticNode<void>
   graph?: NodesAndEdges // The laid-out graph
+  mode: Mode
+  propagatorNetwork?: PropagatorNetwork<NumericRange>
 
   termStepHistory: ChangeTracker<StepChange, Term>
 
@@ -19,6 +25,8 @@ export type Model = {
 }
 
 const initialModel0: Model = {
+  mode: 'normal-mode',
+
   termStepHistory: new ChangeTracker(annotateTermWithIds(exampleTerm), (term) => {
     let result = oneStep(term);
     if (result[0].type === 'no-change') {

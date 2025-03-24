@@ -6,6 +6,10 @@ import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
 import { isArrayLike } from "lodash";
 import { node } from "webpack";
 import { Minimizer } from "../../../../constraint/propagator/Minimize";
+import { NodesAndEdges } from "../LayoutEngine";
+import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/PropagatorToElk";
+import { elkToReactFlow } from "../elk/ElkToReactFlow";
+import { elk } from "../elk/ElkEngine";
 
 export const MAX_WIDTH: number = 1000;
 export const MAX_HEIGHT: number = 500;
@@ -32,6 +36,10 @@ export class ConstraintCalculator {
 
     let nodeIds = getNodeIds(root)
     this.generateAbsolutePositionMap(nodeIds)
+  }
+
+  public async renderDebugInfo(): Promise<NodesAndEdges> {
+    return await this._spacingMap.renderDebugInfo()
   }
 
   public get absolutePositionMap(): AbsolutePositionMap {
@@ -140,6 +148,13 @@ class SpacingMap {
       xSpacing: this._net.newCell('root self spacing X', known(exactly(0))),
       ySpacing: this._net.newCell('root self spacing Y', known(exactly(0))),
     })
+  }
+
+  public async renderDebugInfo(): Promise<NodesAndEdges> {
+    let elkNode = propagatorNetworkToElkNode(this._net)
+    let positioned = await elk.layout(elkNode)
+
+    return elkToReactFlow(positioned)
   }
 
   public getRelativeSpacingCells(): CellRef[] {
@@ -291,6 +306,6 @@ class ParentChildConstraint implements Constraint {
 
   public apply(spacingMap: SpacingMap): void {
     let ySpacing = spacingMap.getYSpacing(this._parentId, this._childId)
-    spacingMap.net.writeCell(ySpacing, known(between(VERTICAL_PADDING, VERTICAL_PADDING * 1.5)))
+    spacingMap.net.writeCell(ySpacing, known(between(VERTICAL_PADDING, VERTICAL_PADDING * 1.3)))
   }
 }

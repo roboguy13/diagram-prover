@@ -2,7 +2,7 @@ import { rollbackChange, advanceChange, applyModelUpdates, Model, setNode, updat
 import { EditorMsg } from './EditorMsg';
 import { NodeChange, NodePositionChange, NodeSelectionChange, EdgeChange } from '@xyflow/react';
 import { Cmd } from '../../architecture/Cmd';
-import { updateGraphLayout } from '../../render/layout/UpdateGraphLayout';
+import { renderLayoutDebugInfo, updateGraphLayout } from '../../render/layout/UpdateGraphLayout';
 
 export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] {
   switch (msg.type) {
@@ -21,6 +21,15 @@ export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] 
     case 'GraphLayoutReady':
       console.log('Graph layout ready:', msg.graph);
       return [{ ...model, graph: msg.graph }, null];
+
+    case 'ToggleDebugPropagatorsMode':
+      if (model.mode === 'normal-mode') {
+        let newModel: Model= { ...model, mode: 'debug-propagators-mode' }
+        return [ newModel, { kind: 'UpdateFlow', graphPromise: renderLayoutDebugInfo(model, getCurrentTerm(newModel)) } ]
+      } else {
+        let newModel: Model = { ...model, mode: 'normal-mode' }
+        return [ newModel, { kind: 'UpdateFlow', graphPromise: updateGraphLayout(newModel, getCurrentTerm(newModel)) } ]
+      }
 
     case 'BetaStepMsg': {
       let newModel = advanceChange(model)

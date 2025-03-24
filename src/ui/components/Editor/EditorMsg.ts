@@ -11,3 +11,4 @@ export type EditorMsg =
   | { type: 'BetaStepMsg' }
   | { type: 'StepBackMsg' }
   | { type: 'ResetUpdateCenter' }
+  | { type: 'ToggleDebugPropagatorsMode' }

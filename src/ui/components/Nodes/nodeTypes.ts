@@ -19,6 +19,9 @@ export type GroupedNode = Node<
   },
   'grouped'>;
 
+export type PropagatorNode = Node<{ label: string }, 'propagator'>;
+export type PropagatorCellNode = Node<{ label: string }, 'propagator-cell'>;
+
 // export type GroupNode = Node<{ label: string }, 'group'>;
 
-export type AppNode = BuiltInNode | TermNode | PositionLoggerNode | GroupedNode;
+export type AppNode = BuiltInNode | TermNode | PositionLoggerNode | GroupedNode | PropagatorNode | PropagatorCellNode;

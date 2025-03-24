@@ -6,7 +6,7 @@ import { toFlow } from '../LayoutEngine';
 import { elkToReactFlow } from "./ElkToReactFlow";
 import ELK from 'elkjs/lib/elk.bundled.js'
 
-const elk = new ELK();
+export const elk = new ELK();
 
 export class ElkEngine implements LayoutEngine<ElkNode> {
   fromSemanticNode(n: SemanticNode<void>): Promise<ElkNode> {
@@ -22,5 +22,9 @@ export class ElkEngine implements LayoutEngine<ElkNode> {
 
   async toReactFlow(g: ElkNode): Promise<NodesAndEdges> {
     return elkToReactFlow(g)
+  }
+
+  async renderDebugInfo(g: ElkNode): Promise<NodesAndEdges> {
+    return { nodes: new Map(), edges: [] }
   }
 }

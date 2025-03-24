@@ -4,6 +4,7 @@
 import { Semigroup } from 'fp-ts/Semigroup'
 import { PartialSemigroup } from './PartialSemigroup'
 import { isEqual } from 'lodash'
+import { DesktopIcon } from '@radix-ui/react-icons'
 
 const DEBUG_PROPAGATOR_NETWORK = true
 
@@ -155,12 +156,23 @@ export function waitForKnown<A>(cell: Cell<A>): Promise<A> {
 
 export type CellRef = number
 
+export type PropagatorDescription = { description: string, inputs: CellRef[], outputs: CellRef[] }
+
 export class PropagatorNetwork<A> {
   private _cells: Cell<A>[] = []
   private _pSemigroup: PartialSemigroup<A>
+  private _propagatorConnections: Array<PropagatorDescription> = []
 
   constructor(pSemigroup: PartialSemigroup<A>) {
     this._pSemigroup = pSemigroup
+  }
+
+  public get propagatorConnections(): Array<PropagatorDescription> {
+    return this._propagatorConnections
+  }
+
+  public getCellRefs(): CellRef[] {
+    return this._cells.map((_, i) => i)
   }
 
   checkpoint(): void {
@@ -234,9 +246,20 @@ export class PropagatorNetwork<A> {
     return this._cells[cellRef]!.description
   }
 
+  private addPropagatorConnection =
+    DEBUG_PROPAGATOR_NETWORK
+        ?
+      (description: string, inputs: CellRef[], outputs: CellRef[]) => {
+        this._propagatorConnections.push({ description, inputs, outputs })
+      }
+        :
+      (_description: string, _input: CellRef[], _output: CellRef[]) => { }
+
   unaryPropagator(input: CellRef, output: CellRef, f: (a: A) => A) {
     let inputCell = this._cells[input]!
     let outputCell = this._cells[output]!
+
+    this.addPropagatorConnection(`unaryPropagator(${inputCell.description}, ${outputCell.description})`, [input], [output])
 
     inputCell.watch(content => {
       outputCell.write(mapContent(f)(content))
@@ -247,6 +270,8 @@ export class PropagatorNetwork<A> {
     let input1Cell = this._cells[input1]!
     let input2Cell = this._cells[input2]!
     let outputCell = this._cells[output]!
+
+    this.addPropagatorConnection(`binaryPropagator(${input1Cell.description}, ${input2Cell.description}, ${outputCell.description})`, [input1, input2], [output])
 
     input1Cell.watch(content1 => {
       let content2 = input2Cell.read()
@@ -263,6 +288,8 @@ export class PropagatorNetwork<A> {
     let inputCell = this._cells[input]!
     let outputCell = this._cells[output]!
 
+    this.addPropagatorConnection(`unaryPropagatorBind(${inputCell.description}, ${outputCell.description})`, [input], [output])
+
     inputCell.watch(content => {
       outputCell.write(bindContent(f)(content))
     })
@@ -272,6 +299,8 @@ export class PropagatorNetwork<A> {
     let input1Cell = this._cells[input1]!
     let input2Cell = this._cells[input2]!
     let outputCell = this._cells[output]!
+
+    this.addPropagatorConnection(`binaryPropagatorBind(${input1Cell.description}, ${input2Cell.description}, ${outputCell.description})`, [input1, input2], [output])
 
     input1Cell.watch(content1 => {
       let content2 = input2Cell.read()
@@ -288,6 +317,8 @@ export class PropagatorNetwork<A> {
     let inputCells = inputs.map(input => this._cells[input]!)
     let outputCell = this._cells[output]!
 
+    this.addPropagatorConnection(`naryPropagator(${inputCells.map(cell => cell.description).join(', ')}, ${outputCell.description})`, inputs, [output])
+
     inputCells.forEach((inputCell, i) => {
       inputCell.watch(content => {
         let contentsBeforeIx = inputCells.slice(0, i).map(inputCell => inputCell.read())
@@ -299,6 +330,8 @@ export class PropagatorNetwork<A> {
   }
 
   equalPropagator(cell1: CellRef, cell2: CellRef): void {
+    this.addPropagatorConnection(`equalPropagator(${this._cells[cell1]!.description}, ${this._cells[cell2]!.description})`, [cell1], [cell2])
+
     this.unaryPropagator(cell1, cell2, a => a)
     this.unaryPropagator(cell2, cell1, a => a)
   }

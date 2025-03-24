@@ -4,8 +4,9 @@ import { LayoutEngine, NodesAndEdges } from "../LayoutEngine";
 import { AbsolutePositionMap, ConstraintCalculator } from "./SpacingConstraints";
 import { Locator } from "./Locator";
 import { AppNode } from "../../../components/Nodes/nodeTypes";
+import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/PropagatorToElk";
 
-type InternalRep = [AbsolutePositionMap, SemanticNode<void>, Edge[], string | null]
+type InternalRep = [ConstraintCalculator, SemanticNode<void>, Edge[], string | null]
 
 export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
   public fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<InternalRep> {
@@ -13,12 +14,15 @@ export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
       const constraintCalculator = new ConstraintCalculator(n)
       const edges = getEdges(n)
 
-      resolve([constraintCalculator.absolutePositionMap, n, edges, activeRedexId])
+      resolve([constraintCalculator, n, edges, activeRedexId])
     })
   }
 
   public toReactFlow(g: InternalRep): Promise<NodesAndEdges> {
-    let [absolutePositionMap, n, edges, activeRedexId] = g
+    let [constraintCalculator, n, edges, activeRedexId] = g
+
+    let absolutePositionMap = constraintCalculator.absolutePositionMap
+
     let locator = new Locator(absolutePositionMap, n.id, { x: 0, y: 0 })
 
     let appNodes = new Map<string, AppNode>()
@@ -28,6 +32,11 @@ export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
       nodes: appNodes,
       edges: edges
     })
+  }
+
+  public renderDebugInfo(g: InternalRep): Promise<NodesAndEdges> {
+    let [constraintCalculator, _n, _edges, _activeRedexId] = g
+    return constraintCalculator.renderDebugInfo()
   }
 
   traverseSemanticNode(n: SemanticNode<void>, locator: Locator, result: Map<string, AppNode>, activeRedexId: string | null): void {

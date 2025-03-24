@@ -57,7 +57,7 @@ function newEdgeId(): string {
   return 'edge' + edgeId;
 }
 
-function collectElkEdges(elk: ElkNode): ElkExtendedEdge[] {
+export function collectElkEdges(elk: ElkNode): ElkExtendedEdge[] {
   const localEdges: any[] = (elk.edges ?? [])
     .filter(edge => edge.sources?.[0] !== undefined && edge.targets?.[0] !== undefined)
     .map((edge, index) => {

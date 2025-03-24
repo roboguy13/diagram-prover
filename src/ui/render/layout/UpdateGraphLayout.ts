@@ -12,3 +12,13 @@ export function updateGraphLayout(model: Model, term: Term): Promise<NodesAndEdg
 
   return toFlow(theLayoutEngine, semanticGraph, activeRedexId);
 }
+
+export async function renderLayoutDebugInfo(model: Model, term: Term): Promise<NodesAndEdges> {
+  let semanticGraph = termToSemanticNode(term);
+
+  const [_, activeRedexId] = getNextChangedId(model)
+
+  let ir = await theLayoutEngine.fromSemanticNode(semanticGraph, activeRedexId);
+
+  return theLayoutEngine.renderDebugInfo(ir);
+}

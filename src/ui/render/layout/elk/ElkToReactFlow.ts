@@ -1,5 +1,5 @@
 import { ElkNode } from 'elkjs'
-import { AppNode, GroupedNode, TermNode } from '../../../components/Nodes/nodeTypes'
+import { AppNode, GroupedNode, PropagatorCellNode, PropagatorNode, TermNode } from '../../../components/Nodes/nodeTypes'
 
 import { Edge } from '@xyflow/react'
 import { inputHandleName, outputHandleName } from '../../../NodeUtils'
@@ -18,8 +18,8 @@ export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
       id: edge.id,
       source: edge.source,
       target: edge.target,
-      sourceHandle: edge.sourceHandle || outputHandleName(0),
-      targetHandle: edge.targetHandle || inputHandleName(0),
+      // sourceHandle: edge.sourceHandle || outputHandleName(0),
+      // targetHandle: edge.targetHandle || inputHandleName(0),
       type: "default"
     };
     
@@ -50,6 +50,28 @@ function flattenElkNodes(node: ElkNode, parentId?: string): AppNode[] {
   const label = theLabel?.text ? theLabel.text : '';
 
   switch (kindLabel!.text) {
+    case 'propagator-node': {
+      const current: PropagatorNode = {
+        id: node.id,
+        data: { label },
+        type: 'propagator',
+        position: { x: node.x || 0, y: node.y || 0 },
+        ...parentId && { parentId: parentId, extent: 'parent' },
+      }
+      return [current];
+    }
+
+    case 'propagator-cell-node': {
+      const current: PropagatorCellNode = {
+        id: node.id,
+        data: { label },
+        type: 'propagator-cell',
+        position: { x: node.x || 0, y: node.y || 0 },
+        ...parentId && { parentId: parentId, extent: 'parent' },
+      }
+      return [current];
+    }
+
     case 'Transpose': {
       const children = (node.children || []).flatMap(child => flattenElkNodes(child, node.id));
 
@@ -95,8 +117,8 @@ function collectElkEdges(elk: ElkNode): Edge[] {
         source: edge.sources[0]!,
         target: edge.targets[0]!,
 
-        sourceHandle: outputHandleName(0),
-        targetHandle: inputHandleName(index), // TODO
+        // sourceHandle: outputHandleName(0),
+        // targetHandle: inputHandleName(index), // TODO
 
         // sourceHandle: outputHandleName(index),
         // targetHandle: inputHandleName(0), // TODO

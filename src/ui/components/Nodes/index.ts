@@ -6,6 +6,8 @@ import { mkTermNode } from './TermNode/TermNodeComponent';
 import { AppNode, type GroupedNode } from './nodeTypes';
 import { makeGroupedNode } from './GroupedNode/GroupedNodeComponent';
 import { Model } from '../../architecture/Model';
+import { mkPropagatorNode } from './PropagatorNode/PropagatorNodeComponent';
+import { mkPropagatorCellNode } from './PropagatorCellNode/PropagatorCellNodeComponent';
 
 export const wireYourIdeas = [
   { id: 'a', type: 'input', position: { x: 0, y: 0 }, data: { label: 'wire' }, parentId: 'group-1', extent: 'parent' },
@@ -45,4 +47,6 @@ export const nodeTypes = {
   'term': mkTermNode,
   // 'subdiagram': Subdiagram,
   'grouped': makeGroupedNode,
+  'propagator': mkPropagatorNode,
+  'propagator-cell': mkPropagatorCellNode,
 } satisfies NodeTypes;
