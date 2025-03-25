@@ -28,7 +28,7 @@ export function conflictToElkNode<A>(net: PropagatorNetwork<A>, conflict: Confli
     layoutOptions: elkOptions,
     edges:
       [ { id: 'edge-1', labels: [ { text: JSON.stringify(conflict.oldContent) } ], sources: [elkList[0]!.id], targets: [elkList[1]!.id] },
-        { id: 'edge-2', labels: [ { text: JSON.stringify(conflict.newContent) } ], sources: [elkList[0]!.id], targets: [elkList[2]!.id] }
+        { id: 'edge-2', labels: [ { text: JSON.stringify(conflict.newContent) } ], sources: [elkList[2]!.id], targets: [elkList[0]!.id] }
       ],
   }
 }
@@ -38,7 +38,7 @@ export function conflictToElkNodeList<A>(net: PropagatorNetwork<A>, conflict: Co
   let propagatorNode1 = propagatorDescriptionToElkNode(net)(conflict.propagator1)
   let propagatorNode2 = propagatorDescriptionToElkNode(net)(conflict.propagator2)
 
-  return [cellNode, propagatorNode1, propagatorNode2]
+  return [cellNode, { ... propagatorNode1, edges: [] }, { ... propagatorNode2, edges: [] }]
 }
 
 // const elkOptions = {

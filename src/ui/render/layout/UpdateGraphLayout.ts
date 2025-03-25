@@ -4,6 +4,7 @@ import { conflictToElkNode } from "../../../constraint/propagator/PropagatorToEl
 import { Term } from "../../../engine/Term";
 import { termToSemanticNode } from "../../../ir/SemanticGraph";
 import { getNextChangedId, Model } from "../../architecture/Model";
+import { elk } from "./elk/ElkEngine";
 import { elkToReactFlow } from "./elk/ElkToReactFlow";
 import { NodesAndEdges } from "./LayoutEngine";
 import { toFlow } from './LayoutEngine';
@@ -27,7 +28,7 @@ export function updateGraphLayout(model: Model, term: Term): Promise<NodesAndEdg
 export async function renderLayoutConflictInfo(net: PropagatorNetwork<NumericRange>, conflict: Conflict<NumericRange>): Promise<NodesAndEdges> {
   let elkNode = conflictToElkNode(net, conflict)
 
-  return elkToReactFlow(elkNode)
+  return elkToReactFlow(await elk.layout(elkNode))
 }
 
 export async function renderLayoutDebugInfo(model: Model, term: Term): Promise<NodesAndEdges> {
