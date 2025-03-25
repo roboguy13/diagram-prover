@@ -1,6 +1,6 @@
 import { XYPosition } from "@xyflow/react"
 import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
-import { CellRef, ConflictHandler, equalPropagator, known, mapContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
+import { CellRef, ConflictHandler, ContentIsNotKnownError, equalPropagator, known, mapContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
 import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
 import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
 import { isArrayLike } from "lodash";
@@ -32,7 +32,14 @@ export class ConstraintCalculator {
     let [levelMap, _breadthIndexMap, _indexedNodes] = computeIndexedNodes(root)
     this.generateCousinConstraints(levelMap)
 
-    // this.minimizeSpacings()
+    try {
+      this.minimizeSpacings()
+    } catch (e) {
+      if (e instanceof ContentIsNotKnownError) {
+      } else {
+        throw e
+      }
+    }
 
     let nodeIds = getNodeIds(root)
     this.generateAbsolutePositionMap(nodeIds)
@@ -263,7 +270,7 @@ class SiblingConstraint implements Constraint {
     let ySpacing = spacingMap.getYSpacing(this._nodeId1, this._nodeId2)
 
     // spacingMap.net.writeCell({ description: `xSpacing ∈ [${HORIZONTAL_PADDING}, ${HORIZONTAL_PADDING*2}]`, inputs: [xSpacing], outputs: [] }, xSpacing, known(between(HORIZONTAL_PADDING, HORIZONTAL_PADDING * 2)))
-    writeBetweenPropagator(spacingMap.net, xSpacing, HORIZONTAL_PADDING, HORIZONTAL_PADDING * 1.99)
+    writeBetweenPropagator(spacingMap.net, xSpacing, HORIZONTAL_PADDING, HORIZONTAL_PADDING * 2)
 
     spacingMap.net.writeCell({ description: 'ySpacing = 0', inputs: [ySpacing], outputs: [] }, ySpacing, known(exactly(0)))
   }

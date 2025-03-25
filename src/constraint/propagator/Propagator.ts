@@ -176,6 +176,7 @@ export class PropagatorNetwork<A> {
   private _conflict: Conflict<A> | null = null
   private _conflictHandlers: ConflictHandler<A>[] = []
   private _isInconsistent = false
+  private _conflictHandlersEnabled: boolean = true
 
   constructor(pSemigroup: PartialSemigroup<A>, conflictHandlers: ConflictHandler<A>[]) {
     conflictHandlers.push(net => conflict => {
@@ -184,6 +185,22 @@ export class PropagatorNetwork<A> {
 
     this._pSemigroup = pSemigroup
     this._conflictHandlers = conflictHandlers
+  }
+
+  public disableConflictHandlers() {
+    this._conflictHandlersEnabled = false
+  }
+
+  public enableConflictHandlers() {
+    this._conflictHandlersEnabled = true
+  }
+
+  public get conflictHandlersEnabled(): boolean {
+    return this._conflictHandlersEnabled
+  }
+
+  public get conflictHandlers(): ConflictHandler<A>[] {
+    return this._conflictHandlers
   }
 
   public get propagatorConnections(): Array<PropagatorDescription> {
@@ -242,7 +259,7 @@ export class PropagatorNetwork<A> {
 
   newCell(description: string, content: Content<A>): CellRef {
     let cellRef = this._cells.length
-    this._cells.push(new Cell(this._pSemigroup, cellRef, description, this._conflictHandlers.map(f => f(this)), content))
+    this._cells.push(new Cell(this, this._pSemigroup, cellRef, description, this._conflictHandlers.map(f => f(this)), content))
     return cellRef
   }
 
@@ -403,11 +420,11 @@ export class ContentIsNotKnownError extends Error {
 }
 
 class Cell<A> {
+  private _net: PropagatorNetwork<A>
   private _content: Content<A>
   private _subscribers: Array<(content: Content<A>) => void> = []
   private _pSemigroup: PartialSemigroup<A>
   private readonly _description: string
-  private _conflictHandlers: ((conflict: Conflict<A>) => void)[]
 
   private _lastWriter: PropagatorDescription | null = null
 
@@ -415,12 +432,12 @@ class Cell<A> {
 
   private _ref: number
 
-  constructor(pSemigroup: PartialSemigroup<A>, ref: number, description: string, conflictHandlers: ((conflict: Conflict<A>) => void)[], content: Content<A> = { kind: 'Unknown' }) {
+  constructor(net: PropagatorNetwork<A>, pSemigroup: PartialSemigroup<A>, ref: number, description: string, conflictHandlers: ((conflict: Conflict<A>) => void)[], content: Content<A> = { kind: 'Unknown' }) {
+    this._net = net
     this._pSemigroup = pSemigroup
     this._content = content
     this._description = description
     this._ref = ref
-    this._conflictHandlers = conflictHandlers
   }
 
   get description(): string {
@@ -464,8 +481,8 @@ class Cell<A> {
 
     switch (this._content.kind) {
         case 'Inconsistent':
-          if (this._conflictHandlers.length > 0) {
-            this._conflictHandlers.forEach(handler => handler({
+          if (this._net.conflictHandlersEnabled && this._net.conflictHandlers.length > 0) {
+            this._net.conflictHandlers.forEach(handler => handler(this._net)({
               cell: this._ref,
               oldContent: previousContent,
               newContent: content,

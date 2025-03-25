@@ -22,13 +22,21 @@ export class Minimizer {
   }
 
   public minimize(): void {
-    let success = this.minimizeCellsBacktracking(0)
-    if (!success) {
-      throw new Error("Could not find a consistent minimization.")
-    }
+    const conflictHandlersOriginallyEnabled = this._net.conflictHandlersEnabled
+    this._net.disableConflictHandlers()
+    try {
+      let success = this.minimizeCellsBacktracking(0)
+      if (!success) {
+        throw new Error("Could not find a consistent minimization.")
+      }
 
-    if (DEBUG_MINIMIZE) {
-      this.verifyMinimized()
+      if (DEBUG_MINIMIZE) {
+        this.verifyMinimized()
+      }
+    } finally {
+      if (conflictHandlersOriginallyEnabled) {
+        this._net.enableConflictHandlers()
+      }
     }
   }
 
