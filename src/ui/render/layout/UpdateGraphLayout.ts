@@ -19,13 +19,23 @@ export function updateGraphLayout(model: Model, term: Term): Promise<NodesAndEdg
   const [_, activeRedexId] = getNextChangedId(model)
 
   return toFlow(theLayoutEngine, semanticGraph, activeRedexId).catch(err => {
-      console.error('Error updating graph layout:', err);
+      // console.error('Error updating graph layout:', err);
       return { nodes: new Map(), edges: [] };
     })
 }
 
-export async function renderLayoutDebugInfo(net: PropagatorNetwork<NumericRange>, conflict: Conflict<NumericRange>): Promise<NodesAndEdges> {
+export async function renderLayoutConflictInfo(net: PropagatorNetwork<NumericRange>, conflict: Conflict<NumericRange>): Promise<NodesAndEdges> {
   let elkNode = conflictToElkNode(net, conflict)
 
   return elkToReactFlow(elkNode)
+}
+
+export async function renderLayoutDebugInfo(model: Model, term: Term): Promise<NodesAndEdges> {
+  let semanticGraph = termToSemanticNode(term);
+
+  const [_, activeRedexId] = getNextChangedId(model)
+
+  let ir = await theLayoutEngine.fromSemanticNode(semanticGraph, activeRedexId);
+
+  return theLayoutEngine.renderDebugInfo(ir);
 }

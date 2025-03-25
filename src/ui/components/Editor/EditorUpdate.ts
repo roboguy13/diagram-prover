@@ -2,7 +2,7 @@ import { rollbackChange, advanceChange, applyModelUpdates, Model, setNode, updat
 import { EditorMsg } from './EditorMsg';
 import { NodeChange, NodePositionChange, NodeSelectionChange, EdgeChange } from '@xyflow/react';
 import { Cmd } from '../../architecture/Cmd';
-import { renderLayoutDebugInfo, updateGraphLayout } from '../../render/layout/UpdateGraphLayout';
+import { renderLayoutConflictInfo, renderLayoutDebugInfo, updateGraphLayout } from '../../render/layout/UpdateGraphLayout';
 
 export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] {
   switch (msg.type) {
@@ -25,7 +25,7 @@ export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] 
     case 'ToggleDebugPropagatorsMode':
       if (model.mode === 'normal-mode') {
         let newModel: Model = { ...model, mode: 'debug-propagators-mode' }
-        return [ newModel, null ] //[ newModel, { kind: 'UpdateFlow', graphPromise: renderLayoutDebugInfo(msg.net) } ]
+        return [ newModel, { kind: 'UpdateFlow', graphPromise: renderLayoutDebugInfo(model, getCurrentTerm(model)) } ]
       } else {
         let newModel: Model = { ...model, mode: 'normal-mode' }
         return [ newModel, { kind: 'UpdateFlow', graphPromise: updateGraphLayout(newModel, getCurrentTerm(newModel)) } ]
@@ -33,7 +33,7 @@ export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] 
 
     case 'PropagatorConflict': {
         let newModel: Model = { ...model, mode: 'debug-propagators-mode' }
-        return [ newModel, { kind: 'UpdateFlow', graphPromise: renderLayoutDebugInfo(msg.net, msg.conflict) } ]
+        return [ newModel, { kind: 'UpdateFlow', graphPromise: renderLayoutConflictInfo(msg.net, msg.conflict) } ]
     }
 
 
