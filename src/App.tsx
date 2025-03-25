@@ -126,7 +126,7 @@ export default function App() {
       fitView
     >
       <Background />
-      <MiniMap />
+      <MiniMap position='top-right' />
       <Controls>
         {/* Button for rendering the propagator network as a graph to debug it */}
         <ControlButton onClick={handleLayoutDebug} >

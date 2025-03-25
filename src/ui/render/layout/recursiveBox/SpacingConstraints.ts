@@ -59,15 +59,11 @@ export class ConstraintCalculator {
 
   private generateAbsolutePositionMap(nodeIds: string[]): void {
     for (let nodeId of nodeIds) {
-      console.log('nodeId: ', nodeId)
       let xSpacing = this._spacingMap.getXSpacing(this._rootId, nodeId)
       let ySpacing = this._spacingMap.getYSpacing(this._rootId, nodeId)
 
       let x = this.chooseFromRange(this._spacingMap.net.readKnownOrError(xSpacing, 'x')) ?? 0
       let y = this.chooseFromRange(this._spacingMap.net.readKnownOrError(ySpacing, 'y')) ?? 0
-
-      console.log('x: ', this._spacingMap.net.readKnownOrError(xSpacing, 'x'))
-      console.log('y: ', this._spacingMap.net.readKnownOrError(ySpacing, 'y'))
 
       this._absolutePositionMap.set(nodeId, { x, y })
     }
@@ -218,7 +214,6 @@ class SpacingMap {
     let spacing = this._spacings.get(makeEdgeKey(nodeId1, nodeId2))
 
     if (!spacing) {
-      console.log('nodeId1: ', nodeId1, 'nodeId2: ', nodeId2)
       spacing = {
         isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
         xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(MAX_WIDTH))),
