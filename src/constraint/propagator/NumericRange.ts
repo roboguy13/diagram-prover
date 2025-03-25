@@ -164,26 +164,26 @@ export function partialSemigroupNumericRange(): PartialSemigroup<NumericRange> {
   }
 }
 
-export function addRangePropagator(net: PropagatorNetwork<NumericRange>, a: CellRef, b: CellRef, result: CellRef): void {
+export function addRangePropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, b: CellRef, result: CellRef): void {
   // a + b = result
-  net.binaryPropagator(a, b, result, (aVal: NumericRange, bVal: NumericRange): NumericRange => {
+  net.binaryPropagator(writer, a, b, result, (aVal: NumericRange, bVal: NumericRange): NumericRange => {
     return addNumericRange(aVal, bVal)
   })
 
   // result - a = b
-  net.binaryPropagator(result, a, b, (resultVal: NumericRange, aVal: NumericRange): NumericRange => {
+  net.binaryPropagator(writer, result, a, b, (resultVal: NumericRange, aVal: NumericRange): NumericRange => {
     return subNumericRange(resultVal, aVal)
   })
 
   // result - b = a
-  net.binaryPropagator(result, b, a, (resultVal: NumericRange, bVal: NumericRange): NumericRange => {
+  net.binaryPropagator(writer, result, b, a, (resultVal: NumericRange, bVal: NumericRange): NumericRange => {
     return subNumericRange(resultVal, bVal)
   })
 }
 
-export function addRangeListPropagator(net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
+export function addRangeListPropagator(writer: string, net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
   // a1 + a2 + ... + an = result
-  net.naryPropagator(aList, result, (aListVals: NumericRange[]): NumericRange => {
+  net.naryPropagator(writer, aList, result, (aListVals: NumericRange[]): NumericRange => {
     let result = aListVals[0]!
 
     for (let i = 0; i < aListVals.length; i++) {
@@ -198,7 +198,7 @@ export function addRangeListPropagator(net: PropagatorNetwork<NumericRange>, aLi
     let contentsBeforeIx = aList.slice(0, i)
     let contentsAfterIx = aList.slice(i + 1)
 
-    net.naryPropagator([result, ...contentsBeforeIx, ...contentsAfterIx], aList[i]!, (theRanges: NumericRange[]): NumericRange => {
+    net.naryPropagator(writer, [result, ...contentsBeforeIx, ...contentsAfterIx], aList[i]!, (theRanges: NumericRange[]): NumericRange => {
       let result = theRanges[0]!
       let otherRanges = theRanges.slice(1)
 
@@ -207,26 +207,26 @@ export function addRangeListPropagator(net: PropagatorNetwork<NumericRange>, aLi
   }
 }
 
-export function divNumericRangeNumberPropagator(net: PropagatorNetwork<NumericRange>, a: CellRef, b: number, result: CellRef): void {
+export function divNumericRangeNumberPropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, b: number, result: CellRef): void {
   // a / b = result
-  net.unaryPropagator(a, result, (aVal: NumericRange): NumericRange => {
+  net.unaryPropagator(writer, a, result, (aVal: NumericRange): NumericRange => {
     return divNumericRangeNumber(aVal, b)
   })
 
   // result * b = a
-  net.unaryPropagator(result, a, (resultVal: NumericRange): NumericRange => {
+  net.unaryPropagator(writer, result, a, (resultVal: NumericRange): NumericRange => {
     return addNumericRange(resultVal, exactly(b))
   })
 }
 
-export function negateNumericRangePropagator(net: PropagatorNetwork<NumericRange>, a: CellRef, result: CellRef): void {
+export function negateNumericRangePropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, result: CellRef): void {
   // -a = result
-  net.unaryPropagator(a, result, (aVal: NumericRange): NumericRange => {
+  net.unaryPropagator(writer, a, result, (aVal: NumericRange): NumericRange => {
     return { kind: 'Range', min: -getMax(aVal), max: -getMin(aVal) }
   })
 
   // -result = a
-  net.unaryPropagator(result, a, (resultVal: NumericRange): NumericRange => {
+  net.unaryPropagator(writer, result, a, (resultVal: NumericRange): NumericRange => {
     return { kind: 'Range', min: -getMax(resultVal), max: -getMin(resultVal) }
   })
 }

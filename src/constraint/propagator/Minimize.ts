@@ -52,7 +52,7 @@ export class Minimizer {
     // Try the lower subrange
     this._net.checkpoint()
     try {
-      this._net.writeCell(cell, known(lower))
+      this._net.writeCell({ description: `∈ ${lower}`, inputs: [], outputs: [cell] }, cell, known(lower))
 
       // Keep splitting
       if (this.minimizeCellsBacktracking(index)) {
@@ -66,7 +66,7 @@ export class Minimizer {
     // Try the upper subrange
     this._net.checkpoint()
     try {
-      this._net.writeCell(cell, known(upper))
+      this._net.writeCell({ description: `∈ ${upper}`, inputs: [], outputs: [cell] }, cell, known(upper))
 
       // Keep splitting
       if (this.minimizeCellsBacktracking(index)) {
@@ -78,7 +78,7 @@ export class Minimizer {
     this._net.revert()
 
     this._net.checkpoint()
-    this._net.writeCell(cell, known(range))
+    this._net.writeCell({ description: `∈ ${range}`, inputs: [], outputs: [cell] }, cell, known(range))
     let success = this.minimizeCellsBacktracking(index + 1)
 
     if (!success) {

@@ -1,6 +1,8 @@
 import { NodeChange, EdgeChange } from '@xyflow/react';
 import { ReactFlowInstance } from '@xyflow/react';
 import { NodesAndEdges } from '../../render/layout/LayoutEngine';
+import { NumericRange } from '../../../constraint/propagator/NumericRange';
+import { Conflict, PropagatorNetwork } from '../../../constraint/propagator/Propagator';
 
 export type EditorMsg =
   | { type: 'ConnectMsg', source: string, target: string }
@@ -12,3 +14,4 @@ export type EditorMsg =
   | { type: 'StepBackMsg' }
   | { type: 'ResetUpdateCenter' }
   | { type: 'ToggleDebugPropagatorsMode' }
+  | { type: 'PropagatorConflict', net: PropagatorNetwork<NumericRange>, conflict: Conflict<NumericRange> }

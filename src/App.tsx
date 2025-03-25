@@ -22,6 +22,8 @@ import { initialModel, Model } from './ui/architecture/Model';
 import { topSortNodes } from './ui/render/layout/TopSort';
 import { useElmish } from './ui/architecture/Elmish';
 import { NodesAndEdges } from './ui/render/layout/LayoutEngine';
+import { theLayoutEngine } from './ui/render/layout/LayoutEngineConfig';
+import { debugConfictHandler } from './ui/render/layout/recursiveBox/DebugConflictHandler';
 
 export interface Props {
   nodesAndEdges: NodesAndEdges;
@@ -35,6 +37,13 @@ export default function App() {
 
   let nodes = topSortNodes(state.graph?.nodes ?? new Map<string, AppNode>());
   let edges = state.graph?.edges ?? [];
+
+  useEffect(() => {
+    theLayoutEngine.addConflictHandler(net => conflict => {
+      if (state.mode !== 'debug-propagators-mode')
+        debugConfictHandler(dispatch)(net)(conflict)
+      })
+  }, [])
 
   useEffect(() => {
     if (state.updateCenter && reactFlowInstance) {

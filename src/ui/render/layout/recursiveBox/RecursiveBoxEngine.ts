@@ -1,17 +1,28 @@
 import { Edge } from "@xyflow/react";
 import { getEdges, getImmediateEdges, SemanticNode } from "../../../../ir/SemanticGraph";
 import { LayoutEngine, NodesAndEdges } from "../LayoutEngine";
-import { AbsolutePositionMap, ConstraintCalculator } from "./SpacingConstraints";
+import { ConstraintCalculator } from "./SpacingConstraints";
 import { Locator } from "./Locator";
 import { AppNode } from "../../../components/Nodes/nodeTypes";
-import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/PropagatorToElk";
+import { ConflictHandler } from "../../../../constraint/propagator/Propagator";
+import { NumericRange } from "../../../../constraint/propagator/NumericRange";
 
 type InternalRep = [ConstraintCalculator, SemanticNode<void>, Edge[], string | null]
 
 export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
+  private _conflictHandlers: ConflictHandler<NumericRange>[]
+
+  constructor() {
+    this._conflictHandlers = []
+  }
+
+  addConflictHandler(handler: ConflictHandler<NumericRange>) {
+    this._conflictHandlers.push(handler)
+  }
+
   public fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<InternalRep> {
     return new Promise<InternalRep>((resolve, _reject) => {
-      const constraintCalculator = new ConstraintCalculator(n)
+      const constraintCalculator = new ConstraintCalculator(n, this._conflictHandlers)
       const edges = getEdges(n)
 
       resolve([constraintCalculator, n, edges, activeRedexId])

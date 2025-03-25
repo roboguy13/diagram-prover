@@ -1,6 +1,6 @@
 import { XYPosition } from "@xyflow/react"
 import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
-import { CellRef, equalPropagator, known, mapContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
+import { CellRef, ConflictHandler, equalPropagator, known, mapContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
 import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
 import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
 import { isArrayLike } from "lodash";
@@ -23,8 +23,8 @@ export class ConstraintCalculator {
   private _absolutePositionMap: Map<string, XYPosition> = new Map()
   private readonly _rootId: string
 
-  constructor(root: SemanticNode<void>) {
-    this._spacingMap = new SpacingMap(root.id)
+  constructor(root: SemanticNode<void>, conflictHandlers: ConflictHandler<NumericRange>[]) {
+    this._spacingMap = new SpacingMap(root.id, conflictHandlers)
     this._rootId = root.id
 
     this.generateConstraints(root)
@@ -32,7 +32,7 @@ export class ConstraintCalculator {
     let [levelMap, _breadthIndexMap, _indexedNodes] = computeIndexedNodes(root)
     this.generateCousinConstraints(levelMap)
 
-    this.minimizeSpacings()
+    // this.minimizeSpacings()
 
     let nodeIds = getNodeIds(root)
     this.generateAbsolutePositionMap(nodeIds)
@@ -137,11 +137,13 @@ type Spacing = {
 
 class SpacingMap {
   private _spacings: Map<string, Spacing> = new Map()
-  private _net: PropagatorNetwork<NumericRange> = new PropagatorNetwork(partialSemigroupNumericRange())
+  private _net: PropagatorNetwork<NumericRange>
   private _rootNodeId: string
 
-  constructor(rootNodeId: string) {
+  constructor(rootNodeId: string, conflictHandlers: ConflictHandler<NumericRange>[]) {
     this._rootNodeId = rootNodeId
+
+    this._net = new PropagatorNetwork<NumericRange>(partialSemigroupNumericRange(), conflictHandlers)
 
     this._spacings.set(makeEdgeKey(rootNodeId, rootNodeId), {
       isRelative: false,
@@ -185,14 +187,14 @@ class SpacingMap {
     let otherRootSpacing = this.getRootSpacing(otherNodeId)
     let otherCurrSpacing = this.getSpacing(otherNodeId, currNodeId)
 
-    addRangePropagator(
+    addRangePropagator('refine root spacing (X)',
       this._net,
       otherRootSpacing.xSpacing,
       otherCurrSpacing.xSpacing,
       currRootSpacing.xSpacing
     )
 
-    addRangePropagator(
+    addRangePropagator('refine root spacing (Y)',
       this._net,
       otherRootSpacing.ySpacing,
       otherCurrSpacing.ySpacing,
@@ -222,8 +224,8 @@ class SpacingMap {
         ySpacing: this._net.newCell('negative Y spacing between ' + nodeId1 + ' and ' + nodeId2, unknown()),
       }
 
-      negateNumericRangePropagator(this._net, spacing.xSpacing, negativeSpacing.xSpacing)
-      negateNumericRangePropagator(this._net, spacing.ySpacing, negativeSpacing.ySpacing)
+      negateNumericRangePropagator('negate', this._net, spacing.xSpacing, negativeSpacing.xSpacing)
+      negateNumericRangePropagator('negate', this._net, spacing.ySpacing, negativeSpacing.ySpacing)
 
       this._spacings.set(makeEdgeKey(nodeId1, nodeId2), spacing)
       this._spacings.set(makeEdgeKey(nodeId2, nodeId1), negativeSpacing)
@@ -260,9 +262,10 @@ class SiblingConstraint implements Constraint {
     let xSpacing = spacingMap.getXSpacing(this._nodeId1, this._nodeId2)
     let ySpacing = spacingMap.getYSpacing(this._nodeId1, this._nodeId2)
 
-    spacingMap.net.writeCell(xSpacing, known(between(HORIZONTAL_PADDING, HORIZONTAL_PADDING * 2)))
+    // spacingMap.net.writeCell({ description: `xSpacing ∈ [${HORIZONTAL_PADDING}, ${HORIZONTAL_PADDING*2}]`, inputs: [xSpacing], outputs: [] }, xSpacing, known(between(HORIZONTAL_PADDING, HORIZONTAL_PADDING * 2)))
+    writeBetweenPropagator(spacingMap.net, xSpacing, HORIZONTAL_PADDING, HORIZONTAL_PADDING * 1.99)
 
-    spacingMap.net.writeCell(ySpacing, known(exactly(0)))
+    spacingMap.net.writeCell({ description: 'ySpacing = 0', inputs: [ySpacing], outputs: [] }, ySpacing, known(exactly(0)))
   }
 }
 
@@ -281,17 +284,19 @@ class MidpointConstraint implements Constraint {
     if (this._childIds.length === 0) {
       return
     }
-    
+
     let leftmostChild = this._childIds[0]!
     let rightmostChild = this._childIds[this._childIds.length - 1]!
 
     let parentToRightSpacing = spacingMap.getXSpacing(this._parentId, rightmostChild)
     let parentToLeftSpacing = spacingMap.getXSpacing(this._parentId, leftmostChild)
 
-    spacingMap.net.writeCell(parentToRightSpacing, known(atLeast(HORIZONTAL_PADDING / 2)))
+    // spacingMap.net.writeCell({ description: `parentToRightSpacing ∈ [${HORIZONTAL_PADDING/2}, ∞)`, inputs: [parentToRightSpacing], outputs: [] }, parentToRightSpacing, known(atLeast(HORIZONTAL_PADDING / 2)))
+    writeAtLeastPropagator(spacingMap.net, parentToRightSpacing, HORIZONTAL_PADDING / 2)
+
     // spacingMap.net.writeCell(parentToLeftSpacing, known(atMost(-HORIZONTAL_PADDING / 2)))
 
-    negateNumericRangePropagator(spacingMap.net, parentToLeftSpacing, parentToRightSpacing)
+    negateNumericRangePropagator('negate', spacingMap.net, parentToLeftSpacing, parentToRightSpacing)
   }
 }
 
@@ -306,6 +311,15 @@ class ParentChildConstraint implements Constraint {
 
   public apply(spacingMap: SpacingMap): void {
     let ySpacing = spacingMap.getYSpacing(this._parentId, this._childId)
-    spacingMap.net.writeCell(ySpacing, known(between(VERTICAL_PADDING, VERTICAL_PADDING * 1.3)))
+    writeBetweenPropagator(spacingMap.net, ySpacing, VERTICAL_PADDING, VERTICAL_PADDING * 1.2)
+    // spacingMap.net.writeCell({ description: `ySpacing ∈ []` }, ySpacing, known(between(VERTICAL_PADDING, VERTICAL_PADDING * 1.3)))
   }
+}
+
+function writeBetweenPropagator(net: PropagatorNetwork<NumericRange>, cell: CellRef, min: number, max: number): void {
+  net.writeCell({ description: `cell ∈ [${min}, ${max}]`, inputs: [], outputs: [cell] }, cell, known(between(min, max)))
+}
+
+function writeAtLeastPropagator(net: PropagatorNetwork<NumericRange>, cell: CellRef, min: number): void {
+  net.writeCell({ description: `cell ∈ [${min}, ∞)`, inputs: [], outputs: [cell] }, cell, known(atLeast(min)))
 }

@@ -27,11 +27,10 @@
 .propagator-node {
   padding: 10px;
   border: 1px solid #1a192b;
-  border-radius: 20%;
   background: #fff;
   text-align: center;
-  width: 30px;
-  height: 30px;
+  width: 85px;
+  height: 85px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -52,8 +51,8 @@
   border-radius: 80%;
   background: #fff;
   text-align: center;
-  width: 30px;
-  height: 30px;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;

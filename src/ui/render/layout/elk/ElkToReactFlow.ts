@@ -18,6 +18,7 @@ export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
       id: edge.id,
       source: edge.source,
       target: edge.target,
+      label: edge.label,
       // sourceHandle: edge.sourceHandle || outputHandleName(0),
       // targetHandle: edge.targetHandle || inputHandleName(0),
       type: "default"
@@ -116,6 +117,8 @@ function collectElkEdges(elk: ElkNode): Edge[] {
         id: edge.id,
         source: edge.sources[0]!,
         target: edge.targets[0]!,
+
+        label: edge.labels?.[0]?.text,
 
         // sourceHandle: outputHandleName(0),
         // targetHandle: inputHandleName(index), // TODO

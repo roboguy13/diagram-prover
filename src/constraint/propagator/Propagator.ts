@@ -158,17 +158,44 @@ export type CellRef = number
 
 export type PropagatorDescription = { description: string, inputs: CellRef[], outputs: CellRef[] }
 
+export type Conflict<A> =
+  { cell: CellRef
+  , oldContent: Content<A>
+  , newContent: Content<A>
+  , propagator1: PropagatorDescription
+  , propagator2: PropagatorDescription
+  }
+
+export type ConflictHandler<A> =
+  (net: PropagatorNetwork<A>) => (conflict: Conflict<A>) => void
+
 export class PropagatorNetwork<A> {
   private _cells: Cell<A>[] = []
   private _pSemigroup: PartialSemigroup<A>
   private _propagatorConnections: Array<PropagatorDescription> = []
+  private _conflict: Conflict<A> | null = null
+  private _conflictHandlers: ConflictHandler<A>[] = []
+  private _isInconsistent = false
 
-  constructor(pSemigroup: PartialSemigroup<A>) {
+  constructor(pSemigroup: PartialSemigroup<A>, conflictHandlers: ConflictHandler<A>[]) {
+    conflictHandlers.push(net => conflict => {
+      this._isInconsistent = true
+    })
+
     this._pSemigroup = pSemigroup
+    this._conflictHandlers = conflictHandlers
   }
 
   public get propagatorConnections(): Array<PropagatorDescription> {
     return this._propagatorConnections
+  }
+
+  public get conflict(): Conflict<A> | null {
+    return this._conflict
+  }
+
+  public get isInconsistent(): boolean {
+    return this._isInconsistent
   }
 
   public getCellRefs(): CellRef[] {
@@ -214,8 +241,9 @@ export class PropagatorNetwork<A> {
   }
 
   newCell(description: string, content: Content<A>): CellRef {
-    this._cells.push(new Cell(this._pSemigroup, description, content))
-    return this._cells.length - 1
+    let cellRef = this._cells.length
+    this._cells.push(new Cell(this._pSemigroup, cellRef, description, this._conflictHandlers.map(f => f(this)), content))
+    return cellRef
   }
 
   watchCell(cellRef: CellRef, subscriber: (content: Content<A>) => void) {
@@ -226,16 +254,16 @@ export class PropagatorNetwork<A> {
     return this._cells[cellRef]!.read()
   }
 
-  writeCell(cellRef: CellRef, content: Content<A>) {
-    return this._cells[cellRef]!.write(content)
+  writeCell(writer: PropagatorDescription, cellRef: CellRef, content: Content<A>) {
+    return this._cells[cellRef]!.write(writer, content)
   }
 
-  updateCell(cellRef: CellRef, f: (content: Content<A>) => Content<A>) {
-    return this._cells[cellRef]!.update(f)
+  updateCell(writer: PropagatorDescription, cellRef: CellRef, f: (content: Content<A>) => Content<A>) {
+    return this._cells[cellRef]!.update(writer, f)
   }
 
-  updateCellKnown(cellRef: CellRef, f: (value: A) => A) {
-    return this._cells[cellRef]!.updateKnown(f)
+  updateCellKnown(writer: PropagatorDescription, cellRef: CellRef, f: (value: A) => A) {
+    return this._cells[cellRef]!.updateKnown(writer, f)
   }
 
   readKnownOrError(cellRef: CellRef, errMsg: string): A {
@@ -255,67 +283,77 @@ export class PropagatorNetwork<A> {
         :
       (_description: string, _input: CellRef[], _output: CellRef[]) => { }
 
-  unaryPropagator(input: CellRef, output: CellRef, f: (a: A) => A) {
+  unaryPropagator(writer: string, input: CellRef, output: CellRef, f: (a: A) => A) {
     let inputCell = this._cells[input]!
     let outputCell = this._cells[output]!
+
+    let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input], outputs: [output] }
 
     this.addPropagatorConnection(`unaryPropagator(${inputCell.description}, ${outputCell.description})`, [input], [output])
 
     inputCell.watch(content => {
-      outputCell.write(mapContent(f)(content))
+      outputCell.write(propagatorDescription, mapContent(f)(content))
     })
   }
 
-  binaryPropagator(input1: CellRef, input2: CellRef, output: CellRef, f: (a: A, b: A) => A) {
+  binaryPropagator(writer: string, input1: CellRef, input2: CellRef, output: CellRef, f: (a: A, b: A) => A) {
     let input1Cell = this._cells[input1]!
     let input2Cell = this._cells[input2]!
     let outputCell = this._cells[output]!
+
+    let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input1, input2], outputs: [output] }
 
     this.addPropagatorConnection(`binaryPropagator(${input1Cell.description}, ${input2Cell.description}, ${outputCell.description})`, [input1, input2], [output])
 
     input1Cell.watch(content1 => {
       let content2 = input2Cell.read()
-      outputCell.write(map2Content(f)(content1, content2))
+      outputCell.write(propagatorDescription, map2Content(f)(content1, content2))
     })
 
     input2Cell.watch(content2 => {
       let content1 = input1Cell.read()
-      outputCell.write(map2Content(f)(content1, content2))
+      outputCell.write(propagatorDescription, map2Content(f)(content1, content2))
     })
   }
 
-  unaryPropagatorBind(input: CellRef, output: CellRef, f: (a: A) => Content<A>) {
+  unaryPropagatorBind(writer: string, input: CellRef, output: CellRef, f: (a: A) => Content<A>) {
     let inputCell = this._cells[input]!
     let outputCell = this._cells[output]!
+
+    let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input], outputs: [output] }
 
     this.addPropagatorConnection(`unaryPropagatorBind(${inputCell.description}, ${outputCell.description})`, [input], [output])
 
     inputCell.watch(content => {
-      outputCell.write(bindContent(f)(content))
+      outputCell.write(propagatorDescription, bindContent(f)(content))
     })
   }
 
-  binaryPropagatorBind(input1: CellRef, input2: CellRef, output: CellRef, f: (a: A, b: A) => Content<A>) {
+  binaryPropagatorBind(writer: string, input1: CellRef, input2: CellRef, output: CellRef, f: (a: A, b: A) => Content<A>) {
     let input1Cell = this._cells[input1]!
     let input2Cell = this._cells[input2]!
     let outputCell = this._cells[output]!
+
+    let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input1, input2], outputs: [output] }
 
     this.addPropagatorConnection(`binaryPropagatorBind(${input1Cell.description}, ${input2Cell.description}, ${outputCell.description})`, [input1, input2], [output])
 
     input1Cell.watch(content1 => {
       let content2 = input2Cell.read()
-      outputCell.write(bindContent2(f)(content1, content2))
+      outputCell.write(propagatorDescription, bindContent2(f)(content1, content2))
     })
 
     input2Cell.watch(content2 => {
       let content1 = input1Cell.read()
-      outputCell.write(bindContent2(f)(content1, content2))
+      outputCell.write(propagatorDescription, bindContent2(f)(content1, content2))
     })
   }
 
-  naryPropagator(inputs: CellRef[], output: CellRef, f: (as: A[]) => A) {
+  naryPropagator(writer: string, inputs: CellRef[], output: CellRef, f: (as: A[]) => A) {
     let inputCells = inputs.map(input => this._cells[input]!)
     let outputCell = this._cells[output]!
+
+    let propagatorDescription: PropagatorDescription = { description: writer, inputs, outputs: [output] }
 
     this.addPropagatorConnection(`naryPropagator(${inputCells.map(cell => cell.description).join(', ')}, ${outputCell.description})`, inputs, [output])
 
@@ -324,104 +362,151 @@ export class PropagatorNetwork<A> {
         let contentsBeforeIx = inputCells.slice(0, i).map(inputCell => inputCell.read())
         let contentsAfterIx = inputCells.slice(i + 1).map(inputCell => inputCell.read())
         let contents = [...contentsBeforeIx, content, ...contentsAfterIx]
-        outputCell.write(mapContentList(f)(contents))
+        outputCell.write(propagatorDescription, mapContentList(f)(contents))
       })
     })
   }
 
-  equalPropagator(cell1: CellRef, cell2: CellRef): void {
+  equalPropagator(writer: string, cell1: CellRef, cell2: CellRef): void {
     this.addPropagatorConnection(`equalPropagator(${this._cells[cell1]!.description}, ${this._cells[cell2]!.description})`, [cell1], [cell2])
 
-    this.unaryPropagator(cell1, cell2, a => a)
-    this.unaryPropagator(cell2, cell1, a => a)
+    this.unaryPropagator(writer, cell1, cell2, a => a)
+    this.unaryPropagator(writer, cell2, cell1, a => a)
   }
 }
 
-export class InconsistentError extends Error {
-  constructor(a: string, b: string) {
-    super(`Inconsistent content: ${a} and ${b}`)
+export class InconsistentError<A> extends Error {
+  private _conflict: Conflict<A>
+
+  constructor(conflict: Conflict<A>) {
+    super(InconsistentError.errorMsgInternal(conflict))
+    this._conflict = conflict
+  }
+
+  get conflict(): Conflict<A> {
+    return this._conflict
+  }
+
+  errorMsg(): string {
+    return InconsistentError.errorMsgInternal(this._conflict)
+  }
+
+  private static errorMsgInternal<A>(conflict: Conflict<A>): string {
+    return `Inconsistent content: ${conflict.cell} ${JSON.stringify(conflict.oldContent)} ${JSON.stringify(conflict.newContent)} ${JSON.stringify(conflict.propagator1)} ${JSON.stringify(conflict.propagator2)}`
+  }
+}
+
+export class ContentIsNotKnownError extends Error {
+  constructor(msg: string) {
+    super('Content is not known: ' + msg)
   }
 }
 
 class Cell<A> {
-  private content: Content<A>
-  private subscribers: Array<(content: Content<A>) => void> = []
-  private pSemigroup: PartialSemigroup<A>
+  private _content: Content<A>
+  private _subscribers: Array<(content: Content<A>) => void> = []
+  private _pSemigroup: PartialSemigroup<A>
   private readonly _description: string
+  private _conflictHandlers: ((conflict: Conflict<A>) => void)[]
 
-  private undoStack: Content<A>[] = []
+  private _lastWriter: PropagatorDescription | null = null
 
-  constructor(pSemigroup: PartialSemigroup<A>, description: string, content: Content<A> = { kind: 'Unknown' }) {
-    this.pSemigroup = pSemigroup
-    this.content = content
+  private _undoStack: Content<A>[] = []
+
+  private _ref: number
+
+  constructor(pSemigroup: PartialSemigroup<A>, ref: number, description: string, conflictHandlers: ((conflict: Conflict<A>) => void)[], content: Content<A> = { kind: 'Unknown' }) {
+    this._pSemigroup = pSemigroup
+    this._content = content
     this._description = description
+    this._ref = ref
+    this._conflictHandlers = conflictHandlers
   }
 
   get description(): string {
     return this._description
   }
 
+  get ref(): number {
+    return this._ref
+  }
+
   checkpoint(): void {
-    this.undoStack.push(structuredClone(this.content))
+    this._undoStack.push(structuredClone(this._content))
   }
 
   revert(): void {
-    this.content = structuredClone(this.undoStack.pop()!)
+    this._content = structuredClone(this._undoStack.pop()!)
   }
 
   updateSubscribers() {
-    this.subscribers.forEach(subscriber => subscriber(this.content))
+    this._subscribers.forEach(subscriber => subscriber(this._content))
   }
 
   watch(subscriber: (content: Content<A>) => void) {
-    subscriber(this.content)
-    this.subscribers.push(subscriber)
+    subscriber(this._content)
+    this._subscribers.push(subscriber)
   }
 
   // This updates without notifying subscribers.
   // This is useful for updating all the cells in a network before notifying subscribers.
   basicUpdate(f: (a: A) => A) {
-    this.content = mapContent(f)(this.content)
+    this._content = mapContent(f)(this._content)
   }
 
   read(): Content<A> {
-    return this.content
+    return this._content
   }
 
-  write(content: Content<A>) {
-    let previousContent = this.content
-    this.content = semigroupContent<A>(this.pSemigroup).concat(this.content, content)
+  write(writer: PropagatorDescription, content: Content<A>) {
+    let previousContent = this._content
+    this._content = semigroupContent<A>(this._pSemigroup).concat(this._content, content)
 
-    switch (this.content.kind) {
-      case 'Inconsistent':
-        throw new InconsistentError(JSON.stringify(previousContent), JSON.stringify(content))
-      case 'Known':
-        if (previousContent.kind === 'Known') {
-          if (!isEqual(previousContent.value, this.content.value)) {
-            this.subscribers.forEach(subscriber => subscriber(content))
+    switch (this._content.kind) {
+        case 'Inconsistent':
+          if (this._conflictHandlers.length > 0) {
+            this._conflictHandlers.forEach(handler => handler({
+              cell: this._ref,
+              oldContent: previousContent,
+              newContent: content,
+              propagator1: this._lastWriter!,
+              propagator2: writer!
+            }))
+          } else {
+            throw new InconsistentError({ cell: this._ref, oldContent: previousContent, newContent: this._content, propagator1: this._lastWriter!, propagator2: writer! })
           }
-        }
-    }
+          break
+          // throw new InconsistentError(JSON.stringify(previousContent), JSON.stringify(content))
+        case 'Known':
+          if (previousContent.kind === 'Known') {
+            if (!isEqual(previousContent.value, this._content.value)) {
+              this._subscribers.forEach(subscriber => subscriber(content))
+            }
+          }
+          break
+      }
+
+    this._lastWriter = writer
   }
 
-  update(f: (content: Content<A>) => Content<A>) {
-    this.write(f(this.content))
+  update(writer: PropagatorDescription, f: (content: Content<A>) => Content<A>) {
+    this.write(writer, f(this._content))
   }
 
-  updateKnown(f: (value: A) => A) {
-    this.update(content => mapContent(f)(content))
+  updateKnown(writer: PropagatorDescription, f: (value: A) => A) {
+    this.update(writer, content => mapContent(f)(content))
   }
 
-  writeKnown(value: A) {
-    this.write(known(value))
+  writeKnown(writer: PropagatorDescription, value: A) {
+    this.write(writer, known(value))
   }
 
-  writeUnknown() {
-    this.write(unknown())
+  writeUnknown(writer: PropagatorDescription) {
+    this.write(writer, unknown())
   }
 
-  writeInconsistent() {
-    this.write(inconsistent())
+  writeInconsistent(writer: PropagatorDescription) {
+    this.write(writer, inconsistent())
   }
 
   readKnownOrError(errMsg: string): A {
@@ -429,59 +514,69 @@ class Cell<A> {
     if (content.kind === 'Known') {
       return content.value
     } else {
-      throw new Error('Content is not known: ' + errMsg)
+      throw new ContentIsNotKnownError(errMsg)
     }
   }
 }
 
-export function unaryPropagator<A, B>(input: Cell<A>, output: Cell<B>, f: (a: A) => B) {
+export function unaryPropagator<A, B>(writer: string, input: Cell<A>, output: Cell<B>, f: (a: A) => B) {
+  let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input.ref], outputs: [output.ref] }
+
   input.watch(content => {
-    output.write(mapContent(f)(content))
+    output.write(propagatorDescription, mapContent(f)(content))
   })
 }
 
-export function binaryPropagator<A, B, C>(input1: Cell<A>, input2: Cell<B>, output: Cell<C>, f: (a: A, b: B) => C) {
+export function binaryPropagator<A, B, C>(writer: string, input1: Cell<A>, input2: Cell<B>, output: Cell<C>, f: (a: A, b: B) => C) {
+  let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input1.ref, input2.ref], outputs: [output.ref] }
+
   input1.watch(content1 => {
     let content2 = input2.read()
-    output.write(map2Content(f)(content1, content2))
+    output.write(propagatorDescription, map2Content(f)(content1, content2))
   })
 
   input2.watch(content2 => {
     let content1 = input1.read()
-    output.write(map2Content(f)(content1, content2))
+    output.write(propagatorDescription, map2Content(f)(content1, content2))
   })
 }
 
-export function unaryPropagatorBind<A, B>(input: Cell<A>, output: Cell<B>, f: (a: A) => Content<B>) {
+export function unaryPropagatorBind<A, B>(writer: string, input: Cell<A>, output: Cell<B>, f: (a: A) => Content<B>) {
+  let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input.ref], outputs: [output.ref] }
+
   input.watch(content => {
-    output.write(bindContent(f)(content))
+    output.write(propagatorDescription, bindContent(f)(content))
   })
 }
 
-export function binaryPropagatorBind<A, B, C>(input1: Cell<A>, input2: Cell<B>, output: Cell<C>, f: (a: A, b: B) => Content<C>) {
+export function binaryPropagatorBind<A, B, C>(writer: string, input1: Cell<A>, input2: Cell<B>, output: Cell<C>, f: (a: A, b: B) => Content<C>) {
+  let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input1.ref, input2.ref], outputs: [output.ref] }
+
   input1.watch(content1 => {
     let content2 = input2.read()
-    output.write(bindContent2(f)(content1, content2))
+    output.write(propagatorDescription, bindContent2(f)(content1, content2))
   })
 
   input2.watch(content2 => {
     let content1 = input1.read()
-    output.write(bindContent2(f)(content1, content2))
+    output.write(propagatorDescription, bindContent2(f)(content1, content2))
   })
 }
 
-export function naryPropagator<A, B>(inputs: Cell<A>[], output: Cell<B>, f: (as: A[]) => B) {
+export function naryPropagator<A, B>(writer: string, inputs: Cell<A>[], output: Cell<B>, f: (as: A[]) => B) {
+  let propagatorDescription: PropagatorDescription = { description: writer, inputs: inputs.map(input => input.ref), outputs: [output.ref] }
+
   inputs.forEach((input, i) => {
     input.watch(content => {
       let contentsBeforeIx = inputs.slice(0, i).map(input => input.read())
       let contentsAfterIx = inputs.slice(i + 1).map(input => input.read())
       let contents = [...contentsBeforeIx, content, ...contentsAfterIx]
-      output.write(mapContentList(f)(contents))
+      output.write(propagatorDescription, mapContentList(f)(contents))
     })
   })
 }
 
-export function equalPropagator<A>(cell1: Cell<A>, cell2: Cell<A>): void {
-  unaryPropagator(cell1, cell2, a => a)
-  unaryPropagator(cell2, cell1, a => a)
+export function equalPropagator<A>(writer: string, cell1: Cell<A>, cell2: Cell<A>): void {
+  unaryPropagator(writer, cell1, cell2, a => a)
+  unaryPropagator(writer, cell2, cell1, a => a)
 }

@@ -24,12 +24,18 @@ export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] 
 
     case 'ToggleDebugPropagatorsMode':
       if (model.mode === 'normal-mode') {
-        let newModel: Model= { ...model, mode: 'debug-propagators-mode' }
-        return [ newModel, { kind: 'UpdateFlow', graphPromise: renderLayoutDebugInfo(model, getCurrentTerm(newModel)) } ]
+        let newModel: Model = { ...model, mode: 'debug-propagators-mode' }
+        return [ newModel, null ] //[ newModel, { kind: 'UpdateFlow', graphPromise: renderLayoutDebugInfo(msg.net) } ]
       } else {
         let newModel: Model = { ...model, mode: 'normal-mode' }
         return [ newModel, { kind: 'UpdateFlow', graphPromise: updateGraphLayout(newModel, getCurrentTerm(newModel)) } ]
       }
+
+    case 'PropagatorConflict': {
+        let newModel: Model = { ...model, mode: 'debug-propagators-mode' }
+        return [ newModel, { kind: 'UpdateFlow', graphPromise: renderLayoutDebugInfo(msg.net, msg.conflict) } ]
+    }
+
 
     case 'BetaStepMsg': {
       let newModel = advanceChange(model)

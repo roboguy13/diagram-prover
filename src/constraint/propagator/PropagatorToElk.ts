@@ -1,8 +1,8 @@
 // This is for visualizing propagator networks themselves.
 
 import { ElkNode, ElkExtendedEdge } from "elkjs";
-import { CellRef, PropagatorDescription, PropagatorNetwork } from "./Propagator";
-import { NODE_HEIGHT, NODE_WIDTH } from "../../ui/Config";
+import { CellRef, Conflict, PropagatorDescription, PropagatorNetwork } from "./Propagator";
+import { PROPAGATOR_CELL_NODE_HEIGHT, PROPAGATOR_CELL_NODE_WIDTH, PROPAGATOR_NODE_HEIGHT, PROPAGATOR_NODE_WIDTH } from "../../ui/Config";
 import { Edge } from "reactflow";
 
 const elkOptions = {
@@ -18,6 +18,28 @@ const elkOptions = {
   'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
   'elk.randomizationSeed': '1'
 };
+
+export function conflictToElkNode<A>(net: PropagatorNetwork<A>, conflict: Conflict<A>): ElkNode {
+  let elkList = conflictToElkNodeList(net, conflict)
+
+  return {
+    id: 'root-node',
+    children: elkList,
+    layoutOptions: elkOptions,
+    edges:
+      [ { id: 'edge-1', labels: [ { text: JSON.stringify(conflict.oldContent) } ], sources: [elkList[0]!.id], targets: [elkList[1]!.id] },
+        { id: 'edge-2', labels: [ { text: JSON.stringify(conflict.newContent) } ], sources: [elkList[0]!.id], targets: [elkList[2]!.id] }
+      ],
+  }
+}
+
+export function conflictToElkNodeList<A>(net: PropagatorNetwork<A>, conflict: Conflict<A>): ElkNode[] {
+  let cellNode = cellToElkNode(net)(conflict.cell)
+  let propagatorNode1 = propagatorDescriptionToElkNode(net)(conflict.propagator1)
+  let propagatorNode2 = propagatorDescriptionToElkNode(net)(conflict.propagator2)
+
+  return [cellNode, propagatorNode1, propagatorNode2]
+}
 
 // const elkOptions = {
 //   'elk.algorithm': 'stress',  // Try stress algorithm which works well for large graphs
@@ -94,8 +116,8 @@ function propagatorDescriptionToElkNode<A>(net: PropagatorNetwork<A>) { return (
 
     return {
       id: propagatorId,
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
+      width: PROPAGATOR_NODE_WIDTH,
+      height: PROPAGATOR_NODE_HEIGHT,
       // layoutOptions: elkOptions,
       labels: [{ text: 'propagator-node' }, { text: propagator.description }],
       edges: outputEdges.concat(inputEdges),
@@ -106,8 +128,8 @@ function propagatorDescriptionToElkNode<A>(net: PropagatorNetwork<A>) { return (
 function cellToElkNode<A>(net: PropagatorNetwork<A>) { return (cell: CellRef): ElkNode => {
     return {
       id: makeCellRefId(cell),
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
+      width: PROPAGATOR_CELL_NODE_WIDTH,
+      height: PROPAGATOR_CELL_NODE_HEIGHT,
       // layoutOptions: elkOptions,
       labels: [{ text: 'propagator-cell-node' }, { text: net.cellDescription(cell) }],
     }
