@@ -1,4 +1,4 @@
-import { NumericRange } from "../../../constraint/propagator/NumericRange";
+import { NumericRange, printNumericRange } from "../../../constraint/propagator/NumericRange";
 import { Conflict, PropagatorNetwork } from "../../../constraint/propagator/Propagator";
 import { conflictToElkNode } from "../../../constraint/propagator/PropagatorToElk";
 import { Term } from "../../../engine/Term";
@@ -26,7 +26,7 @@ export function updateGraphLayout(model: Model, term: Term): Promise<NodesAndEdg
 }
 
 export async function renderLayoutConflictInfo(net: PropagatorNetwork<NumericRange>, conflict: Conflict<NumericRange>): Promise<NodesAndEdges> {
-  let elkNode = conflictToElkNode(net, conflict)
+  let elkNode = conflictToElkNode(printNumericRange, net, conflict)
 
   return elkToReactFlow(await elk.layout(elkNode))
 }

@@ -142,6 +142,15 @@ export function splitRange(range: NumericRange): [NumericRange, NumericRange] {
   return [between(min, midpoint), between(midpoint + EPSILON, max)]
 }
 
+export function printNumericRange(range: NumericRange): string {
+  switch (range.kind) {
+    case 'Exact':
+      return range.value.toString()
+    case 'Range':
+      return `[${range.min}, ${range.max}]`
+  }
+}
+
 export function partialSemigroupNumericRange(): PartialSemigroup<NumericRange> {
   return {
     combine: (a, b) => {
