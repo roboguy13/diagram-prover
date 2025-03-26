@@ -7,6 +7,8 @@ import { CellRef, InconsistentError, known, PropagatorNetwork } from "./Propagat
 
 const DEBUG_MINIMIZE = true
 
+const LOG_MIN_STEPS = true
+
 // This miminizes the contents of a propagator network based on a set of cells
 // that are to be minimized.
 // 
@@ -15,6 +17,7 @@ export class Minimizer {
   private _net: PropagatorNetwork<NumericRange>
   private _minimizingCells: CellRef[]
   private readonly MIN_RANGE_SIZE = 125
+  private _minSteps = 0
 
   constructor(net: PropagatorNetwork<NumericRange>, minimizingCells: CellRef[]) {
     this._net = net
@@ -33,6 +36,10 @@ export class Minimizer {
       if (DEBUG_MINIMIZE) {
         this.verifyMinimized()
       }
+
+      if (LOG_MIN_STEPS) {
+        console.log(`Minimized in ${this._minSteps} steps.`)
+      }
     } finally {
       if (conflictHandlersOriginallyEnabled) {
         this._net.enableConflictHandlers()
@@ -41,6 +48,7 @@ export class Minimizer {
   }
 
   private minimizeCellsBacktracking(index: number): boolean {
+    ++this._minSteps
     if (index >= this._minimizingCells.length) {
       // We minimized all the cells
       return true

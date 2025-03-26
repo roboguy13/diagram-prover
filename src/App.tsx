@@ -123,6 +123,7 @@ export default function App() {
       edgeTypes={edgeTypes}
       onEdgesChange={(changes) => dispatch({ kind: 'EditorMsg', msg: { type: 'EdgeChangeMsg', changes: changes}})}
       onConnect={(connection) => {}}
+      colorMode='dark'
       fitView
     >
       <Background />

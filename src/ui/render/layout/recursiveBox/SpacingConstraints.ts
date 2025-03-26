@@ -11,6 +11,8 @@ import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/Pr
 import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { elk } from "../elk/ElkEngine";
 
+const LOG_PROPAGATOR_STATS = true
+
 export const MAX_WIDTH: number = 1000;
 export const MAX_HEIGHT: number = 500;
 export const VERTICAL_PADDING = 100;
@@ -39,6 +41,11 @@ export class ConstraintCalculator {
       } else {
         throw e
       }
+    }
+
+    if (LOG_PROPAGATOR_STATS) {
+      console.log('Propagator cell count:', this._spacingMap.net.cells().length)
+      console.log('Propagator count:', this._spacingMap.net.propagatorConnections.length)
     }
 
     let nodeIds = getNodeIds(root)

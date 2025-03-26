@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     // Additional strictness flags
+    "alwaysStrict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
