@@ -48,7 +48,7 @@ const initialModel0: Model = {
       portCount: 3,
       isInput: true
     },
-    position: { x: -80, y: 10 }
+    position: { x: -80, y: -80 }
   },
 
   outputBar: {
@@ -59,7 +59,7 @@ const initialModel0: Model = {
       portCount: 3,
       isInput: false
     },
-    position: { x: -80, y: 70 }
+    position: { x: -80, y: 500 }
   }
 };
 
