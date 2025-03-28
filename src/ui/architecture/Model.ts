@@ -1,4 +1,4 @@
-import { AppNode } from "../components/Nodes/nodeTypes";
+import { AppNode, PortBarNode } from "../components/Nodes/nodeTypes";
 import { Edge } from "@xyflow/react";
 import { NodesAndEdges } from "../render/layout/LayoutEngine";
 import { Term, annotateTermWithIds, exampleTerm } from "../../engine/Term";
@@ -18,6 +18,8 @@ export type Model = {
   graph?: NodesAndEdges // The laid-out graph
   mode: Mode
   propagatorNetwork?: PropagatorNetwork<NumericRange>
+  inputBar: PortBarNode
+  outputBar: PortBarNode
 
   termStepHistory: ChangeTracker<StepChange, Term>
 
@@ -37,6 +39,28 @@ const initialModel0: Model = {
   }),
 
   updateCenter: true,
+
+  inputBar: {
+    id: 'input-bar',
+    type: 'port-bar',
+    data: {
+      label: 'Input Port Bar',
+      portCount: 3,
+      isInput: true
+    },
+    position: { x: -80, y: 10 }
+  },
+
+  outputBar: {
+    id: 'output-bar',
+    type: 'port-bar',
+    data: {
+      label: 'Output Port Bar',
+      portCount: 3,
+      isInput: false
+    },
+    position: { x: -80, y: 70 }
+  }
 };
 
 export const initialModel = initializeModel(initialModel0);

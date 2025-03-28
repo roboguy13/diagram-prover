@@ -7,6 +7,7 @@ import {
   MiniMap,
   type OnConnect,
   useReactFlow,
+  Panel,
 } from '@xyflow/react';
 
 import { ChevronRightIcon, MagicWandIcon } from '@radix-ui/react-icons'
@@ -24,6 +25,8 @@ import { useElmish } from './ui/architecture/Elmish';
 import { NodesAndEdges } from './ui/render/layout/LayoutEngine';
 import { theLayoutEngine } from './ui/render/layout/LayoutEngineConfig';
 import { debugConfictHandler } from './ui/render/layout/recursiveBox/DebugConflictHandler';
+import { PortBarComponent } from './ui/components/Nodes/PortBar/PortBarComponent';
+import { PanelPortBar } from './ui/components/Editor/PanelPortBar/PanelPortBarComponent';
 
 export interface Props {
   nodesAndEdges: NodesAndEdges;
@@ -35,8 +38,21 @@ export default function App() {
 
   const reactFlowInstance = useReactFlow();
 
-  let nodes = topSortNodes(state.graph?.nodes ?? new Map<string, AppNode>());
+  let nodes = topSortNodes(state.graph?.nodes ?? new Map<string, AppNode>())
   let edges = state.graph?.edges ?? [];
+
+  const inputBarId = state.inputBar?.id;
+  const outputBarId = state.outputBar?.id;
+
+  const existingNodeIds = Array.from(state.graph?.nodes.keys() || []);
+
+  if (inputBarId && !existingNodeIds.includes(inputBarId)) {
+    nodes.push(state.inputBar);
+  }
+
+  if (outputBarId && !existingNodeIds.includes(outputBarId)) {
+    nodes.push(state.outputBar);
+  }
 
   useEffect(() => {
     theLayoutEngine.addConflictHandler(net => conflict => {
@@ -106,42 +122,74 @@ export default function App() {
       }
     }
     window.addEventListener('keydown', handleKeyDown);
-    
+
     // Clean up on unmount
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   })
 
-
   return (
-    <ReactFlow
-      nodes={nodes}
-      nodeTypes={nodeTypes}
-      onNodesChange={(changes) => dispatch({ kind: 'EditorMsg', msg: { type: 'NodeChangeMsg', changes: changes}})}
-      edges={edges}
-      edgeTypes={edgeTypes}
-      onEdgesChange={(changes) => dispatch({ kind: 'EditorMsg', msg: { type: 'EdgeChangeMsg', changes: changes}})}
-      onConnect={(connection) => {}}
-      colorMode='dark'
-      fitView
-    >
-      <Background />
-      <MiniMap position='top-right' />
-      <Controls>
-        {/* Button for rendering the propagator network as a graph to debug it */}
-        <ControlButton onClick={handleLayoutDebug} >
-          <MagicWandIcon />
-        </ControlButton>
+    <div style={{ 
+      position: 'relative',
+      width: '100%',
+      height: '100%',
+      // margin: '60px 0',
+      }}>
+      <ReactFlow
+        nodes={nodes}
+        nodeTypes={nodeTypes}
+        onNodesChange={(changes) => dispatch({ kind: 'EditorMsg', msg: { type: 'NodeChangeMsg', changes: changes } })}
+        edges={edges}
+        edgeTypes={edgeTypes}
+        onEdgesChange={(changes) => dispatch({ kind: 'EditorMsg', msg: { type: 'EdgeChangeMsg', changes: changes } })}
+        onConnect={(connection) => { }}
+        colorMode='dark'
+        fitView
+      >
+        <Background />
+        <MiniMap position='top-right' />
+              {/* These panels will each create their own actual node in the React Flow instance */}
+      {/* <Panel position="top-center" style={{ marginTop: '10px' }}>
+        <PanelPortBar
+          id="top-bar"
+          label="Top Port Bar"
+          portCount={3}
+          isInput={true}
+        />
+      </Panel>
+      
+      <Panel position="bottom-center" style={{ marginBottom: '10px' }}>
+        <PanelPortBar
+          id="bottom-bar"
+          label="Bottom Port Bar"
+          portCount={2}
+          isInput={false}
+        />
+      </Panel> */}
+        {/* <Panel position="top-center" style={{ marginTop: '10px' }}>
+          <PanelPortBar
+            id="top-bar"
+            label="Top Port Bar"
+            portCount={3}
+            isInput={true}
+          />
+        </Panel> */}
+        <Controls>
+          {/* Button for rendering the propagator network as a graph to debug it */}
+          <ControlButton onClick={handleLayoutDebug} >
+            <MagicWandIcon />
+          </ControlButton>
 
-        <ControlButton onClick={handleBetaStep}>
-          <ChevronRightIcon />
-        </ControlButton>
+          <ControlButton onClick={handleBetaStep}>
+            <ChevronRightIcon />
+          </ControlButton>
 
-        <ControlButton onClick={handleStepBack}>
-          <ChevronRightIcon style={{ transform: 'rotate(180deg)' }} />
-        </ControlButton>
-      </Controls>
-    </ReactFlow>
+          <ControlButton onClick={handleStepBack}>
+            <ChevronRightIcon style={{ transform: 'rotate(180deg)' }} />
+          </ControlButton>
+        </Controls>
+      </ReactFlow>
+    </div>
   );
 }

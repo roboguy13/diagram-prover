@@ -72,7 +72,15 @@ function nodeChange(model: Model, change: NodeChange): Model {
 }
 
 function nodePositionChange(model: Model, change: NodePositionChange): Model {
-  const node = model.graph?.nodes.get(change.id);
+  let node = model.graph?.nodes.get(change.id);
+
+  if (!node && model.inputBar.id === change.id) {
+    node = model.inputBar
+  }
+
+  if (!node && model.outputBar.id === change.id) {
+    node = model.outputBar
+  }
 
   if (node && change.position
       && change.position.x === change.position.x && change.position.y === change.position.y) { // To avoid NaNs

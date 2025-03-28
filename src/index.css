@@ -20,8 +20,23 @@
   }
 }
 
+.custom-handle {
+  width: 5px;
+  height: 5px;
+  background: #242424;
+  border: 1px solid #c1c1c3;
+}
+
+.term-node .react-flow__handle {
+  width: 5px;
+  height: 5px;
+  background: #242424;
+  border: 1px solid #c1c1c3;
+}
+
 .term-node.redex {
-  background: rgb(0, 204, 255);
+  /* background: rgb(0, 204, 255); */
+  background: cornflowerblue;
 }
 
 .propagator-node {
@@ -44,7 +59,6 @@
   }
 }
 
-
 .propagator-cell-node {
   padding: 10px;
   border: 1px solid #1a192b;
@@ -64,6 +78,103 @@
     outline: none;
     border: 1.5px solid #1a192b;
   }
+}
+
+/* .port-bar {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid #ddd;
+} */
+
+/* .port-slot {
+  width: 16px;
+  height: 16px;
+  position: relative;
+} */
+
+/* .input-bar {
+  background-color: #e0f7fa;
+} */
+
+/* .output-bar {
+  background-color: #fce4ec;
+} */
+
+/* .port-bar-container {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+} */
+
+/* .port-bar-container.top {
+  top: 0;
+} */
+
+/* .port-bar-container.bottom {
+  bottom: 0;
+} */
+
+/* Enhance the port-bar styling
+.port-bar {
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  width: 300px;
+  padding: 8px;
+} */
+
+/* .port-bar-label {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 5px;
+} */
+
+/* .port-slots {
+  display: flex;
+  justify-content: space-around;
+} */
+
+.port-bar {
+  background-color: #333;
+  border-radius: 4px;
+  padding: 10px;
+  min-width: 200px;
+  position: relative;
+  height: 30px;
+}
+
+.port-bar-label {
+  color: white;
+  font-size: 12px;
+  text-align: center;
+  margin-bottom: 5px;
+}
+
+.port-handles {
+  display: flex;
+  justify-content: space-evenly;
+  padding: 12px 0;
+}
+
+.port-slot {
+  width: 2px;
+  height: 2px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.input-bar .port-slot {
+  align-items: flex-start;
+}
+
+.output-bar .port-slot {
+  align-items: flex-end;
 }
 
 :root {

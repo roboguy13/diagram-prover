@@ -1,0 +1,38 @@
+.panel-port-bar {
+  background-color: #333;
+  border-radius: 4px;
+  padding: 10px;
+  min-width: 200px;
+}
+
+.port-bar-label {
+  color: white;
+  font-size: 12px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.port-handles {
+  display: flex;
+  justify-content: space-evenly;
+  padding: 5px 0;
+}
+
+.panel-port {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.port-handle {
+  width: 10px;
+  height: 10px;
+  background-color: #555;
+  border-radius: 50%;
+}
+
+.port-label {
+  font-size: 10px;
+  color: white;
+}
