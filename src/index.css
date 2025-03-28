@@ -158,7 +158,7 @@
 .port-handles {
   display: flex;
   justify-content: space-evenly;
-  padding: 12px 0;
+  /* padding: 12px 0; */
 }
 
 .port-slot {

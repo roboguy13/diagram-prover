@@ -9,7 +9,7 @@ export const PortBarComponent: React.FC<NodeProps<PortBarNode>> = (props) => {
   
   return (
     <div className={`port-bar ${isInput ? 'input-bar' : 'output-bar'} ${selected ? 'selected' : ''}`}>
-      {label && <div className="port-bar-label">{label}</div>}
+      {label && isInput && <div className="port-bar-label">{label}</div>}
       <div className="port-handles">
         {Array.from({ length: portCount }).map((_, index) => {
           const portId = `port-${index}`;
@@ -26,6 +26,7 @@ export const PortBarComponent: React.FC<NodeProps<PortBarNode>> = (props) => {
           );
         })}
       </div>
+      {label && !isInput && <div className="port-bar-label">{label}</div>}
     </div>
   );
 };
