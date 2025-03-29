@@ -44,7 +44,7 @@ const initialModel0: Model = {
     id: 'input-bar',
     type: 'port-bar',
     data: {
-      label: 'Input Port Bar',
+      label: 'Input',
       portCount: 3,
       isInput: true
     },
@@ -55,8 +55,8 @@ const initialModel0: Model = {
     id: 'output-bar',
     type: 'port-bar',
     data: {
-      label: 'Output Port Bar',
-      portCount: 3,
+      label: 'Output',
+      portCount: 1,
       isInput: false
     },
     position: { x: -80, y: 500 }

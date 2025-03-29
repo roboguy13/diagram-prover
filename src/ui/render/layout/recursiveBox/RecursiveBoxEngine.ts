@@ -5,9 +5,12 @@ import { ConstraintCalculator } from "./SpacingConstraints";
 import { Locator } from "./Locator";
 import { AppNode } from "../../../components/Nodes/nodeTypes";
 import { ConflictHandler } from "../../../../constraint/propagator/Propagator";
-import { NumericRange } from "../../../../constraint/propagator/NumericRange";
+import { atMost, NumericRange } from "../../../../constraint/propagator/NumericRange";
 
 type InternalRep = [ConstraintCalculator, SemanticNode<void>, Edge[], string | null]
+
+export const MAX_WIDTH: number = 1000;
+export const MAX_HEIGHT: number = 500;
 
 export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
   private _conflictHandlers: ConflictHandler<NumericRange>[]
@@ -22,7 +25,7 @@ export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
 
   public fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<InternalRep> {
     return new Promise<InternalRep>((resolve, _reject) => {
-      const constraintCalculator = new ConstraintCalculator(n, this._conflictHandlers)
+      const constraintCalculator = new ConstraintCalculator({ width: atMost(MAX_WIDTH), height: atMost(MAX_HEIGHT) }, [n], this._conflictHandlers)
       const edges = getEdges(n)
 
       resolve([constraintCalculator, n, edges, activeRedexId])

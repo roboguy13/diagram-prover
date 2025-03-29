@@ -153,6 +153,7 @@
   font-size: 12px;
   text-align: center;
   margin-bottom: 5px;
+  margin-top: 5px;
 }
 
 .port-handles {
@@ -169,9 +170,9 @@
   justify-content: center;
 }
 
-.input-bar .port-slot {
+/* .input-bar .port-slot {
   align-items: flex-start;
-}
+} */
 
 .output-bar .port-slot {
   align-items: flex-end;

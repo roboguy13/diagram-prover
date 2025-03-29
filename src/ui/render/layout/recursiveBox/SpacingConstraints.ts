@@ -13,26 +13,41 @@ import { elk } from "../elk/ElkEngine";
 
 const LOG_PROPAGATOR_STATS = true
 
-export const MAX_WIDTH: number = 1000;
-export const MAX_HEIGHT: number = 500;
 export const VERTICAL_PADDING = 100;
 export const HORIZONTAL_PADDING = 100;
 
 export type AbsolutePositionMap = Map<string, XYPosition>
+
+export type Dimensions = {
+  width: NumericRange
+  height: NumericRange
+}
 
 export class ConstraintCalculator {
   private _spacingMap: SpacingMap
   private _absolutePositionMap: Map<string, XYPosition> = new Map()
   private readonly _rootId: string
 
-  constructor(root: SemanticNode<void>, conflictHandlers: ConflictHandler<NumericRange>[]) {
-    this._spacingMap = new SpacingMap(root.id, conflictHandlers)
-    this._rootId = root.id
+  constructor(dims: Dimensions, roots: SemanticNode<void>[], conflictHandlers: ConflictHandler<NumericRange>[]) {
+    const chosenRoot = roots[0]!
 
-    this.generateConstraints(root)
+    this._spacingMap = new SpacingMap(dims, chosenRoot.id, conflictHandlers)
+    this._rootId = chosenRoot.id
 
-    let [levelMap, _breadthIndexMap, _indexedNodes] = computeIndexedNodes(root)
-    this.generateCousinConstraints(levelMap)
+    for (let root of roots) {
+      // For each root node, we need to ensure that the root node has its own
+      // self-spacing set up in the spacing map.
+      this._spacingMap.getSpacing(this._rootId, root.id)
+    }
+
+    for (let root of roots) {
+      this.generateConstraints(root)
+    }
+
+    for (let root of roots) {
+      let [levelMap, _breadthIndexMap, _indexedNodes] = computeIndexedNodes(root)
+      this.generateCousinConstraints(levelMap)
+    }
 
     try {
       this.minimizeSpacings()
@@ -48,7 +63,7 @@ export class ConstraintCalculator {
       console.log('Propagator count:', this._spacingMap.net.propagatorConnections.length)
     }
 
-    let nodeIds = getNodeIds(root)
+    let nodeIds = getNodeIds(chosenRoot)
     this.generateAbsolutePositionMap(nodeIds)
   }
 
@@ -120,6 +135,20 @@ export class ConstraintCalculator {
       // this._spacingMap.refineRootSpacing(n.id, child2.id)
     }
 
+    // Generate constraints for nested nodes
+    if (n.subgraph) {
+      for (let innerNode of n.subgraph) {
+        // If there are inner nodes (nested subgraphs), we need to apply constraints
+        // for those as well. This will ensure that the inner nodes are properly spaced
+        // relative to their parent node.
+        let nestedConstraint = new NestedConstraint(n, n.children, this._spacingMap.net.conflictHandlers)
+        nestedConstraint.apply(this._spacingMap)
+
+        // Refine the root spacing based on the nested nodes.
+        this.refineSubtreeSpacing(n, innerNode)
+      }
+    }
+
     // Recurse over children
     for (let child of n.children) {
       this.generateConstraints(child)
@@ -149,11 +178,13 @@ class SpacingMap {
   private _spacings: Map<string, Spacing> = new Map()
   private _net: PropagatorNetwork<NumericRange>
   private _rootNodeId: string
+  private _dims: Dimensions
 
-  constructor(rootNodeId: string, conflictHandlers: ConflictHandler<NumericRange>[]) {
+  constructor(dims: Dimensions, rootNodeId: string, conflictHandlers: ConflictHandler<NumericRange>[]) {
     this._rootNodeId = rootNodeId
 
     this._net = new PropagatorNetwork<NumericRange>(partialSemigroupNumericRange(), conflictHandlers)
+    this._dims = dims
 
     this._spacings.set(makeEdgeKey(rootNodeId, rootNodeId), {
       isRelative: false,
@@ -223,8 +254,10 @@ class SpacingMap {
     if (!spacing) {
       spacing = {
         isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
-        xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(MAX_WIDTH))),
-        ySpacing: this._net.newCell('Y spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(MAX_HEIGHT))),
+        xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, known(this._dims.width)),
+        ySpacing: this._net.newCell('Y spacing between ' + nodeId1 + ' and ' + nodeId2, known(this._dims.height)),
+        // xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(this._dims.width))),
+        // ySpacing: this._net.newCell('Y spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(this._dims.height))),
       }
 
       let negativeSpacing = {
@@ -331,4 +364,44 @@ function writeBetweenPropagator(net: PropagatorNetwork<NumericRange>, cell: Cell
 
 function writeAtLeastPropagator(net: PropagatorNetwork<NumericRange>, cell: CellRef, min: number): void {
   net.writeCell({ description: `cell ∈ [${min}, ∞)`, inputs: [], outputs: [cell] }, cell, known(atLeast(min)))
+}
+
+class NestedConstraint implements Constraint {
+  private _parent: SemanticNode<void>
+  private _innerNodes: SemanticNode<void>[]
+  private _conflictHandlers: ConflictHandler<NumericRange>[]
+
+  constructor(parent: SemanticNode<void>, innerNodes: SemanticNode<void>[], conflictHandlers: ConflictHandler<NumericRange>[]) {
+    this._parent = parent
+    this._innerNodes = innerNodes
+    this._conflictHandlers = conflictHandlers
+  }
+
+  public apply(spacingMap: SpacingMap): void {
+    let constraintCalculator = new ConstraintCalculator(
+      { // TODO: Compute appropriate bounds for the width and height
+        width: atMost(1000),
+        height: atMost(500)
+      },
+      this._innerNodes,
+      this._conflictHandlers
+    )
+
+    let absolutePositionMap = constraintCalculator.absolutePositionMap
+
+    for (let [nodeId, position] of absolutePositionMap) {
+      // For each inner node, we need to set up the spacing constraints
+      // relative to the parent node.
+      let xSpacing = spacingMap.getXSpacing(this._parent.id, nodeId)
+      let ySpacing = spacingMap.getYSpacing(this._parent.id, nodeId)
+
+      // Set the X and Y spacings based on the absolute positions calculated
+      // by the constraint calculator.
+      let xPosition = position.x
+      let yPosition = position.y
+
+      spacingMap.net.writeCell({ description: `xSpacing for ${nodeId}`, inputs: [], outputs: [xSpacing] }, xSpacing, known(exactly(xPosition)))
+      spacingMap.net.writeCell({ description: `ySpacing for ${nodeId}`, inputs: [], outputs: [ySpacing] }, ySpacing, known(exactly(yPosition)))
+    }
+  }
 }
