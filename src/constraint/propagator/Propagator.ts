@@ -164,6 +164,7 @@ export type Conflict<A> =
   , newContent: Content<A>
   , propagator1: PropagatorDescription
   , propagator2: PropagatorDescription
+  , allWrites: [PropagatorDescription, Content<A>][]
   }
 
 export type ConflictHandler<A> =
@@ -427,6 +428,7 @@ class Cell<A> {
   private readonly _description: string
 
   private _lastWriter: PropagatorDescription | null = null
+  private _allWrites: [PropagatorDescription, Content<A>][] = []
 
   private _undoStack: Content<A>[] = []
 
@@ -487,16 +489,20 @@ class Cell<A> {
               oldContent: previousContent,
               newContent: content,
               propagator1: this._lastWriter!,
-              propagator2: writer!
+              propagator2: writer!,
+              allWrites: this._allWrites
             }))
           } else {
-            throw new InconsistentError({ cell: this._ref, oldContent: previousContent, newContent: this._content, propagator1: this._lastWriter!, propagator2: writer! })
+            throw new InconsistentError({ cell: this._ref, oldContent: previousContent, newContent: this._content, propagator1: this._lastWriter!, propagator2: writer!, allWrites: this._allWrites })
           }
           break
           // throw new InconsistentError(JSON.stringify(previousContent), JSON.stringify(content))
         case 'Known':
           if (previousContent.kind === 'Known') {
             if (!isEqual(previousContent.value, this._content.value)) {
+              if (DEBUG_PROPAGATOR_NETWORK) {
+                this._allWrites.push([writer, this._content])
+              }
               this._subscribers.forEach(subscriber => subscriber(content))
             }
           }

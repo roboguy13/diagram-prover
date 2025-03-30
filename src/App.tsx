@@ -46,12 +46,14 @@ export default function App() {
 
   const existingNodeIds = Array.from(state.graph?.nodes.keys() || []);
 
-  if (inputBarId && !existingNodeIds.includes(inputBarId)) {
-    nodes.push(state.inputBar);
-  }
+  if (state.mode === 'normal-mode') {
+    if (inputBarId && !existingNodeIds.includes(inputBarId)) {
+      nodes.push(state.inputBar);
+    }
 
-  if (outputBarId && !existingNodeIds.includes(outputBarId)) {
-    nodes.push(state.outputBar);
+    if (outputBarId && !existingNodeIds.includes(outputBarId)) {
+      nodes.push(state.outputBar);
+    }
   }
 
   useEffect(() => {

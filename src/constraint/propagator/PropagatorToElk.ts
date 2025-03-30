@@ -4,9 +4,10 @@ import { ElkNode, ElkExtendedEdge } from "elkjs";
 import { CellRef, Conflict, Content, PropagatorDescription, PropagatorNetwork } from "./Propagator";
 import { PROPAGATOR_CELL_NODE_HEIGHT, PROPAGATOR_CELL_NODE_WIDTH, PROPAGATOR_NODE_HEIGHT, PROPAGATOR_NODE_WIDTH } from "../../ui/Config";
 import { Edge } from "reactflow";
+import { elk } from "../../ui/render/layout/elk/ElkEngine";
 
 const elkOptions = {
-  'elk.algorithm': 'layered',
+  'elk.algorithm': 'radial',
   'elk.direction': 'DOWN',
   'elk.layered.spacing.nodeNodeBetweenLayers': '100',
   'elk.spacing.nodeNode': '50',
@@ -21,15 +22,22 @@ const elkOptions = {
 
 export function conflictToElkNode<A>(aPrinter: (a: A) => string, net: PropagatorNetwork<A>, conflict: Conflict<A>): ElkNode {
   let elkList = conflictToElkNodeList(net, conflict)
+  let contentIds: [string, Content<A>][] = elkList.map(([node, content]) => [node.id, content])
+  let cellNode = cellToElkNode(net)(conflict.cell)
+  let nodes = elkList.map(([node, _content]) => node).concat([cellNode])
 
   return {
     id: 'root-node',
-    children: elkList,
+    children: nodes,
     layoutOptions: elkOptions,
-    edges:
-      [ { id: 'edge-1', labels: [ { text: printContent(aPrinter)(conflict.oldContent) } ], sources: [elkList[0]!.id], targets: [elkList[1]!.id] },
-        { id: 'edge-2', labels: [ { text: printContent(aPrinter)(conflict.newContent) } ], sources: [elkList[2]!.id], targets: [elkList[0]!.id] }
-      ],
+    edges: contentIds.map((pair) => {
+      let [id, content] = pair
+      return createEdge(aPrinter, cellNode, [id, content])
+    })
+    // edges:
+    //   [ { id: 'edge-1', labels: [ { text: printContent(aPrinter)(conflict.oldContent) } ], sources: [elkList[0]!.id], targets: [elkList[1]!.id] },
+    //     { id: 'edge-2', labels: [ { text: printContent(aPrinter)(conflict.newContent) } ], sources: [elkList[2]!.id], targets: [elkList[0]!.id] }
+    //   ],
   }
 }
 
@@ -42,12 +50,39 @@ function printContent<A>(aPrinter: (a: A) => string) { return (content: Content<
   }
 }
 
-export function conflictToElkNodeList<A>(net: PropagatorNetwork<A>, conflict: Conflict<A>): ElkNode[] {
-  let cellNode = cellToElkNode(net)(conflict.cell)
-  let propagatorNode1 = propagatorDescriptionToElkNode(net)(conflict.propagator1)
-  let propagatorNode2 = propagatorDescriptionToElkNode(net)(conflict.propagator2)
+function createEdge<A>(aPrinter: (a: A) => string, cellNode: ElkNode, pair: [string, Content<A>]): ElkExtendedEdge {
+  let [propagatorId, content] = pair
 
-  return [cellNode, { ... propagatorNode1, edges: [] }, { ... propagatorNode2, edges: [] }]
+  // Create an edge from the cell node to the propagator node
+  let labelText = printContent(aPrinter)(content)
+  let edgeId = `edge-${cellNode.id}-${propagatorId}` // Unique edge ID based on cell and propagator description
+
+  return {
+    id: edgeId,
+    sources: [cellNode.id],
+    targets: [propagatorId],
+    labels: [{ text: labelText }]
+  }
+}
+
+export function conflictToElkNodeList<A>(net: PropagatorNetwork<A>, conflict: Conflict<A>): [ElkNode, Content<A>][] {
+  return conflict.allWrites.map((val) => {
+    // For each write in the conflict, we will create an ElkNode for the cell and the propagator
+    let [propagator, content] = val // This is a tuple of the propagator description and its content
+    let propagatorNode = propagatorDescriptionToElkNode(net)(propagator) // Convert the propagator description to an ElkNode
+    return [{ ... propagatorNode, edges: []}, content] // Return a tuple of the ElkNode and its content
+  })
+
+  // return 
+  // let cellNode = cellToElkNode(net)(conflict.cell)
+  // let propagatorNode1 = propagatorDescriptionToElkNode(net)(conflict.propagator1)
+  // let propagatorNode2 = propagatorDescriptionToElkNode(net)(conflict.propagator2)
+
+  // let otherPropagators = conflict.allWrites.map((val) => propagatorDescriptionToElkNode(net)(val[0]))
+  // let otherPropagatorNodes = otherPropagators.map((node) => { return { ... node, edges: [] } })
+
+  // return [cellNode, { ... propagatorNode1, edges: [] }, { ... propagatorNode2, edges: [] }]
+  // // return [cellNode].concat(otherPropagatorNodes)
 }
 
 // const elkOptions = {

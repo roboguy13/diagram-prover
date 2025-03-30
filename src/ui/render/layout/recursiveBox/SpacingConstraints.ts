@@ -228,14 +228,14 @@ class SpacingMap {
     let otherRootSpacing = this.getRootSpacing(otherNodeId)
     let otherCurrSpacing = this.getSpacing(otherNodeId, currNodeId)
 
-    addRangePropagator('refine root spacing (X)',
+    addRangePropagator(`refine root spacing (X): ${currNodeId} <- ${otherNodeId}`,
       this._net,
       otherRootSpacing.xSpacing,
       otherCurrSpacing.xSpacing,
       currRootSpacing.xSpacing
     )
 
-    addRangePropagator('refine root spacing (Y)',
+    addRangePropagator(`refine root spacing (Y): ${currNodeId} <- ${otherNodeId}`,
       this._net,
       otherRootSpacing.ySpacing,
       otherCurrSpacing.ySpacing,
@@ -324,6 +324,15 @@ class MidpointConstraint implements Constraint {
 
   public apply(spacingMap: SpacingMap): void {
     if (this._childIds.length === 0) {
+      return
+    }
+
+    if (this._childIds.length === 1) {
+      // If there's only one child, we can just set the parent X spacing to be the same as the child.
+      let singleChildId = this._childIds[0]!
+      let xSpacing = spacingMap.getXSpacing(this._parentId, singleChildId)
+
+      spacingMap.net.writeCell({ description: `single child X spacing`, inputs: [xSpacing], outputs: [] }, xSpacing, known(exactly(0)))
       return
     }
 

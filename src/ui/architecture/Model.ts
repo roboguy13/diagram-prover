@@ -11,7 +11,10 @@ import { ElkNode } from "elkjs";
 import { PropagatorNetwork } from "../../constraint/propagator/Propagator";
 import { NumericRange } from "../../constraint/propagator/NumericRange";
 
-export type Mode = 'normal-mode' | 'debug-propagators-mode'
+export type Mode =
+  | 'normal-mode'
+  | 'test-mode' // Ignore the terms and use a custom semantic graph for testing
+  | 'debug-propagators-mode'
 
 export type Model = {
   semanticGraph?: SemanticNode<void>
