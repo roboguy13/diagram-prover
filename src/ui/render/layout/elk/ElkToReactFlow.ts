@@ -23,8 +23,8 @@ export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
       target: edge.target,
       label: edge.label,
       style: edge.style || {},
-      sourceHandle: edge.sourceHandle || outputHandleName(0),
-      targetHandle: edge.targetHandle || inputHandleName(0),
+      // sourceHandle: edge.sourceHandle || outputHandleName(0),
+      // targetHandle: edge.targetHandle || inputHandleName(0),
       type: edge.type || 'default',
     };
     

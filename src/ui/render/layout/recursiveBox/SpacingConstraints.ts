@@ -1,5 +1,5 @@
 import { XYPosition } from "@xyflow/react"
-import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, printNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
+import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, lessThanEqualPropagator, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, printNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
 import { CellRef, ConflictHandler, ContentIsNotKnownError, equalPropagator, known, mapContent, printContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
 import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
 import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
@@ -10,6 +10,7 @@ import { NodesAndEdges } from "../LayoutEngine";
 import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/PropagatorToElk";
 import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { elk } from "../elk/ElkEngine";
+import { Dimensions, getNodeDimensions } from "../../../NodeDimensions";
 
 const LOG_PROPAGATOR_STATS = true
 const MINIMIZE = true
@@ -18,11 +19,6 @@ export const VERTICAL_PADDING = 100;
 export const HORIZONTAL_PADDING = 100;
 
 export type AbsolutePositionMap = Map<string, XYPosition>
-
-export type Dimensions = {
-  width: NumericRange
-  height: NumericRange
-}
 
 export class ConstraintCalculator {
   private _spacingMap: SpacingMap
@@ -140,6 +136,9 @@ export class ConstraintCalculator {
   }
 
   private generateConstraints(n: SemanticNode<void>): void {
+    // Set up the initial bounding box dimensions
+    this._spacingMap.refineBoundingBoxDimensions(n, getNodeDimensions(n))
+
     // Set up parent-child constraints
     for (let child of n.children) {
       let parentChildConstraint = new ParentChildConstraint(n.id, child.id)
@@ -231,6 +230,26 @@ class SpacingMap {
     let positioned = await elk.layout(elkNode)
 
     return elkToReactFlow(positioned)
+  }
+
+  public refineBoundingBoxDimensions(n: SemanticNode<void>, dims: Dimensions) {
+    let boundingBox = this.lookupBoundingBox(n.id)
+
+    this._net.writeCell(
+      { description: `refine bounding box width for ${n.id}`,
+        inputs: [],
+        outputs: [boundingBox.width]
+      },
+      boundingBox.width,
+      known(dims.width))
+
+    this._net.writeCell(
+      { description: `refine bounding box height for ${n.id}`,
+        inputs: [],
+        outputs: [boundingBox.height]
+      },
+      boundingBox.height,
+      known(dims.height))
   }
 
   public getRelativeSpacingCells(): CellRef[] {
@@ -458,14 +477,14 @@ class BoundingBoxRelativeConstraint implements Constraint {
     this._spacing = spacing
   }
 
-  // (leftBoundingBox.minX + leftBoundingBox.width) + spacing.xSpacing = rightBoundingBox.minX
+  // (leftBoundingBox.minX + leftBoundingBox.width) + spacing.xSpacing <= rightBoundingBox.minX
   public apply(spacingMap: SpacingMap): void {
 
     // leftBoundingBox.minX + leftBoundingBox.width
     const leftBoundingBoxSumCell = spacingMap.net.newCell('leftBoundingBoxSumCell', unknown())
 
     // leftBoundingBox.minX + leftBoundingBox.width + spacing.xSpacing
-    const eqLHS = spacingMap.net.newCell('eqLHS', unknown())
+    const leqLHS = spacingMap.net.newCell('eqLHS', unknown())
 
     addRangePropagator(
       `left bounding box sum cell`,
@@ -476,17 +495,18 @@ class BoundingBoxRelativeConstraint implements Constraint {
     )
 
     addRangePropagator(
-      `eqLHS`,
+      `leqLHS`,
       spacingMap.net,
       leftBoundingBoxSumCell,
       this._spacing.xSpacing,
-      eqLHS
+      leqLHS
     )
 
-    spacingMap.net.equalPropagator(
+    lessThanEqualPropagator(
       `bounding box relative constraint`,
-      eqLHS,
+      spacingMap.net,
       this._rightBoundingBox.minX,
+      leqLHS,
     )
   }
 }
@@ -497,11 +517,35 @@ class BoundingBox {
   private _width: CellRef
   private _height: CellRef
 
+  private _maxX: CellRef
+  private _maxY: CellRef
+
   constructor(net: PropagatorNetwork<NumericRange>, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
     this._minX = minX
     this._minY = minY
     this._width = width
     this._height = height
+
+    this._maxX = net.newCell('maxX', unknown())
+    this._maxY = net.newCell('maxY', unknown())
+
+    // maxX = minX + width
+    addRangePropagator(
+      `maxX calculation`,
+      net,
+      this._minX,
+      this._width,
+      this._maxX
+    )
+
+    // maxY = minY + height
+    addRangePropagator(
+      `maxY calculation`,
+      net,
+      this._minY,
+      this._height,
+      this._maxY
+    )
   }
 
   public get minX(): CellRef {
@@ -510,6 +554,14 @@ class BoundingBox {
 
   public get minY(): CellRef {
     return this._minY
+  }
+
+  public get maxX(): CellRef {
+    return this._maxX
+  }
+
+  public get maxY(): CellRef {
+    return this._maxY
   }
 
   public get width(): CellRef {

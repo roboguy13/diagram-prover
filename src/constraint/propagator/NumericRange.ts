@@ -190,6 +190,11 @@ export function addRangePropagator(writer: string, net: PropagatorNetwork<Numeri
   })
 }
 
+export function subtractRangePropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, b: CellRef, result: CellRef): void {
+  // a - b = result
+  addRangePropagator(writer, net, result, b, a)
+}
+
 export function addRangeListPropagator(writer: string, net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
   // a1 + a2 + ... + an = result
   net.naryPropagator(writer, aList, result, (aListVals: NumericRange[]): NumericRange => {
@@ -238,4 +243,11 @@ export function negateNumericRangePropagator(writer: string, net: PropagatorNetw
   net.unaryPropagator(writer, result, a, (resultVal: NumericRange): NumericRange => {
     return { kind: 'Range', min: -getMax(resultVal), max: -getMin(resultVal) }
   })
+}
+
+export function lessThanEqualPropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, b: CellRef): void {
+  const atMostZero = net.newCell(writer, known(atMost(0)))
+
+  // a <= b is equivalent to a - b <= 0
+  subtractRangePropagator(writer, net, a, b, atMostZero)
 }
