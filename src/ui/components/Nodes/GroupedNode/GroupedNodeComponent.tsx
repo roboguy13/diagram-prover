@@ -26,6 +26,7 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
   return (
     <div
       className='transpose-node'
+      style={{ width: data.width, height: data.height }}
       // style={{
       //   // position: 'absolute',
       //   // left: data.x,

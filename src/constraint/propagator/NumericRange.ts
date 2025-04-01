@@ -251,3 +251,11 @@ export function lessThanEqualPropagator(writer: string, net: PropagatorNetwork<N
   // a <= b is equivalent to a - b <= 0
   subtractRangePropagator(writer, net, a, b, atMostZero)
 }
+
+export function writeBetweenPropagator(net: PropagatorNetwork<NumericRange>, cell: CellRef, min: number, max: number): void {
+  net.writeCell({ description: `cell ∈ [${min}, ${max}]`, inputs: [], outputs: [cell] }, cell, known(between(min, max)))
+}
+
+export function writeAtLeastPropagator(net: PropagatorNetwork<NumericRange>, cell: CellRef, min: number): void {
+  net.writeCell({ description: `cell ∈ [${min}, ∞)`, inputs: [], outputs: [cell] }, cell, known(atLeast(min)))
+}

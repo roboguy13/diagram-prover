@@ -1,5 +1,5 @@
 import { XYPosition } from "@xyflow/react"
-import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, lessThanEqualPropagator, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, printNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
+import { writeAtLeastPropagator, writeBetweenPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, lessThanEqualPropagator, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, printNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
 import { CellRef, ConflictHandler, ContentIsNotKnownError, equalPropagator, known, mapContent, printContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
 import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
 import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
@@ -103,8 +103,16 @@ export class ConstraintCalculator {
       }
     }
 
-
-    this.generateAbsolutePositionMap(nodeIds)
+    try {
+      this.generateAbsolutePositionMap(nodeIds)
+    } catch (e) {
+      if (e instanceof ContentIsNotKnownError) {
+        // Don't fail here, just log the error
+        console.error('Failed to generate absolute position map:', e)
+      } else {
+        throw e // rethrow other errors
+      }
+    }
   }
 
   public async renderDebugInfo(): Promise<NodesAndEdges> {
@@ -125,11 +133,14 @@ export class ConstraintCalculator {
 
   private generateAbsolutePositionMap(nodeIds: string[]): void {
     for (let nodeId of nodeIds) {
-      let xSpacing = this._spacingMap.getXSpacing(this._rootId, nodeId)
-      let ySpacing = this._spacingMap.getYSpacing(this._rootId, nodeId)
+      // let xSpacing = this._spacingMap.getXSpacing(this._rootId, nodeId)
+      // let ySpacing = this._spacingMap.getYSpacing(this._rootId, nodeId)
 
-      let x = this.chooseFromRange(this._spacingMap.net.readKnownOrError(xSpacing, 'x')) ?? 0
-      let y = this.chooseFromRange(this._spacingMap.net.readKnownOrError(ySpacing, 'y')) ?? 0
+      // let x = this.chooseFromRange(this._spacingMap.net.readKnownOrError(xSpacing, 'x')) ?? 0
+      // let y = this.chooseFromRange(this._spacingMap.net.readKnownOrError(ySpacing, 'y')) ?? 0
+
+      let x = this._spacingMap.getAbsoluteX(nodeId)
+      let y = this._spacingMap.getAbsoluteY(nodeId)
 
       this._absolutePositionMap.set(nodeId, { x, y })
     }
@@ -140,7 +151,6 @@ export class ConstraintCalculator {
       for (let i = 0; i < nodeIds.length - 1; i++) {
         let siblingConstraint = new SiblingConstraint(nodeIds[i]!, nodeIds[i + 1]!)
         siblingConstraint.apply(this._spacingMap)
-        this._spacingMap.refineRootSpacing(nodeIds[i]!, nodeIds[i + 1]!)
       }
     }
   }
@@ -153,6 +163,7 @@ export class ConstraintCalculator {
     for (let child of n.children) {
       let parentChildConstraint = new ParentChildConstraint(n.id, child.id)
       parentChildConstraint.apply(this._spacingMap)
+      console.log('Applied parent-child constraint between', n.id, 'and', child.id)
     }
 
     // Set up midpoint constraint
@@ -160,26 +171,13 @@ export class ConstraintCalculator {
     let midpointConstraint = new MidpointConstraint(this._rootId, n.id, childIds)
     midpointConstraint.apply(this._spacingMap)
 
-    // Refine based on left child
-    if (n.children.length > 0) {
-      let leftChildId = n.children[0]!.id
-      this._spacingMap.refineRootSpacing(n.id, leftChildId)
-    }
+    // Handle nested nodes (subgraphs)
+    if (n.subgraph) {
+      for (let i = 0; i < n.subgraph.length; i++) {
+        let child = n.subgraph[i]!
 
-    // Refine root spacing of children based on siblings
-    for (let i = 0; i < n.children.length - 1; i++) {
-      let child1 = n.children[i]!
-      let child2 = n.children[i + 1]!
-
-      let siblingConstraint = new SiblingConstraint(child1.id, child2.id)
-      siblingConstraint.apply(this._spacingMap)
-
-      this.refineSubtreeSpacing(child1, child2)
-      this.refineSubtreeSpacing(child2, child1)
-      this._spacingMap.refineRootSpacing(child1.id, n.id)
-      this._spacingMap.refineRootSpacing(child2.id, n.id)
-      // this._spacingMap.refineRootSpacing(n.id, child1.id)
-      // this._spacingMap.refineRootSpacing(n.id, child2.id)
+        this.nestedNodeConstraints(n.id, child)
+      }
     }
 
     // Recurse over children
@@ -192,14 +190,21 @@ export class ConstraintCalculator {
     }
   }
 
-  private refineSubtreeSpacing(a: SemanticNode<void>, b: SemanticNode<void>) {
-    this._spacingMap.refineRootSpacing(a.id, b.id)
-    for (let child of b.children) {
-      this.refineSubtreeSpacing(a, child)
+  private nestedNodeConstraints(parentId: string, curr: SemanticNode<void>): void {
+    if (!curr) {
+      return
     }
 
-    for (let child of b.subgraph ?? []) {
-      this.refineSubtreeSpacing(a, child)
+    let nestedNodeConstraint = new NestedNodeConstraint(parentId, curr.id)
+    nestedNodeConstraint.apply(this._spacingMap)
+
+    // Recurse over the children of the current node
+    for (let child of curr.children) {
+      this.nestedNodeConstraints(curr.id, child)
+    }
+
+    for (let child of curr.subgraph ?? []) {
+      this.nestedNodeConstraints(curr.id, child)
     }
   }
 
@@ -210,7 +215,6 @@ export class ConstraintCalculator {
 }
 
 type Spacing = {
-  isRelative: boolean
   xSpacing: CellRef
   ySpacing: CellRef
 }
@@ -229,10 +233,20 @@ class SpacingMap {
     this._dims = dims
 
     this._spacings.set(makeEdgeKey(rootNodeId, rootNodeId), {
-      isRelative: false,
       xSpacing: this._net.newCell('root self spacing X', known(exactly(0))),
       ySpacing: this._net.newCell('root self spacing Y', known(exactly(0))),
     })
+
+    this._boundingBoxes.set(
+      this._rootNodeId,
+      new BoundingBox(
+        this._net,
+        this._net.newCell(`minX for ${this._rootNodeId}`, known(exactly(0))), // Root minX
+        this._net.newCell(`minY for ${this._rootNodeId}`, known(exactly(0))), // Root minY
+        this._net.newCell(`width for ${this._rootNodeId}`, unknown()),
+        this._net.newCell(`height for ${this._rootNodeId}`, unknown())
+      )
+    )
   }
 
   public async renderDebugInfo(): Promise<NodesAndEdges> {
@@ -281,10 +295,10 @@ class SpacingMap {
     let result: CellRef[] = []
 
     for (let [edgeKey, spacing] of this._spacings) {
-      if (spacing.isRelative) {
+      // if (spacing.isRelative) {
         result.push(spacing.xSpacing)
         result.push(spacing.ySpacing)
-      }
+      // }
     }
 
     return result
@@ -312,56 +326,12 @@ class SpacingMap {
     return boundingBox
   }
 
-  // Refines the root spacing for currNodeId given the root spacing of
-  // otherNodeId as well as the spacing between otherNodeId and currNodeId.
-  public refineRootSpacing(currNodeId: string, otherNodeId: string): void {
-    if (currNodeId === this._rootNodeId) {
-      return
-    }
-
-    let currRootSpacing = this.getRootSpacing(currNodeId)
-    let otherRootSpacing = this.getRootSpacing(otherNodeId)
-    let otherCurrSpacing = this.getSpacing(otherNodeId, currNodeId)
-
-    addRangePropagator(`refine root spacing (X): ${currNodeId} <- ${otherNodeId}`,
-      this._net,
-      otherRootSpacing.xSpacing,
-      otherCurrSpacing.xSpacing,
-      currRootSpacing.xSpacing
-    )
-
-    addRangePropagator(`refine root spacing (Y): ${currNodeId} <- ${otherNodeId}`,
-      this._net,
-      otherRootSpacing.ySpacing,
-      otherCurrSpacing.ySpacing,
-      currRootSpacing.ySpacing
-    )
-
-    // Set the min values for the bounding box to be equal to the root spacings
-    let boundingBox = this.lookupBoundingBox(currNodeId)
-    this._net.equalPropagator(
-      `set bounding box minX for ${currNodeId} from root spacing`,
-      boundingBox.minX,
-      currRootSpacing.xSpacing
-    )
-
-    this._net.equalPropagator(
-      `set bounding box minY for ${currNodeId} from root spacing`,
-      boundingBox.minY,
-      currRootSpacing.ySpacing
-    )
-  }
-
-  private getRootSpacing(nodeId: string): Spacing {
-    return this.getSpacing(this._rootNodeId, nodeId)
-  }
-
   public getSpacing(nodeId1: string, nodeId2: string): Spacing {
     let spacing = this._spacings.get(makeEdgeKey(nodeId1, nodeId2))
 
     if (!spacing) {
       spacing = {
-        isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
+        // isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
         xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, known(this._dims.width)),
         ySpacing: this._net.newCell('Y spacing between ' + nodeId1 + ' and ' + nodeId2, known(this._dims.height)),
         // xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(this._dims.width))),
@@ -380,17 +350,43 @@ class SpacingMap {
       this._spacings.set(makeEdgeKey(nodeId1, nodeId2), spacing)
       this._spacings.set(makeEdgeKey(nodeId2, nodeId1), negativeSpacing)
 
-      // Ensure that the bounding boxes are connected to the spacings
-      const leftBoundingBox = this.lookupBoundingBox(nodeId1)
-      const rightBoundingBox = this.lookupBoundingBox(nodeId2)
-
-      let boundingBoxConstraint = new BoundingBoxRelativeConstraint(leftBoundingBox, rightBoundingBox, spacing)
-      boundingBoxConstraint.apply(this)
+      // if (spacing.isRelative) {
+        // Ensure that the bounding boxes are connected to the spacings
+        const leftBoundingBox = this.lookupBoundingBox(nodeId1)
+        const rightBoundingBox = this.lookupBoundingBox(nodeId2)
+  
+        let boundingBoxConstraint = new BoundingBoxRelativeConstraint(leftBoundingBox, rightBoundingBox, spacing)
+        boundingBoxConstraint.apply(this)
+      // }
 
       return spacing
     }
 
     return spacing
+  }
+
+  public getAbsoluteX(nodeId: string): number {
+    let boundingBox = this.lookupBoundingBox(nodeId)
+    let xSpacing = this._net.readKnownOrError(boundingBox.minX, 'minX')
+    
+    if (!xSpacing) {
+      console.error(`Failed to read minX for node ${nodeId}`)
+      return 0
+    }
+
+    return getMin(xSpacing)!
+  }
+
+  public getAbsoluteY(nodeId: string): number {
+    let boundingBox = this.lookupBoundingBox(nodeId)
+    let ySpacing = this._net.readKnownOrError(boundingBox.minY, 'minY')
+    
+    if (!ySpacing) {
+      console.error(`Failed to read minY for node ${nodeId}`)
+      return 0
+    }
+
+    return getMin(ySpacing)!
   }
 
   public getXSpacing(nodeId1: string, nodeId2: string): CellRef { 
@@ -482,12 +478,73 @@ class ParentChildConstraint implements Constraint {
   }
 }
 
-function writeBetweenPropagator(net: PropagatorNetwork<NumericRange>, cell: CellRef, min: number, max: number): void {
-  net.writeCell({ description: `cell ∈ [${min}, ${max}]`, inputs: [], outputs: [cell] }, cell, known(between(min, max)))
-}
+// Constrain the nested node to be inside the nesting node
+class NestedNodeConstraint implements Constraint {
+  private _parentId: string
+  private _childId: string
 
-function writeAtLeastPropagator(net: PropagatorNetwork<NumericRange>, cell: CellRef, min: number): void {
-  net.writeCell({ description: `cell ∈ [${min}, ∞)`, inputs: [], outputs: [cell] }, cell, known(atLeast(min)))
+  constructor(parentId: string, childId: string) {
+    this._parentId = parentId
+    this._childId = childId
+  }
+
+  public apply(spacingMap: SpacingMap): void {
+    let parentBoundingBox = spacingMap.lookupBoundingBox(this._parentId)
+    let childBoundingBox = spacingMap.lookupBoundingBox(this._childId)
+
+    this.applyX(spacingMap, parentBoundingBox, childBoundingBox)
+    this.applyY(spacingMap, parentBoundingBox, childBoundingBox)
+  }
+
+  private applyX(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+    this.applyXMin(spacingMap, parentBoundingBox, childBoundingBox)
+    this.applyXMax(spacingMap, parentBoundingBox, childBoundingBox)
+  }
+
+  private applyY(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+    this.applyYMin(spacingMap, parentBoundingBox, childBoundingBox)
+    this.applyYMax(spacingMap, parentBoundingBox, childBoundingBox)
+  }
+
+  // parent.minX <= child.minX
+  private applyXMin(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+    lessThanEqualPropagator(
+      `nested node constraint X min`,
+      spacingMap.net,
+      parentBoundingBox.minX,
+      childBoundingBox.minX
+    )
+  }
+
+  // child.maxX <= parent.maxX
+  private applyXMax(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+    lessThanEqualPropagator(
+      `nested node constraint X max`,
+      spacingMap.net,
+      childBoundingBox.maxX,
+      parentBoundingBox.maxX
+    )
+  }
+
+  // parent.minY <= child.minY
+  private applyYMin(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+    lessThanEqualPropagator(
+      `nested node constraint Y min`,
+      spacingMap.net,
+      parentBoundingBox.minY,
+      childBoundingBox.minY
+    )
+  }
+
+  // child.maxY <= parent.maxY
+  private applyYMax(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+    lessThanEqualPropagator(
+      `nested node constraint Y max`,
+      spacingMap.net,
+      childBoundingBox.maxY,
+      parentBoundingBox.maxY
+    )
+  }
 }
 
 // Connect the relative spacings to the bounding boxes
@@ -500,11 +557,26 @@ class BoundingBoxRelativeConstraint implements Constraint {
     this._leftBoundingBox = leftBoundingBox
     this._rightBoundingBox = rightBoundingBox
     this._spacing = spacing
+
+    // if (!this._spacing.isRelative) {
+    //   console.error(`BoundingBoxRelativeConstraint was constructed with non-relative spacing, this is unexpected.`, {
+    //     leftBoundingBox: leftBoundingBox,
+    //     rightBoundingBox: rightBoundingBox,
+    //     spacing: spacing
+    //   })
+    //   throw new Error(
+    //     `BoundingBoxRelativeConstraint can only be used with relative spacings, but got non-relative spacing for left and right bounding boxes`
+    //   )
+    // }
+  }
+
+  public apply(spacingMap: SpacingMap): void {
+    this.applyX(spacingMap)
+    this.applyY(spacingMap)
   }
 
   // (leftBoundingBox.minX + leftBoundingBox.width) + spacing.xSpacing <= rightBoundingBox.minX
-  public apply(spacingMap: SpacingMap): void {
-
+  private applyX(spacingMap: SpacingMap): void {
     // leftBoundingBox.minX + leftBoundingBox.width
     const leftBoundingBoxSumCell = spacingMap.net.newCell('leftBoundingBoxSumCell', unknown())
 
@@ -520,7 +592,7 @@ class BoundingBoxRelativeConstraint implements Constraint {
     )
 
     addRangePropagator(
-      `leqLHS`,
+      `leqLHS_x`,
       spacingMap.net,
       leftBoundingBoxSumCell,
       this._spacing.xSpacing,
@@ -528,10 +600,42 @@ class BoundingBoxRelativeConstraint implements Constraint {
     )
 
     lessThanEqualPropagator(
-      `bounding box relative constraint`,
+      `bounding box relative constraint X`,
       spacingMap.net,
-      this._rightBoundingBox.minX,
       leqLHS,
+      this._rightBoundingBox.minX,
+    )
+  }
+
+  // (leftBoundingBox.minY + leftBoundingBox.height) + spacing.ySpacing <= rightBoundingBox.minY
+  private applyY(spacingMap: SpacingMap): void {
+    // leftBoundingBox.minY + leftBoundingBox.height
+    const leftBoundingBoxSumCell = spacingMap.net.newCell('leftBoundingBoxSumCellY', unknown())
+
+    // leftBoundingBox.minY + leftBoundingBox.height + spacing.ySpacing
+    const leqLHS = spacingMap.net.newCell('eqLHSY', unknown())
+
+    addRangePropagator(
+      `left bounding box sum cell Y`,
+      spacingMap.net,
+      this._leftBoundingBox.minY,
+      this._leftBoundingBox.height,
+      leftBoundingBoxSumCell
+    )
+
+    addRangePropagator(
+      `leqLHS_y`,
+      spacingMap.net,
+      leftBoundingBoxSumCell,
+      this._spacing.ySpacing,
+      leqLHS
+    )
+
+    lessThanEqualPropagator(
+      `bounding box relative constraint Y`,
+      spacingMap.net,
+      leqLHS,
+      this._rightBoundingBox.minY,
     )
   }
 }
