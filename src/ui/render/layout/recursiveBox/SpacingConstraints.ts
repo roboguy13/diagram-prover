@@ -1,5 +1,5 @@
 import { XYPosition } from "@xyflow/react"
-import { writeAtLeastPropagator, writeBetweenPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, lessThanEqualPropagator, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, printNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
+import { writeAtLeastPropagator, writeBetweenPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, lessThanEqualPropagator, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, printNumericRange, selectMin, subNumericRange, subtractRangePropagator } from "../../../../constraint/propagator/NumericRange"
 import { CellRef, ConflictHandler, ContentIsNotKnownError, equalPropagator, known, mapContent, printContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
 import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
 import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
@@ -149,8 +149,9 @@ export class ConstraintCalculator {
   private generateCousinConstraints(levelMap: LevelMap): void {
     for (let [level, nodeIds] of levelMap) {
       for (let i = 0; i < nodeIds.length - 1; i++) {
+        // TODO: Fix
         let siblingConstraint = new SiblingConstraint(nodeIds[i]!, nodeIds[i + 1]!)
-        siblingConstraint.apply(this._spacingMap)
+        // siblingConstraint.apply(this._spacingMap)
       }
     }
   }
@@ -416,7 +417,8 @@ class SiblingConstraint implements Constraint {
     let ySpacing = spacingMap.getYSpacing(this._nodeId1, this._nodeId2)
 
     // spacingMap.net.writeCell({ description: `xSpacing ∈ [${HORIZONTAL_PADDING}, ${HORIZONTAL_PADDING*2}]`, inputs: [xSpacing], outputs: [] }, xSpacing, known(between(HORIZONTAL_PADDING, HORIZONTAL_PADDING * 2)))
-    writeBetweenPropagator(spacingMap.net, xSpacing, HORIZONTAL_PADDING, HORIZONTAL_PADDING * 2)
+    // writeBetweenPropagator(spacingMap.net, xSpacing, HORIZONTAL_PADDING, HORIZONTAL_PADDING * 2)
+    writeAtLeastPropagator(spacingMap.net, xSpacing, HORIZONTAL_PADDING)
 
     spacingMap.net.writeCell({ description: 'ySpacing = 0', inputs: [ySpacing], outputs: [] }, ySpacing, known(exactly(0)))
   }
@@ -435,31 +437,205 @@ class MidpointConstraint implements Constraint {
 
   public apply(spacingMap: SpacingMap): void {
     if (this._childIds.length === 0) {
-      return
+      return; // No children, nothing to do
     }
 
     if (this._childIds.length === 1) {
-      // If there's only one child, we can just set the parent X spacing to be the same as the child.
-      let singleChildId = this._childIds[0]!
-      let xSpacing = spacingMap.getXSpacing(this._parentId, singleChildId)
-
-      spacingMap.net.writeCell({ description: `single child X spacing`, inputs: [xSpacing], outputs: [] }, xSpacing, known(exactly(0)))
-      return
+      // Single child: Align horizontally (same as Experiment 1, but just for one child)
+      let singleChildId = this._childIds[0]!;
+      let xSpacing = spacingMap.getXSpacing(this._parentId, singleChildId);
+      spacingMap.net.writeCell(
+          { description: `single child ${singleChildId} X centered under parent ${this._parentId}`, inputs: [xSpacing], outputs: [] },
+          xSpacing,
+          known(exactly(0))
+      );
+      return; 
     }
 
-    let leftmostChild = this._childIds[0]!
-    let rightmostChild = this._childIds[this._childIds.length - 1]!
+    // --- Multi-child case (more than 1 child) ---
+    let leftmostChild = this._childIds[0]!;
+    let rightmostChild = this._childIds[this._childIds.length - 1]!;
 
-    let parentToRightSpacing = spacingMap.getXSpacing(this._parentId, rightmostChild)
-    let parentToLeftSpacing = spacingMap.getXSpacing(this._parentId, leftmostChild)
+    let parentToRightSpacing = spacingMap.getXSpacing(this._parentId, rightmostChild);
+    let parentToLeftSpacing = spacingMap.getXSpacing(this._parentId, leftmostChild);
 
-    // spacingMap.net.writeCell({ description: `parentToRightSpacing ∈ [${HORIZONTAL_PADDING/2}, ∞)`, inputs: [parentToRightSpacing], outputs: [] }, parentToRightSpacing, known(atLeast(HORIZONTAL_PADDING / 2)))
-    writeAtLeastPropagator(spacingMap.net, parentToRightSpacing, HORIZONTAL_PADDING / 2)
+    spacingMap.net.writeCell(
+      { 
+        description: `parentToRightSpacing for ${this._parentId} to ${rightmostChild}`, 
+        inputs: [],
+        outputs: [parentToLeftSpacing], 
+      },
+      parentToRightSpacing,
+      known(atMost(100)) // TODO: How can I automatically compute an appropriate value for this
+    )
 
-    // spacingMap.net.writeCell(parentToLeftSpacing, known(atMost(-HORIZONTAL_PADDING / 2)))
+    // Constraint 1: Enforce Symmetry
+    // This forces Parent.X_relative_to_L = - (Parent.X_relative_to_R).
+    // This effectively centers the parent horizontally between the 
+    // reference points (e.g., minX or centerX) of the leftmost and rightmost children.
+    negateNumericRangePropagator(
+        `midpoint symmetry for ${this._parentId}`, 
+        spacingMap.net, 
+        parentToLeftSpacing, 
+        parentToRightSpacing
+    );
 
-    negateNumericRangePropagator('negate', spacingMap.net, parentToLeftSpacing, parentToRightSpacing)
+    // Constraint 2: Minimum Distance (REMOVED / COMMENTED OUT)
+    // We suspect this might have been forcing the layout too wide.
+    // Let's rely on sibling constraints and the symmetry above to determine width.
+    // writeAtLeastPropagator(spacingMap.net, parentToRightSpacing, HORIZONTAL_PADDING / 2); 
   }
+
+  // public apply(spacingMap: SpacingMap): void {
+  //   if (this._childIds.length === 0) {
+  //     return; // No children, nothing to do
+  //   }
+
+  //   if (this._childIds.length === 1) {
+  //     // Single child: Align horizontally
+  //     let singleChildId = this._childIds[0]!;
+  //     let xSpacing = spacingMap.getXSpacing(this._parentId, singleChildId);
+  //     spacingMap.net.writeCell(
+  //         { description: `single child ${singleChildId} X centered under parent ${this._parentId}`, inputs: [xSpacing], outputs: [] },
+  //         xSpacing,
+  //         known(exactly(0))
+  //     );
+  //     return; 
+  //   }
+
+  //   let leftChildBoundingBox = spacingMap.lookupBoundingBox(this._childIds[0]!)
+  //   let rightChildBoundingBox = spacingMap.lookupBoundingBox(this._childIds[1]!)
+
+  //   let leftChildMinX = leftChildBoundingBox.minX
+  //   let rightChildMaxX = rightChildBoundingBox.maxX
+
+  //   let parentBoundingBox = spacingMap.lookupBoundingBox(this._parentId)
+
+  //   let leftDifference = spacingMap.net.newCell('leftDifference', unknown())
+  //   let rightDifference = spacingMap.net.newCell('rightDifference', unknown())
+
+  //   // Calculate the differences between the leftmost and rightmost children and the parent
+  //   subtractRangePropagator(
+  //     'leftDifference',
+  //     spacingMap.net,
+  //     parentBoundingBox.minX,
+  //     leftChildMinX,
+  //     leftDifference
+  //   )
+
+  //   subtractRangePropagator(
+  //     'rightDifference',
+  //     spacingMap.net,
+  //     rightChildMaxX,
+  //     parentBoundingBox.maxX,
+  //     leftDifference
+  //   )
+
+  //   // spacingMap.net.equalPropagator(
+  //   //   'balance left and right differences',
+  //   //   leftDifference,
+  //   //   rightDifference
+  //   // )
+
+  //   // // midpoint = a + ((b - a) / 2)
+  //   // //          = (a + b) / 2
+  //   // let childrenSum = spacingMap.net.newCell('childrenDifference', unknown())
+  //   // let childrenMidpoint = spacingMap.net.newCell('childrenMidpoint', unknown())
+    
+  //   // addRangePropagator(
+  //   //   'midpoint sum',
+  //   //   spacingMap.net,
+  //   //   leftChildMinX,
+  //   //   rightChildMaxX,
+  //   //   childrenSum
+  //   // )
+
+  //   // divNumericRangeNumberPropagator(
+  //   //   'midpoint divide',
+  //   //   spacingMap.net,
+  //   //   childrenSum,
+  //   //   2,
+  //   //   childrenMidpoint
+  //   // )
+
+  //   // // Now, set the parent midpoint to be equal to the children midpoint
+  //   // let parentXSum = spacingMap.net.newCell('parentXSum', unknown())
+  //   // let parentMidpointX = spacingMap.net.newCell('parentMidpointX', unknown())
+
+  //   // addRangePropagator(
+  //   //   'parent midpoint sum',
+  //   //   spacingMap.net,
+  //   //   parentBoundingBox.minX,
+  //   //   parentBoundingBox.maxX,
+  //   //   parentXSum
+  //   // )
+
+  //   // divNumericRangeNumberPropagator(
+  //   //   'parent midpoint divide',
+  //   //   spacingMap.net,
+  //   //   parentXSum,
+  //   //   2,
+  //   //   parentMidpointX
+  //   // )
+
+  //   // spacingMap.net.equalPropagator(
+  //   //   'set parent midpoint to children midpoint',
+  //   //   parentMidpointX,
+  //   //   childrenMidpoint
+  //   // )
+  // }
+
+  // public apply(spacingMap: SpacingMap): void {
+  //   if (this._childIds.length === 0) {
+  //     return;
+  //   }
+
+  //   // Try applying "centered" constraint to ALL children
+  //   for (const childId of this._childIds) {
+  //     const xSpacing = spacingMap.getXSpacing(this._parentId, childId);
+  //     // This attempts to align the child's origin/center with the parent's
+  //     spacingMap.net.writeCell(
+  //       { description: `child ${childId} X centered under parent ${this._parentId}`, inputs: [xSpacing], outputs: [] },
+  //       xSpacing,
+  //       known(exactly(0))
+  //     );
+  //   }
+
+  //   // Also apply the parent-child vertical spacing (assuming this isn't done elsewhere for midpoint)
+  //   // If ParentChildConstraint already handles Y, you don't need it here.
+  //   // for (const childId of this._childIds) {
+  //   //     const ySpacing = spacingMap.getYSpacing(this._parentId, childId);
+  //   //     writeBetweenPropagator(spacingMap.net, ySpacing, VERTICAL_PADDING, VERTICAL_PADDING * 1.2);
+  //   // }
+  // }
+
+  // public apply(spacingMap: SpacingMap): void {
+  //   if (this._childIds.length === 0) {
+  //     return
+  //   }
+
+  //   if (this._childIds.length === 1) {
+  //     // If there's only one child, we can just set the parent X spacing to be the same as the child.
+  //     let singleChildId = this._childIds[0]!
+  //     let xSpacing = spacingMap.getXSpacing(this._parentId, singleChildId)
+
+  //     spacingMap.net.writeCell({ description: `single child X spacing`, inputs: [xSpacing], outputs: [] }, xSpacing, known(exactly(0)))
+  //     return
+  //   }
+
+  //   let leftmostChild = this._childIds[0]!
+  //   let rightmostChild = this._childIds[this._childIds.length - 1]!
+
+  //   let parentToRightSpacing = spacingMap.getXSpacing(this._parentId, rightmostChild)
+  //   let parentToLeftSpacing = spacingMap.getXSpacing(this._parentId, leftmostChild)
+
+  //   // spacingMap.net.writeCell({ description: `parentToRightSpacing ∈ [${HORIZONTAL_PADDING/2}, ∞)`, inputs: [parentToRightSpacing], outputs: [] }, parentToRightSpacing, known(atLeast(HORIZONTAL_PADDING / 2)))
+  //   writeAtLeastPropagator(spacingMap.net, parentToRightSpacing, HORIZONTAL_PADDING / 2)
+
+  //   // spacingMap.net.writeCell(parentToLeftSpacing, known(atMost(-HORIZONTAL_PADDING / 2)))
+
+  //   negateNumericRangePropagator('negate', spacingMap.net, parentToLeftSpacing, parentToRightSpacing)
+  // }
 }
 
 class ParentChildConstraint implements Constraint {
