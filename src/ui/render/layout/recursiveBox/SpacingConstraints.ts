@@ -1,6 +1,6 @@
 import { XYPosition } from "@xyflow/react"
-import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
-import { CellRef, ConflictHandler, ContentIsNotKnownError, equalPropagator, known, mapContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
+import { addRangeListPropagator, addRangePropagator, atLeast, atMost, between, divNumericRangeNumberPropagator, exactly, getMax, getMidpoint, getMin, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, printNumericRange, selectMin } from "../../../../constraint/propagator/NumericRange"
+import { CellRef, ConflictHandler, ContentIsNotKnownError, equalPropagator, known, mapContent, printContent, PropagatorNetwork, unaryPropagator, unknown } from "../../../../constraint/propagator/Propagator"
 import { getNodeIds, SemanticNode } from "../../../../ir/SemanticGraph";
 import { computeIndexedNodes, LevelMap, makeEdgeKey } from "../NodeLevels";
 import { isArrayLike } from "lodash";
@@ -83,6 +83,25 @@ export class ConstraintCalculator {
     }
 
     let nodeIds = getNodeIds(chosenRoot)
+
+    // Print bounding boxes
+    if (LOG_PROPAGATOR_STATS) {
+      for (let nodeId of nodeIds) {
+        let boundingBox = this._spacingMap.lookupBoundingBox(nodeId)
+
+        // Read the Content from the CellRefs and print them. Use readCell not readKnownOrError so that we don't get any errors
+        let minX = printContent(printNumericRange)(this._spacingMap.net.readCell(boundingBox.minX))
+        let minY = printContent(printNumericRange)(this._spacingMap.net.readCell(boundingBox.minY))
+        let width = printContent(printNumericRange)(this._spacingMap.net.readCell(boundingBox.width))
+        let height = printContent(printNumericRange)(this._spacingMap.net.readCell(boundingBox.height))
+        if (LOG_PROPAGATOR_STATS) {
+          console.log(`Bounding box for node ${nodeId}: minX=${minX}, minY=${minY}, width=${width}, height=${height}`)
+        }
+
+      }
+    }
+
+
     this.generateAbsolutePositionMap(nodeIds)
   }
 
@@ -154,18 +173,6 @@ export class ConstraintCalculator {
       // this._spacingMap.refineRootSpacing(n.id, child2.id)
     }
 
-    // Generate constraints for nested nodes
-    if (n.subgraph && n.subgraph.length > 0) {
-      // Create one constraint for all subgraph nodes
-      let nestedConstraint = new NestedConstraint(n, n.subgraph, this._spacingMap.net.conflictHandlers)
-      nestedConstraint.apply(this._spacingMap)
-      
-      // Then refine spacings for each inner node
-      for (let innerNode of n.subgraph) {
-        this.refineSubtreeSpacing(n, innerNode)
-      }
-    }
-
     // Recurse over children
     for (let child of n.children) {
       this.generateConstraints(child)
@@ -201,6 +208,7 @@ type Spacing = {
 
 class SpacingMap {
   private _spacings: Map<string, Spacing> = new Map()
+  private _boundingBoxes: Map<string, BoundingBox> = new Map()
   private _net: PropagatorNetwork<NumericRange>
   private _rootNodeId: string
   private _dims: Dimensions
@@ -242,6 +250,24 @@ class SpacingMap {
     return this._net
   }
 
+  public lookupBoundingBox(nodeId: string): BoundingBox {
+    let boundingBox = this._boundingBoxes.get(nodeId)
+
+    if (!boundingBox) {
+      boundingBox = new BoundingBox(
+        this._net,
+        this._net.newCell(`minX for ${nodeId}`, unknown()),
+        this._net.newCell(`minY for ${nodeId}`, unknown()),
+        this._net.newCell(`width for ${nodeId}` , known(atLeast(0))),
+        this._net.newCell(`height for ${nodeId}`, known(atLeast(0)))
+      )
+
+      this._boundingBoxes.set(nodeId, boundingBox)
+    }
+  
+    return boundingBox
+  }
+
   // Refines the root spacing for currNodeId given the root spacing of
   // otherNodeId as well as the spacing between otherNodeId and currNodeId.
   public refineRootSpacing(currNodeId: string, otherNodeId: string): void {
@@ -267,6 +293,19 @@ class SpacingMap {
       currRootSpacing.ySpacing
     )
 
+    // Set the min values for the bounding box to be equal to the root spacings
+    let boundingBox = this.lookupBoundingBox(currNodeId)
+    this._net.equalPropagator(
+      `set bounding box minX for ${currNodeId} from root spacing`,
+      boundingBox.minX,
+      currRootSpacing.xSpacing
+    )
+
+    this._net.equalPropagator(
+      `set bounding box minY for ${currNodeId} from root spacing`,
+      boundingBox.minY,
+      currRootSpacing.ySpacing
+    )
   }
 
   private getRootSpacing(nodeId: string): Spacing {
@@ -296,6 +335,13 @@ class SpacingMap {
 
       this._spacings.set(makeEdgeKey(nodeId1, nodeId2), spacing)
       this._spacings.set(makeEdgeKey(nodeId2, nodeId1), negativeSpacing)
+
+      // Ensure that the bounding boxes are connected to the spacings
+      const leftBoundingBox = this.lookupBoundingBox(nodeId1)
+      const rightBoundingBox = this.lookupBoundingBox(nodeId2)
+
+      let boundingBoxConstraint = new BoundingBoxRelativeConstraint(leftBoundingBox, rightBoundingBox, spacing)
+      boundingBoxConstraint.apply(this)
 
       return spacing
     }
@@ -400,45 +446,77 @@ function writeAtLeastPropagator(net: PropagatorNetwork<NumericRange>, cell: Cell
   net.writeCell({ description: `cell ∈ [${min}, ∞)`, inputs: [], outputs: [cell] }, cell, known(atLeast(min)))
 }
 
-class NestedConstraint implements Constraint {
-  private _parent: SemanticNode<void>
-  private _innerNodes: SemanticNode<void>[]
-  private _conflictHandlers: ConflictHandler<NumericRange>[]
+// Connect the relative spacings to the bounding boxes
+class BoundingBoxRelativeConstraint implements Constraint {
+  private _leftBoundingBox: BoundingBox
+  private _rightBoundingBox: BoundingBox
+  private _spacing: Spacing
 
-  constructor(parent: SemanticNode<void>, innerNodes: SemanticNode<void>[], conflictHandlers: ConflictHandler<NumericRange>[]) {
-    this._parent = parent
-    this._innerNodes = innerNodes
-    this._conflictHandlers = conflictHandlers
+  constructor(leftBoundingBox: BoundingBox, rightBoundingBox: BoundingBox, spacing: Spacing) {
+    this._leftBoundingBox = leftBoundingBox
+    this._rightBoundingBox = rightBoundingBox
+    this._spacing = spacing
   }
 
+  // (leftBoundingBox.minX + leftBoundingBox.width) + spacing.xSpacing = rightBoundingBox.minX
   public apply(spacingMap: SpacingMap): void {
-    if (!this._innerNodes || this._innerNodes.length === 0) {
-      return;
-    }
-    let constraintCalculator = new ConstraintCalculator(
-      { // TODO: Compute appropriate bounds for the width and height
-        width: atMost(500),
-        height: atMost(500)
-      },
-      this._innerNodes,
-      this._conflictHandlers
+
+    // leftBoundingBox.minX + leftBoundingBox.width
+    const leftBoundingBoxSumCell = spacingMap.net.newCell('leftBoundingBoxSumCell', unknown())
+
+    // leftBoundingBox.minX + leftBoundingBox.width + spacing.xSpacing
+    const eqLHS = spacingMap.net.newCell('eqLHS', unknown())
+
+    addRangePropagator(
+      `left bounding box sum cell`,
+      spacingMap.net,
+      this._leftBoundingBox.minX,
+      this._leftBoundingBox.width,
+      leftBoundingBoxSumCell
     )
 
-    let absolutePositionMap = constraintCalculator.absolutePositionMap
+    addRangePropagator(
+      `eqLHS`,
+      spacingMap.net,
+      leftBoundingBoxSumCell,
+      this._spacing.xSpacing,
+      eqLHS
+    )
 
-    for (let [nodeId, position] of absolutePositionMap) {
-      // For each inner node, we need to set up the spacing constraints
-      // relative to the parent node.
-      let xSpacing = spacingMap.getXSpacing(this._parent.id, nodeId)
-      let ySpacing = spacingMap.getYSpacing(this._parent.id, nodeId)
+    spacingMap.net.equalPropagator(
+      `bounding box relative constraint`,
+      eqLHS,
+      this._rightBoundingBox.minX,
+    )
+  }
+}
 
-      // Set the X and Y spacings based on the absolute positions calculated
-      // by the constraint calculator.
-      let xPosition = position.x
-      let yPosition = position.y
+class BoundingBox {
+  private _minX: CellRef
+  private _minY: CellRef
+  private _width: CellRef
+  private _height: CellRef
 
-      spacingMap.net.writeCell({ description: `xSpacing for ${nodeId}`, inputs: [], outputs: [xSpacing] }, xSpacing, known(exactly(xPosition)))
-      spacingMap.net.writeCell({ description: `ySpacing for ${nodeId}`, inputs: [], outputs: [ySpacing] }, ySpacing, known(exactly(yPosition)))
-    }
+  constructor(net: PropagatorNetwork<NumericRange>, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
+    this._minX = minX
+    this._minY = minY
+    this._width = width
+    this._height = height
+  }
+
+  public get minX(): CellRef {
+    return this._minX
+  }
+
+  public get minY(): CellRef {
+    return this._minY
+  }
+
+  public get width(): CellRef {
+    return this._width
+  }
+
+  public get height(): CellRef {
+    return this._height
   }
 }

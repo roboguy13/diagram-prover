@@ -1,7 +1,7 @@
 // This is for visualizing propagator networks themselves.
 
 import { ElkNode, ElkExtendedEdge } from "elkjs";
-import { CellRef, Conflict, Content, PropagatorDescription, PropagatorNetwork } from "./Propagator";
+import { CellRef, Conflict, Content, printContent, PropagatorDescription, PropagatorNetwork } from "./Propagator";
 import { PROPAGATOR_CELL_NODE_HEIGHT, PROPAGATOR_CELL_NODE_WIDTH, PROPAGATOR_NODE_HEIGHT, PROPAGATOR_NODE_WIDTH } from "../../ui/Config";
 import { Edge } from "reactflow";
 import { elk } from "../../ui/render/layout/elk/ElkEngine";
@@ -57,15 +57,6 @@ export function conflictToElkNode<A>(aPrinter: (a: A) => string, net: Propagator
     //   [ { id: 'edge-1', labels: [ { text: printContent(aPrinter)(conflict.oldContent) } ], sources: [elkList[0]!.id], targets: [elkList[1]!.id] },
     //     { id: 'edge-2', labels: [ { text: printContent(aPrinter)(conflict.newContent) } ], sources: [elkList[2]!.id], targets: [elkList[0]!.id] }
     //   ],
-  }
-}
-
-function printContent<A>(aPrinter: (a: A) => string) { return (content: Content<A>): string => {
-    switch (content.kind) {
-      case 'Known': return aPrinter(content.value)
-      case 'Unknown': return 'Unknown'
-      case 'Inconsistent': return 'Inconsistent'
-    }
   }
 }
 

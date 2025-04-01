@@ -608,3 +608,13 @@ export function equalPropagator<A>(writer: string, cell1: Cell<A>, cell2: Cell<A
   unaryPropagator(writer, cell1, cell2, a => a)
   unaryPropagator(writer, cell2, cell1, a => a)
 }
+
+export function printContent<A>(aPrinter: (a: A) => string) { return (content: Content<A>): string => {
+    switch (content.kind) {
+      case 'Known': return aPrinter(content.value)
+      case 'Unknown': return 'Unknown'
+      case 'Inconsistent': return 'Inconsistent'
+    }
+  }
+}
+
