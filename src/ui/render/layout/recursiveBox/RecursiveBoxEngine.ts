@@ -36,8 +36,9 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<InternalRep> {
     let [constraintCalculator, n, edges, activeRedexId] = g
 
     let absolutePositionMap = constraintCalculator.absolutePositionMap
+    let dimensionsMap = constraintCalculator.dimensionsMap
 
-    let locator = new Locator(absolutePositionMap, n.id, { x: 0, y: 0 })
+    let locator = new Locator(absolutePositionMap, dimensionsMap, n.id, { x: 0, y: 0 })
 
     let appNodes = new Map<string, AppNode>()
     this.traverseSemanticNode(n, locator, appNodes, activeRedexId)
@@ -58,16 +59,22 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<InternalRep> {
 
     switch (n.kind) {
       case 'Transpose': {
+        let dims = locator.getDimensions(n.id)
+
         result.set(n.id, {
           id: n.id,
           type: 'grouped',
           data: { label: n.label ?? '',
+                  width: dims.width,
+                  height: dims.height,
                 },
           position: { x: position.x, y: position.y },
         })
         break
       }
       default:
+        let dims = locator.getDimensions(n.id)
+
         result.set(n.id, {
           id: n.id,
           type: 'term',
@@ -75,6 +82,8 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<InternalRep> {
                   isActiveRedex: n.id === activeRedexId,
                   outputCount: 1,
                   inputCount: getImmediateEdges(n).length,
+                  width: dims.width,
+                  height: dims.height,
                 },
           position: { x: position.x, y: position.y },
         })

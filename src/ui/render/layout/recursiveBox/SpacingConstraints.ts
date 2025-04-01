@@ -18,7 +18,13 @@ const MINIMIZE = true
 export const VERTICAL_PADDING = 100;
 export const HORIZONTAL_PADDING = 100;
 
+export type ExactDimensions =
+  { width: number,
+    height: number
+  }
+
 export type AbsolutePositionMap = Map<string, XYPosition>
+export type DimensionsMap = Map<string, ExactDimensions>
 
 export class ConstraintCalculator {
   private _spacingMap: SpacingMap
@@ -107,6 +113,10 @@ export class ConstraintCalculator {
 
   public get absolutePositionMap(): AbsolutePositionMap {
     return this._absolutePositionMap
+  }
+
+  public get dimensionsMap(): DimensionsMap {
+    return this._spacingMap.dimensionsMap
   }
 
   private chooseFromRange(range: NumericRange): number {
@@ -230,6 +240,21 @@ class SpacingMap {
     let positioned = await elk.layout(elkNode)
 
     return elkToReactFlow(positioned)
+  }
+
+  public get dimensionsMap(): DimensionsMap {
+    const result: DimensionsMap = new Map()
+
+    for (let [nodeId, boundingBox] of this._boundingBoxes) {
+      let width = this._net.readKnownOrError(boundingBox.width, 'width')
+      let height = this._net.readKnownOrError(boundingBox.height, 'height')
+
+      if (width && height) {
+        result.set(nodeId, { width: getMin(width)!, height: getMin(height)! })
+      }
+    }
+
+    return result
   }
 
   public refineBoundingBoxDimensions(n: SemanticNode<void>, dims: Dimensions) {

@@ -6,10 +6,14 @@ export type TermNode = Node<
     isActiveRedex: boolean,
     outputCount: number,
     inputCount: number,
+    width?: number,
+    height?: number,
   },
   'term'>
 export type GroupedNode = Node<
   { label: string,
+    width?: number,
+    height?: number,
     // nodeIds: string[],
     // x: number,
     // y: number,

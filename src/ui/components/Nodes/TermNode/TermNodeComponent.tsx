@@ -40,7 +40,10 @@ export function mkTermNode(
     }
 
     return (
-      <div className={`term-node ${selected ? 'selected' : ''} ${data.isActiveRedex ? 'redex' : ''}`}>
+      <div
+        className={`term-node ${selected ? 'selected' : ''} ${data.isActiveRedex ? 'redex' : ''}`}
+        style={{width: data.width, height: data.height,}}
+        >
       {data.label}
       {inputHandles}
       {
