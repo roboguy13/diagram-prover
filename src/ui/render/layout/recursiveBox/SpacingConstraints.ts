@@ -12,6 +12,7 @@ import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { elk } from "../elk/ElkEngine";
 
 const LOG_PROPAGATOR_STATS = true
+const MINIMIZE = true
 
 export const VERTICAL_PADDING = 100;
 export const HORIZONTAL_PADDING = 100;
@@ -28,11 +29,12 @@ export class ConstraintCalculator {
   private _absolutePositionMap: Map<string, XYPosition> = new Map()
   private readonly _rootId: string
 
-  constructor(dims: Dimensions, roots: SemanticNode<void>[], conflictHandlers: ConflictHandler<NumericRange>[]) {
+  constructor(dims: Dimensions, roots: SemanticNode<void>[], conflictHandlers: ConflictHandler<NumericRange>[], minimize: boolean = MINIMIZE) {
     const chosenRoot = roots[0]!
 
     this._spacingMap = new SpacingMap(dims, chosenRoot.id, conflictHandlers)
     this._rootId = chosenRoot.id
+    console.log('got here')
 
     for (let root of roots) {
       // For each root node, we need to ensure that the root node has its own
@@ -40,21 +42,38 @@ export class ConstraintCalculator {
       this._spacingMap.getSpacing(this._rootId, root.id)
     }
 
+    console.log('generating constraints')
     for (let root of roots) {
-      this.generateConstraints(root)
+      try {
+        this.generateConstraints(root)
+      } catch (e) {
+        console.error('Error generating constraints:', e)
+      }
     }
 
+    console.log('indexed nodes')
     for (let root of roots) {
-      let [levelMap, _breadthIndexMap, _indexedNodes] = computeIndexedNodes(root)
-      this.generateCousinConstraints(levelMap)
+      console.log('About to compute indexed nodes for', root.id)
+
+      try {
+        let [levelMap, _breadthIndexMap, _indexedNodes] = computeIndexedNodes(root)
+        console.log('Computed indexed nodes for', root.id, levelMap)
+        this.generateCousinConstraints(levelMap)
+      } catch (e) {
+        console.error('Error generating cousin constraints:', e)
+      }
     }
 
-    try {
-      this.minimizeSpacings()
-    } catch (e) {
-      if (e instanceof ContentIsNotKnownError) {
-      } else {
-        throw e
+    console.log('got here 2')
+
+    if (minimize) {
+      try {
+        this.minimizeSpacings()
+      } catch (e) {
+        if (e instanceof ContentIsNotKnownError) {
+        } else {
+          throw e
+        }
       }
     }
 
@@ -136,15 +155,13 @@ export class ConstraintCalculator {
     }
 
     // Generate constraints for nested nodes
-    if (n.subgraph) {
+    if (n.subgraph && n.subgraph.length > 0) {
+      // Create one constraint for all subgraph nodes
+      let nestedConstraint = new NestedConstraint(n, n.subgraph, this._spacingMap.net.conflictHandlers)
+      nestedConstraint.apply(this._spacingMap)
+      
+      // Then refine spacings for each inner node
       for (let innerNode of n.subgraph) {
-        // If there are inner nodes (nested subgraphs), we need to apply constraints
-        // for those as well. This will ensure that the inner nodes are properly spaced
-        // relative to their parent node.
-        let nestedConstraint = new NestedConstraint(n, n.children, this._spacingMap.net.conflictHandlers)
-        nestedConstraint.apply(this._spacingMap)
-
-        // Refine the root spacing based on the nested nodes.
         this.refineSubtreeSpacing(n, innerNode)
       }
     }
@@ -153,11 +170,19 @@ export class ConstraintCalculator {
     for (let child of n.children) {
       this.generateConstraints(child)
     }
+
+    for (let child of n.subgraph ?? []) {
+      this.generateConstraints(child)
+    }
   }
 
   private refineSubtreeSpacing(a: SemanticNode<void>, b: SemanticNode<void>) {
     this._spacingMap.refineRootSpacing(a.id, b.id)
     for (let child of b.children) {
+      this.refineSubtreeSpacing(a, child)
+    }
+
+    for (let child of b.subgraph ?? []) {
       this.refineSubtreeSpacing(a, child)
     }
   }
@@ -387,9 +412,12 @@ class NestedConstraint implements Constraint {
   }
 
   public apply(spacingMap: SpacingMap): void {
+    if (!this._innerNodes || this._innerNodes.length === 0) {
+      return;
+    }
     let constraintCalculator = new ConstraintCalculator(
       { // TODO: Compute appropriate bounds for the width and height
-        width: atMost(1000),
+        width: atMost(500),
         height: atMost(500)
       },
       this._innerNodes,

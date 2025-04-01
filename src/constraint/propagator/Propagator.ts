@@ -429,6 +429,7 @@ class Cell<A> {
 
   private _lastWriter: PropagatorDescription | null = null
   private _allWrites: [PropagatorDescription, Content<A>][] = []
+  private _signaledInconsistency = false
 
   private _undoStack: Content<A>[] = []
 
@@ -484,6 +485,10 @@ class Cell<A> {
     switch (this._content.kind) {
         case 'Inconsistent':
           if (this._net.conflictHandlersEnabled && this._net.conflictHandlers.length > 0) {
+            if (!this._signaledInconsistency) {
+              this._allWrites.pop() // We already keep track of the last writer in propagator1 and oldContent
+              this._signaledInconsistency = true
+            }
             this._net.conflictHandlers.forEach(handler => handler(this._net)({
               cell: this._ref,
               oldContent: previousContent,

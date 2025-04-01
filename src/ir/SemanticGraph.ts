@@ -25,7 +25,14 @@ export type SemanticNode<A> = {
 
 export function getNodeIds<A>(n: SemanticNode<A>): string[] {
   let idsThere = n.children ? n.children.flatMap((child) => getNodeIds(child)) : [];
-  return [n.id, ...idsThere];
+  let nestedIds = n.subgraph ? n.subgraph.flatMap((child) => getNodeIds(child)) : [];
+  return [n.id, ...idsThere, ...nestedIds];
+}
+
+export function getNodeIdsAndLabels<A>(n: SemanticNode<A>): Array<[string, 'Transpose' | TermKind, string | undefined]> {
+  let idsThere = n.children ? n.children.flatMap((child) => getNodeIdsAndLabels(child)) : [];
+  let nestedIds = n.subgraph ? n.subgraph.flatMap((child) => getNodeIdsAndLabels(child)) : [];
+  return [[n.id, n.kind, n.label], ...idsThere, ...nestedIds];
 }
 
 export function getImmediateEdges(n: SemanticNode<void>): Edge[] {
@@ -43,7 +50,8 @@ export function getEdges(n: SemanticNode<void>): Edge[] {
   let edgesHere = getImmediateEdges(n)
 
   let edgesThere = n.children ? n.children.flatMap((child, index) => getEdges(child)) : [];
-  let edges = [...edgesHere, ...edgesThere];
+  let nestedEdges = n.subgraph ? n.subgraph.flatMap((child, index) => getEdges(child)) : [];
+  let edges = [...edgesHere, ...edgesThere, ...nestedEdges];
   return edges
 }
 
@@ -66,10 +74,9 @@ export function termToSemanticNode(t: Term): SemanticNode<void> {
       // TODO: Exponential transpose
       let thisId = t.id ? t.id : 'lam';
       let lamNode: SemanticNode<void> = { id: thisId, label: 'λ', kind: 'Lam', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)], payload: undefined };
-      let lamNode2: SemanticNode<void> = { id: thisId + '-1', label: 'λ', kind: 'Lam', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)], payload: undefined };
-      // let parentNode: SemanticNode<void> = { id: 'transpose-' + (t.id ? t.id : 'lam'), kind: 'Transpose', subgraph: [lamNode], children: [], payload: undefined };
-      let parentNode: SemanticNode<void> = { id: 'transpose-' + thisId, kind: 'Transpose', subgraph: [], children: [lamNode, lamNode2], payload: undefined };
-      return parentNode
+      // let parentNode: SemanticNode<void> = { id: 'transpose-' + thisId, label: 'transpose', kind: 'Transpose', subgraph: [lamNode], children: [], payload: undefined };
+      let parentNode: SemanticNode<void> = { id: 'transpose-' + thisId, label: 'transpose', kind: 'Transpose', subgraph: [lamNode], children: [], payload: undefined };
+      return lamNode
     }
     case 'App':
       // TODO: Exponential transpose

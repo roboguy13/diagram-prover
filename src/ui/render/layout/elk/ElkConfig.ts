@@ -15,20 +15,31 @@
 //   // 'elk.contentAlignment': 'H_LEFT V_CENTER',
 // };
 
+// ELK layout options
 export const elkOptions = {
-  'elk.algorithm': 'mrtree',
+  'elk.algorithm': 'layered',
   'elk.direction': 'DOWN',
-  // 'elk.layered.spacing.nodeNodeBetweenLayers': '80',
-  'elk.spacing.nodeNode': '30',
-  'elk.padding': '[top=25, left=25, bottom=25, right=25]',
-  'elk.spacing.componentComponent': '40',
-  'elk.spacing.edgeNode': '25',
-  // 'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
-  // 'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-  'elk.topdown.strategy': 'SEPARATE_CHILDREN',
-  'elk.nodeSize.options': 'UNIFORM_PORT_SPACING',
-  // "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
-  // "elk.layered.crossingMinimization.semiInteractive": "true",
-  // "elk.layered.layering.strategy": "INTERACTIVE",
-  // "elk.portConstraints": "FIXED_ORDER",
+  'elk.spacing.nodeNode': '40',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '40',
+  'elk.hierarchyHandling': 'INCLUDE_CHILDREN', // Important for nested nodes
+  'elk.edgeRouting': 'ORTHOGONAL'
 };
+
+
+// export const elkOptions = {
+//   'elk.algorithm': 'mrtree',
+//   'elk.direction': 'DOWN',
+//   // 'elk.layered.spacing.nodeNodeBetweenLayers': '80',
+//   'elk.spacing.nodeNode': '30',
+//   'elk.padding': '[top=25, left=25, bottom=25, right=25]',
+//   'elk.spacing.componentComponent': '40',
+//   'elk.spacing.edgeNode': '25',
+//   // 'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+//   // 'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+//   'elk.topdown.strategy': 'SEPARATE_CHILDREN',
+//   'elk.nodeSize.options': 'UNIFORM_PORT_SPACING',
+//   // "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+//   // "elk.layered.crossingMinimization.semiInteractive": "true",
+//   // "elk.layered.layering.strategy": "INTERACTIVE",
+//   // "elk.portConstraints": "FIXED_ORDER",
+// };

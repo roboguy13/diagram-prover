@@ -22,11 +22,12 @@ import { initialModel, Model } from './ui/architecture/Model';
 
 import { topSortNodes } from './ui/render/layout/TopSort';
 import { useElmish } from './ui/architecture/Elmish';
-import { NodesAndEdges } from './ui/render/layout/LayoutEngine';
+import { ConstraintLayoutEngine, NodesAndEdges } from './ui/render/layout/LayoutEngine';
 import { theLayoutEngine } from './ui/render/layout/LayoutEngineConfig';
 import { debugConfictHandler } from './ui/render/layout/recursiveBox/DebugConflictHandler';
 import { PortBarComponent } from './ui/components/Nodes/PortBar/PortBarComponent';
 import { PanelPortBar } from './ui/components/Editor/PanelPortBar/PanelPortBarComponent';
+import { RecursiveBoxEngine } from './ui/render/layout/recursiveBox/RecursiveBoxEngine';
 
 export interface Props {
   nodesAndEdges: NodesAndEdges;
@@ -46,22 +47,24 @@ export default function App() {
 
   const existingNodeIds = Array.from(state.graph?.nodes.keys() || []);
 
-  if (state.mode === 'normal-mode') {
-    if (inputBarId && !existingNodeIds.includes(inputBarId)) {
-      nodes.push(state.inputBar);
-    }
+  // if (state.mode === 'normal-mode') {
+  //   if (inputBarId && !existingNodeIds.includes(inputBarId)) {
+  //     nodes.push(state.inputBar);
+  //   }
 
-    if (outputBarId && !existingNodeIds.includes(outputBarId)) {
-      nodes.push(state.outputBar);
-    }
-  }
+  //   if (outputBarId && !existingNodeIds.includes(outputBarId)) {
+  //     nodes.push(state.outputBar);
+  //   }
+  // }
 
-  useEffect(() => {
-    theLayoutEngine.addConflictHandler(net => conflict => {
-      if (state.mode !== 'debug-propagators-mode')
-        debugConfictHandler(dispatch)(net)(conflict)
-      })
-  }, [])
+    useEffect(() => {
+      if (theLayoutEngine instanceof RecursiveBoxEngine) {
+        theLayoutEngine.addConflictHandler(net => conflict => {
+          if (state.mode !== 'debug-propagators-mode')
+            debugConfictHandler(dispatch)(net)(conflict)
+          })
+      }
+    }, [])
 
   useEffect(() => {
     if (state.updateCenter && reactFlowInstance) {
@@ -130,6 +133,20 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   })
+
+  // Fit-to-view
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (reactFlowInstance) {
+        reactFlowInstance.fitView({
+          padding: 0.2,
+          duration: 0,
+          includeHiddenNodes: false
+        });
+      }
+    }, 100)
+  }, []);
+
 
   return (
     <div style={{ 

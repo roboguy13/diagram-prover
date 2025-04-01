@@ -5,12 +5,14 @@ import { CellRef, Conflict, Content, PropagatorDescription, PropagatorNetwork } 
 import { PROPAGATOR_CELL_NODE_HEIGHT, PROPAGATOR_CELL_NODE_WIDTH, PROPAGATOR_NODE_HEIGHT, PROPAGATOR_NODE_WIDTH } from "../../ui/Config";
 import { Edge } from "reactflow";
 import { elk } from "../../ui/render/layout/elk/ElkEngine";
+import { ElkColorLabel, ElkNoHandlesLabel } from "../../ui/render/layout/elk/ElkData";
+import { last } from "lodash";
 
 const elkOptions = {
   'elk.algorithm': 'radial',
   'elk.direction': 'DOWN',
   'elk.layered.spacing.nodeNodeBetweenLayers': '100',
-  'elk.spacing.nodeNode': '50',
+  'elk.spacing.nodeNode': '100',
   'elk.padding': '[top=25,left=25,bottom=25,right=25]',
   'elk.spacing.componentComponent': '40',
   'elk.spacing.edgeNode': '25',
@@ -26,14 +28,31 @@ export function conflictToElkNode<A>(aPrinter: (a: A) => string, net: Propagator
   let cellNode = cellToElkNode(net)(conflict.cell)
   let nodes = elkList.map(([node, _content]) => node).concat([cellNode])
 
+  let lastNode0 = propagatorDescriptionToElkNode(net)(conflict.propagator2)
+  let lastNode = { ...lastNode0, edges: [] }
+  let lastEdge0 = createEdge(aPrinter, cellNode, [lastNode.id, conflict.newContent])
+  let lastEdge: ElkExtendedEdge =
+    { ... lastEdge0,
+      labels: (lastEdge0.labels || []).concat([new ElkColorLabel('red')])
+    }
+
+  let secondToLastNode0 = propagatorDescriptionToElkNode(net)(conflict.propagator1)
+  let secondToLastNode = { ...secondToLastNode0, edges: [] }
+  let secondToLastEdge0 = createEdge(aPrinter, cellNode, [secondToLastNode.id, conflict.oldContent])
+  let secondToLastEdge: ElkExtendedEdge =
+    { ... secondToLastEdge0,
+      labels: (secondToLastEdge0.labels || []).concat([new ElkColorLabel('cornflowerblue')])
+    }
+
   return {
     id: 'root-node',
-    children: nodes,
+    children: nodes.concat([secondToLastNode, lastNode]),
     layoutOptions: elkOptions,
     edges: contentIds.map((pair) => {
       let [id, content] = pair
-      return createEdge(aPrinter, cellNode, [id, content])
-    })
+      let theEdge = createEdge(aPrinter, cellNode, [id, content])
+      return theEdge
+    }).concat([secondToLastEdge, lastEdge])
     // edges:
     //   [ { id: 'edge-1', labels: [ { text: printContent(aPrinter)(conflict.oldContent) } ], sources: [elkList[0]!.id], targets: [elkList[1]!.id] },
     //     { id: 'edge-2', labels: [ { text: printContent(aPrinter)(conflict.newContent) } ], sources: [elkList[2]!.id], targets: [elkList[0]!.id] }
@@ -62,6 +81,7 @@ function createEdge<A>(aPrinter: (a: A) => string, cellNode: ElkNode, pair: [str
     sources: [cellNode.id],
     targets: [propagatorId],
     labels: [{ text: labelText }]
+    // labels: [{ text: labelText }, new ElkNoHandlesLabel()]
   }
 }
 
@@ -164,6 +184,7 @@ function propagatorDescriptionToElkNode<A>(net: PropagatorNetwork<A>) { return (
       height: PROPAGATOR_NODE_HEIGHT,
       // layoutOptions: elkOptions,
       labels: [{ text: 'propagator-node' }, { text: propagator.description }],
+      // labels: [{ text: 'propagator-node' }, { text: propagator.description }, new ElkNoHandlesLabel()],
       edges: outputEdges.concat(inputEdges),
     }
   }
@@ -176,6 +197,7 @@ function cellToElkNode<A>(net: PropagatorNetwork<A>) { return (cell: CellRef): E
       height: PROPAGATOR_CELL_NODE_HEIGHT,
       // layoutOptions: elkOptions,
       labels: [{ text: 'propagator-cell-node' }, { text: net.cellDescription(cell) }],
+      // labels: [{ text: 'propagator-cell-node' }, { text: net.cellDescription(cell) }, new ElkNoHandlesLabel()],
     }
   }
 }

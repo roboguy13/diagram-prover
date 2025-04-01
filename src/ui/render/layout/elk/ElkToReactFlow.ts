@@ -6,6 +6,8 @@ import { inputHandleName, outputHandleName } from '../../../NodeUtils'
 import { calculateGroupBounds } from '../../../components/Nodes/GroupedNode/GroupedNodeComponent'
 import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config'
 import { NodesAndEdges } from '../LayoutEngine'
+import { ElkColorLabel, ElkNoHandlesLabel } from './ElkData'
+import { FloatingEdge } from '../../../components/Edges/FloatingEdge'
 
 export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
   const nodes = (elkRoot.children || []).flatMap(child => flattenElkNodes(child));
@@ -13,15 +15,17 @@ export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
   // Deduplicate edges using a Map with edge ID as key
   const edgeMap = new Map<string, Edge>();
   collectElkEdges(elkRoot).forEach(edge => {
+    console.log('edge type: ', edge.id, edge.type);
     // Convert ELK extended edge to React Flow edge
     const flowEdge: Edge = {
       id: edge.id,
       source: edge.source,
       target: edge.target,
       label: edge.label,
-      // sourceHandle: edge.sourceHandle || outputHandleName(0),
-      // targetHandle: edge.targetHandle || inputHandleName(0),
-      type: "default"
+      style: edge.style || {},
+      sourceHandle: edge.sourceHandle || outputHandleName(0),
+      targetHandle: edge.targetHandle || inputHandleName(0),
+      type: edge.type || 'default',
     };
     
     edgeMap.set(flowEdge.id, flowEdge);
@@ -113,6 +117,11 @@ function collectElkEdges(elk: ElkNode): Edge[] {
     .filter(edge => edge.sources?.[0] !== undefined && edge.targets?.[0] !== undefined)
     .map((edge, index) => {
       console.log('edge: ', edge.id, edge.sources[0], edge.targets[0]);
+      let colorLabel: ElkColorLabel | undefined = edge.labels?.find(label => label instanceof ElkColorLabel)
+      // let noHandles = edge.labels?.find(label => label instanceof ElkNoHandlesLabel)
+      // let edgeKind = noHandles ? 'floating' : 'default'
+      let edgeKind = 'default'
+
       return {
         id: edge.id,
         source: edge.sources[0]!,
@@ -120,16 +129,19 @@ function collectElkEdges(elk: ElkNode): Edge[] {
 
         label: edge.labels?.[0]?.text,
 
-        // sourceHandle: outputHandleName(0),
-        // targetHandle: inputHandleName(index), // TODO
+        type: edgeKind,
 
-        // sourceHandle: outputHandleName(index),
-        // targetHandle: inputHandleName(0), // TODO
+        ... { style: colorLabel ? { stroke: colorLabel.text } : {} },
 
-        type: "default", // or custom edge type
+        sourceHandle: outputHandleName(0),
+        targetHandle: inputHandleName(index),
       }});
 
   const childEdges = (elk.children ?? []).flatMap(collectElkEdges);
 
-  return [...localEdges, ...childEdges];
+  const theEdges = [...localEdges, ...childEdges];
+  
+  console.log('theEdges: ', theEdges);
+
+  return theEdges
 }

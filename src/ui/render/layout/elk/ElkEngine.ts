@@ -9,7 +9,7 @@ import ELK from 'elkjs/lib/elk.bundled.js'
 export const elk = new ELK();
 
 export class ElkEngine implements LayoutEngine<ElkNode> {
-  fromSemanticNode(n: SemanticNode<void>): Promise<ElkNode> {
+  fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<ElkNode> {
     let graph = semanticNodeToElk(n);
 
     return elk

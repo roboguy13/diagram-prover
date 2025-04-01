@@ -40,10 +40,10 @@ function semanticNodeToElkList(node: SemanticNode<void>): ElkNode[] {
 
     edges: node.children.map((child, index) => ({
       id: `edge-${node.id}-${child.id}-${index}`,
-      sources: [child.id],
-      targets: [node.id],
-      // sources: [node.id],
-      // targets: [child.id],
+      // sources: [child.id],
+      // targets: [node.id],
+      sources: [node.id],
+      targets: [child.id],
     }))
   }
 
@@ -67,9 +67,10 @@ export function collectElkEdges(elk: ElkNode): ElkExtendedEdge[] {
         sources: [edge.sources[0]!],
         targets: [edge.targets[0]!],
         // Set source handle based on index if the source is this node
-        ...(edge.sources[0] === elk.id ? { sourceHandle: outputHandleName(index) } : {}),
+        // ...(edge.sources[0] === elk.id ? { sourceHandle: outputHandleName(index) } : {}),
+        sourceHandle: inputHandleName(index),
         // Add target handle
-        targetHandle: inputHandleName(0)
+        targetHandle: outputHandleName(0)
       }});
 
   const childEdges = (elk.children ?? []).flatMap(collectElkEdges);

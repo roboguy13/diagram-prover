@@ -25,21 +25,22 @@ const GROUPED_NODE_PADDING = 30;
 export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>) => {
   return (
     <div
-      style={{
-        // position: 'absolute',
-        // left: data.x,
-        // top: data.y,
-        width: width,
-        height: height,
-        border: 'solid #000',
-        // borderRadius: '5px',
-        // borderRadius: '20%',
-        // backgroundColor: 'rgba(240, 240, 240, 0.7)',
-        // padding: '10px',
-      }}
+      className='transpose-node'
+      // style={{
+      //   // position: 'absolute',
+      //   // left: data.x,
+      //   // top: data.y,
+      //   width: width,
+      //   height: height,
+      //   border: 'solid #000',
+      //   // borderRadius: '5px',
+      //   // borderRadius: '20%',
+      //   // backgroundColor: 'rgba(240, 240, 240, 0.7)',
+      //   // padding: '10px',
+      // }}
     >
-      <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
-      <Handle type="source" id={outputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
+      <Handle type="target" id={outputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
+      <Handle type="source" id={inputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
     </div>
     );
 }

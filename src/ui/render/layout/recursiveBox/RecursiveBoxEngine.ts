@@ -1,6 +1,6 @@
 import { Edge } from "@xyflow/react";
 import { getEdges, getImmediateEdges, SemanticNode } from "../../../../ir/SemanticGraph";
-import { LayoutEngine, NodesAndEdges } from "../LayoutEngine";
+import { ConstraintLayoutEngine, LayoutEngine, NodesAndEdges } from "../LayoutEngine";
 import { ConstraintCalculator } from "./SpacingConstraints";
 import { Locator } from "./Locator";
 import { AppNode } from "../../../components/Nodes/nodeTypes";
@@ -12,7 +12,7 @@ type InternalRep = [ConstraintCalculator, SemanticNode<void>, Edge[], string | n
 export const MAX_WIDTH: number = 1000;
 export const MAX_HEIGHT: number = 500;
 
-export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
+export class RecursiveBoxEngine implements ConstraintLayoutEngine<InternalRep> {
   private _conflictHandlers: ConflictHandler<NumericRange>[]
 
   constructor() {
@@ -56,18 +56,35 @@ export class RecursiveBoxEngine implements LayoutEngine<InternalRep> {
   traverseSemanticNode(n: SemanticNode<void>, locator: Locator, result: Map<string, AppNode>, activeRedexId: string | null): void {
     let position = locator.locate(n.id)
 
-    result.set(n.id, {
-      id: n.id,
-      type: 'term',
-      data: { label: n.label ?? '',
-              isActiveRedex: n.id === activeRedexId,
-              outputCount: 1,
-              inputCount: getImmediateEdges(n).length,
-            },
-      position: { x: position.x, y: position.y },
-    })
+    switch (n.kind) {
+      case 'Transpose': {
+        result.set(n.id, {
+          id: n.id,
+          type: 'grouped',
+          data: { label: n.label ?? '',
+                },
+          position: { x: position.x, y: position.y },
+        })
+        break
+      }
+      default:
+        result.set(n.id, {
+          id: n.id,
+          type: 'term',
+          data: { label: n.label ?? '',
+                  isActiveRedex: n.id === activeRedexId,
+                  outputCount: 1,
+                  inputCount: getImmediateEdges(n).length,
+                },
+          position: { x: position.x, y: position.y },
+        })
+    }
 
     for (let child of n.children) {
+      this.traverseSemanticNode(child, locator, result, activeRedexId)
+    }
+
+    for (let child of n.subgraph ?? []) {
       this.traverseSemanticNode(child, locator, result, activeRedexId)
     }
   }
