@@ -1,6 +1,7 @@
 import { XYPosition } from "@xyflow/react"
-import { AbsolutePositionMap, DimensionsMap, ExactDimensions } from "./SpacingConstraints"
+import { AbsolutePositionMap } from "./SpacingConstraints"
 import { getMin } from "../../../../constraint/propagator/NumericRange"
+import { DimensionsMap, ExactDimensions } from "./Constraint"
 
 export class Locator {
   private readonly _absolutePositionMap: AbsolutePositionMap

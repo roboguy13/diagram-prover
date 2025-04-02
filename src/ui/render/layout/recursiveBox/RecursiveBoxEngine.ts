@@ -25,7 +25,7 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<InternalRep> {
 
   public fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<InternalRep> {
     return new Promise<InternalRep>((resolve, _reject) => {
-      const constraintCalculator = new ConstraintCalculator({ width: atMost(MAX_WIDTH), height: atMost(MAX_HEIGHT) }, [n], this._conflictHandlers)
+      const constraintCalculator = new ConstraintCalculator([n], this._conflictHandlers)
       const edges = getEdges(n)
 
       resolve([constraintCalculator, n, edges, activeRedexId])
