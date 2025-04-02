@@ -154,7 +154,9 @@ export function waitForKnown<A>(cell: Cell<A>): Promise<A> {
   });
 }
 
-export type CellRef = number
+declare const cellRefBrand: unique symbol
+
+export type CellRef = number & { readonly [cellRefBrand]: unique symbol }
 
 export type PropagatorDescription = { description: string, inputs: CellRef[], outputs: CellRef[] }
 
@@ -217,7 +219,7 @@ export class PropagatorNetwork<A> {
   }
 
   public getCellRefs(): CellRef[] {
-    return this._cells.map((_, i) => i)
+    return this._cells.map((_, i) => i as CellRef)
   }
 
   checkpoint(): void {
@@ -255,11 +257,11 @@ export class PropagatorNetwork<A> {
   }
 
   cells(): CellRef[] {
-    return this._cells.map((_, i) => i)
+    return this._cells.map((_, i) => i as CellRef)
   }
 
   newCell(description: string, content: Content<A>): CellRef {
-    let cellRef = this._cells.length
+    let cellRef = this._cells.length as CellRef
     this._cells.push(new Cell(this, this._pSemigroup, cellRef, description, this._conflictHandlers.map(f => f(this)), content))
     return cellRef
   }
@@ -461,9 +463,9 @@ class Cell<A> {
 
   private _undoStack: Content<A>[] = []
 
-  private _ref: number
+  private _ref: CellRef
 
-  constructor(net: PropagatorNetwork<A>, pSemigroup: PartialSemigroup<A>, ref: number, description: string, conflictHandlers: ((conflict: Conflict<A>) => void)[], content: Content<A> = { kind: 'Unknown' }) {
+  constructor(net: PropagatorNetwork<A>, pSemigroup: PartialSemigroup<A>, ref: CellRef, description: string, conflictHandlers: ((conflict: Conflict<A>) => void)[], content: Content<A> = { kind: 'Unknown' }) {
     this._net = net
     this._pSemigroup = pSemigroup
     this._content = content
@@ -475,7 +477,7 @@ class Cell<A> {
     return this._description
   }
 
-  get ref(): number {
+  get ref(): CellRef {
     return this._ref
   }
 
@@ -516,6 +518,8 @@ class Cell<A> {
             if (!this._signaledInconsistency) {
               this._allWrites.pop() // We already keep track of the last writer in propagator1 and oldContent
               this._signaledInconsistency = true
+              let err = new InconsistentError({ cell: this._ref, oldContent: previousContent, newContent: content, propagator1: this._lastWriter!, propagator2: writer!, allWrites: this._allWrites })
+              console.error(err.errorMsg())
             }
             this._net.conflictHandlers.forEach(handler => handler(this._net)({
               cell: this._ref,
