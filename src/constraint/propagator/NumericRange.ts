@@ -259,3 +259,65 @@ export function writeBetweenPropagator(net: PropagatorNetwork<NumericRange>, cel
 export function writeAtLeastPropagator(net: PropagatorNetwork<NumericRange>, cell: CellRef, min: number): void {
   net.writeCell({ description: `cell ∈ [${min}, ∞)`, inputs: [], outputs: [cell] }, cell, known(atLeast(min)))
 }
+
+export function minRangePropagator(net: PropagatorNetwork<NumericRange>, a: CellRef, b: CellRef, result: CellRef): void {
+  // min(a, b) = result
+  net.binaryPropagator('min', a, b, result, (aVal: NumericRange, bVal: NumericRange): NumericRange => {
+    let aMin = getMin(aVal)
+    let bMin = getMin(bVal)
+
+    if (aMin < bMin) {
+      return selectMin(aVal)
+    } else {
+      return selectMin(bVal)
+    }
+  })
+
+  // result <= a
+  net.binaryPropagator('min-reverse-a', result, a, a, (resultVal: NumericRange, aVal: NumericRange): NumericRange => {
+    return selectMin(aVal)
+  })
+
+  // result <= b
+  net.binaryPropagator('min-reverse-b', result, b, b, (resultVal: NumericRange, bVal: NumericRange): NumericRange => {
+    return selectMin(bVal)
+  })
+}
+
+export function maxRangePropagator(net: PropagatorNetwork<NumericRange>, a: CellRef, b: CellRef, result: CellRef): void {
+  // max(a, b) = result
+  net.binaryPropagator('max', a, b, result, (aVal: NumericRange, bVal: NumericRange): NumericRange => {
+    let aMax = getMax(aVal)
+    let bMax = getMax(bVal)
+
+    if (aMax > bMax) {
+      return selectMin(aVal) // select max
+    } else {
+      return selectMin(bVal) // select max
+    }
+  })
+
+  // result >= a
+  net.binaryPropagator('max-reverse-a', result, a, a, (resultVal: NumericRange, aVal: NumericRange): NumericRange => {
+    return selectMin(aVal) // select max
+  }
+  )
+
+  // result >= b
+  net.binaryPropagator('max-reverse-b', result, b, b, (resultVal: NumericRange, bVal: NumericRange): NumericRange => {
+    return selectMin(bVal) // select max
+  }
+  )
+}
+
+export function maxRangeListPropagator(net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
+  net.foldLeftPropagator('max-list', 'max', aList, result, (acc: CellRef, aVal: CellRef, intermediateResult): void => {
+    maxRangePropagator(net, acc, aVal, intermediateResult)
+  })
+}
+
+export function minRangeListPropagator(net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
+  net.foldLeftPropagator('min-list', 'min', aList, result, (acc: CellRef, aVal: CellRef, intermediateResult): void => {
+    minRangePropagator(net, acc, aVal, intermediateResult)
+  })
+}

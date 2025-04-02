@@ -70,7 +70,7 @@ export class ConstraintCalculator {
 
     if (minimize) {
       try {
-        this.minimizeSpacings()
+        // this.minimizeSpacings()
       } catch (e) {
         if (e instanceof ContentIsNotKnownError) {
         } else {
@@ -89,7 +89,7 @@ export class ConstraintCalculator {
     // Print bounding boxes
     if (LOG_PROPAGATOR_STATS) {
       for (let nodeId of nodeIds) {
-        let boundingBox = this._spacingMap.lookupBoundingBox(nodeId)
+        let boundingBox = this._spacingMap.lookupIntrinsicBox(nodeId)
 
         // Read the Content from the CellRefs and print them. Use readCell not readKnownOrError so that we don't get any errors
         let minX = printContent(printNumericRange)(this._spacingMap.net.readCell(boundingBox.minX))
@@ -158,7 +158,7 @@ export class ConstraintCalculator {
 
   private generateConstraints(n: SemanticNode<void>): void {
     // Set up the initial bounding box dimensions
-    this._spacingMap.refineBoundingBoxDimensions(n, getNodeDimensions(n))
+    this._spacingMap.refineIntrinsicBoxDimensions(n, getNodeDimensions(n))
 
     // Set up parent-child constraints
     for (let child of n.children) {
@@ -188,6 +188,61 @@ export class ConstraintCalculator {
 
     for (let child of n.subgraph ?? []) {
       this.generateConstraints(child)
+    }
+
+    // Subtree extent constraints
+    let subtreeExtentBox = this._spacingMap.lookupSubtreeExtentBox(n.id)
+    let intrinsicBox = this._spacingMap.lookupIntrinsicBox(n.id)
+
+    // Y-axis
+    this._spacingMap.net.equalPropagator(
+      `subtree extent minY = intrinsic minY for ${n.id}`,
+      subtreeExtentBox.minY,
+      intrinsicBox.minY
+    )
+
+    lessThanEqualPropagator(
+      `intrinsic maxY <= subtree extent maxY for ${n.id}`,
+      this._spacingMap.net,
+      intrinsicBox.maxY,
+      subtreeExtentBox.maxY
+    )
+
+    for (let child of n.children) {
+      let childSubtreeExtentBox = this._spacingMap.lookupSubtreeExtentBox(child.id)
+
+      lessThanEqualPropagator(
+        `subtree extent minY <= child subtree extent maxY for ${n.id} and ${child.id}`,
+        this._spacingMap.net,
+        subtreeExtentBox.minY,
+        childSubtreeExtentBox.maxY
+      )
+    }
+
+    // X-axis
+    lessThanEqualPropagator(
+      `subtree extent minX <= intrinsic minX for ${n.id}`,
+      this._spacingMap.net,
+      subtreeExtentBox.minX,
+      intrinsicBox.minX
+    )
+
+    lessThanEqualPropagator(
+      `intrinsic maxX <= subtree extent maxX for ${n.id}`,
+      this._spacingMap.net,
+      intrinsicBox.maxX,
+      subtreeExtentBox.maxX
+    )
+
+    for (let child of n.children) {
+      let childSubtreeExtentBox = this._spacingMap.lookupSubtreeExtentBox(child.id)
+
+      lessThanEqualPropagator(
+        `subtree extent minX <= child subtree extent maxX for ${n.id} and ${child.id}`,
+        this._spacingMap.net,
+        subtreeExtentBox.minX,
+        childSubtreeExtentBox.maxX
+      )
     }
   }
 
@@ -222,7 +277,8 @@ type Spacing = {
 
 class SpacingMap {
   private _spacings: Map<string, Spacing> = new Map()
-  private _boundingBoxes: Map<string, BoundingBox> = new Map()
+  private _intrinsicBoxes: Map<string, BoundingBox> = new Map()
+  private _subtreeExtentBoxes: Map<string, BoundingBox> = new Map()
   private _net: PropagatorNetwork<NumericRange>
   private _rootNodeId: string
   private _dims: Dimensions
@@ -238,21 +294,34 @@ class SpacingMap {
       ySpacing: this._net.newCell('root self spacing Y', known(exactly(0))),
     })
 
-    this._boundingBoxes.set(
+    this._intrinsicBoxes.set(
       this._rootNodeId,
       new BoundingBox(
         this._net,
-        this._net.newCell(`minX for ${this._rootNodeId}`, known(exactly(0))), // Root minX
-        this._net.newCell(`minY for ${this._rootNodeId}`, known(exactly(0))), // Root minY
-        this._net.newCell(`width for ${this._rootNodeId}`, unknown()),
-        this._net.newCell(`height for ${this._rootNodeId}`, unknown())
+        'intrinsic',
+        this._net.newCell(`intrinsic minX for ${this._rootNodeId}`, known(exactly(0))),
+        this._net.newCell(`intrinsic minY for ${this._rootNodeId}`, known(exactly(0))),
+        this._net.newCell(`intrinsic width for ${this._rootNodeId}`, unknown()),
+        this._net.newCell(`intrinsic height for ${this._rootNodeId}`, unknown())
       )
     )
-  }
 
-  public async renderDebugInfo(): Promise<NodesAndEdges> {
-    let elkNode = propagatorNetworkToElkNode(this._net)
-    let positioned = await elk.layout(elkNode)
+    this._subtreeExtentBoxes.set(
+      this._rootNodeId,
+      new BoundingBox(
+        this._net,
+        'subtree extent',
+        this._net.newCell(`subtree extent minX for ${this._rootNodeId}`, known(exactly(0))),
+        this._net.newCell(`subtree extent minY for ${this._rootNodeId}`, known(exactly(0))),
+        this._net.newCell(`subtree extent width for ${this._rootNodeId}`, unknown()),
+        this._net.newCell(`subtree extent height for ${this._rootNodeId}`, unknown())
+      )
+    )
+    }
+
+    public async renderDebugInfo(): Promise<NodesAndEdges> {
+      let elkNode = propagatorNetworkToElkNode(this._net)
+      let positioned = await elk.layout(elkNode)
 
     return elkToReactFlow(positioned)
   }
@@ -260,7 +329,7 @@ class SpacingMap {
   public get dimensionsMap(): DimensionsMap {
     const result: DimensionsMap = new Map()
 
-    for (let [nodeId, boundingBox] of this._boundingBoxes) {
+    for (let [nodeId, boundingBox] of this._intrinsicBoxes) {
       let width = this._net.readKnownOrError(boundingBox.width, 'width')
       let height = this._net.readKnownOrError(boundingBox.height, 'height')
 
@@ -272,8 +341,8 @@ class SpacingMap {
     return result
   }
 
-  public refineBoundingBoxDimensions(n: SemanticNode<void>, dims: Dimensions) {
-    let boundingBox = this.lookupBoundingBox(n.id)
+  public refineIntrinsicBoxDimensions(n: SemanticNode<void>, dims: Dimensions) {
+    let boundingBox = this.lookupIntrinsicBox(n.id)
 
     this._net.writeCell(
       { description: `refine bounding box width for ${n.id}`,
@@ -309,21 +378,41 @@ class SpacingMap {
     return this._net
   }
 
-  public lookupBoundingBox(nodeId: string): BoundingBox {
-    let boundingBox = this._boundingBoxes.get(nodeId)
+  public lookupIntrinsicBox(nodeId: string): BoundingBox {
+    let boundingBox = this._intrinsicBoxes.get(nodeId)
 
     if (!boundingBox) {
       boundingBox = new BoundingBox(
         this._net,
-        this._net.newCell(`minX for ${nodeId}`, unknown()),
-        this._net.newCell(`minY for ${nodeId}`, unknown()),
-        this._net.newCell(`width for ${nodeId}` , known(atLeast(0))),
-        this._net.newCell(`height for ${nodeId}`, known(atLeast(0)))
+        'intrinsic',
+        this._net.newCell(`intrinsic minX for ${nodeId}`, unknown()),
+        this._net.newCell(`intrinsic minY for ${nodeId}`, unknown()),
+        this._net.newCell(`intrinsic width for ${nodeId}` , known(atLeast(0))),
+        this._net.newCell(`intrinsic height for ${nodeId}`, known(atLeast(0)))
       )
 
-      this._boundingBoxes.set(nodeId, boundingBox)
+      this._intrinsicBoxes.set(nodeId, boundingBox)
     }
   
+    return boundingBox
+  }
+
+  public lookupSubtreeExtentBox(nodeId: string): BoundingBox {
+    let boundingBox = this._subtreeExtentBoxes.get(nodeId)
+
+    if (!boundingBox) {
+      boundingBox = new BoundingBox(
+        this._net,
+        'subtree extent',
+        this._net.newCell(`subtree extent minX for ${nodeId}`, unknown()),
+        this._net.newCell(`subtree extent minY for ${nodeId}`, unknown()),
+        this._net.newCell(`subtree extent width for ${nodeId}` , known(atLeast(0))),
+        this._net.newCell(`subtree extent height for ${nodeId}`, known(atLeast(0)))
+      )
+
+      this._subtreeExtentBoxes.set(nodeId, boundingBox)
+    }
+
     return boundingBox
   }
 
@@ -333,8 +422,8 @@ class SpacingMap {
     if (!spacing) {
       spacing = {
         // isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
-        xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, known(this._dims.width)),
-        ySpacing: this._net.newCell('Y spacing between ' + nodeId1 + ' and ' + nodeId2, known(this._dims.height)),
+        xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, unknown()), //known(this._dims.width)),
+        ySpacing: this._net.newCell('Y spacing between ' + nodeId1 + ' and ' + nodeId2, unknown()) //known(this._dims.height)),
         // xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(this._dims.width))),
         // ySpacing: this._net.newCell('Y spacing between ' + nodeId1 + ' and ' + nodeId2, known(atMost(this._dims.height))),
       }
@@ -351,14 +440,14 @@ class SpacingMap {
       this._spacings.set(makeEdgeKey(nodeId1, nodeId2), spacing)
       this._spacings.set(makeEdgeKey(nodeId2, nodeId1), negativeSpacing)
 
-      // if (spacing.isRelative) {
-        // Ensure that the bounding boxes are connected to the spacings
-        const leftBoundingBox = this.lookupBoundingBox(nodeId1)
-        const rightBoundingBox = this.lookupBoundingBox(nodeId2)
-  
-        let boundingBoxConstraint = new BoundingBoxRelativeConstraint(leftBoundingBox, rightBoundingBox, spacing)
-        boundingBoxConstraint.apply(this)
-      // }
+      // // if (spacing.isRelative) {
+      //   // Ensure that the bounding boxes are connected to the spacings
+      //   const leftBoundingBox = this.lookupBoundingBox(nodeId1)
+      //   const rightBoundingBox = this.lookupBoundingBox(nodeId2)
+
+      //   let boundingBoxConstraint = new BoundingBoxRelativeConstraint(leftBoundingBox, rightBoundingBox, spacing)
+      //   boundingBoxConstraint.apply(this)
+      // // }
 
       return spacing
     }
@@ -367,7 +456,7 @@ class SpacingMap {
   }
 
   public getAbsoluteX(nodeId: string): number {
-    let boundingBox = this.lookupBoundingBox(nodeId)
+    let boundingBox = this.lookupIntrinsicBox(nodeId)
     let xSpacing = this._net.readKnownOrError(boundingBox.minX, 'minX')
     
     if (!xSpacing) {
@@ -379,7 +468,7 @@ class SpacingMap {
   }
 
   public getAbsoluteY(nodeId: string): number {
-    let boundingBox = this.lookupBoundingBox(nodeId)
+    let boundingBox = this.lookupIntrinsicBox(nodeId)
     let ySpacing = this._net.readKnownOrError(boundingBox.minY, 'minY')
     
     if (!ySpacing) {
@@ -825,7 +914,9 @@ class BoundingBox {
   private _maxX: CellRef
   private _maxY: CellRef
 
-  constructor(net: PropagatorNetwork<NumericRange>, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
+  private _typePrefix: string
+
+  constructor(net: PropagatorNetwork<NumericRange>, typePrefix: string, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
     this._minX = minX
     this._minY = minY
     this._width = width
@@ -834,9 +925,11 @@ class BoundingBox {
     this._maxX = net.newCell('maxX', unknown())
     this._maxY = net.newCell('maxY', unknown())
 
+    this._typePrefix = typePrefix
+
     // maxX = minX + width
     addRangePropagator(
-      `maxX calculation`,
+      `${this._typePrefix} maxX calculation`,
       net,
       this._minX,
       this._width,
@@ -845,7 +938,7 @@ class BoundingBox {
 
     // maxY = minY + height
     addRangePropagator(
-      `maxY calculation`,
+      `${this._typePrefix} maxY calculation`,
       net,
       this._minY,
       this._height,

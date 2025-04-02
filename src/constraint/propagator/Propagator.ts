@@ -385,6 +385,34 @@ export class PropagatorNetwork<A> {
     })
   }
 
+  foldLeftPropagator(writer: string, opName: string, inputs: CellRef[], output: CellRef, f: (a: CellRef, b: CellRef, result: CellRef) => void): void {
+    if (inputs.length === 1) {
+      equalPropagator(
+        `${writer}-single-input`,
+        this._cells[inputs[0]!]!, // input cell
+        this._cells[output]!
+      )
+      return
+    }
+
+    if (inputs.length < 2) {
+      throw new Error('foldLeftPropagator requires at least two inputs')
+    }
+
+    let previousTempCellRef: CellRef = this.newCell(`temp-cell-for-${opName}`, unknown())
+
+    f(inputs[0]!, inputs[1]!, previousTempCellRef)
+
+    for (let i = 2; i < inputs.length - 1; i++) {
+      let currentTempCellRef = this.newCell(`temp-cell-for-${opName}-${i}`, unknown())
+
+      f(previousTempCellRef, inputs[i]!, currentTempCellRef)
+      previousTempCellRef = currentTempCellRef
+    }
+
+    f(previousTempCellRef, inputs[inputs.length - 1]!, output)
+  }
+
   equalPropagator(writer: string, cell1: CellRef, cell2: CellRef): void {
     this.addPropagatorConnection(`equalPropagator(${this._cells[cell1]!.description}, ${this._cells[cell2]!.description})`, [cell1], [cell2])
 
