@@ -9,7 +9,7 @@ import { ElkColorLabel, ElkNoHandlesLabel } from "../../ui/render/layout/elk/Elk
 import { last } from "lodash";
 
 const elkOptions = {
-  'elk.algorithm': 'radial',
+  'elk.algorithm': 'layered',
   'elk.direction': 'DOWN',
   'elk.layered.spacing.nodeNodeBetweenLayers': '100',
   'elk.spacing.nodeNode': '100',

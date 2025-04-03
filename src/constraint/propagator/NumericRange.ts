@@ -221,6 +221,13 @@ export function addRangeListPropagator(writer: string, net: PropagatorNetwork<Nu
   }
 }
 
+export function multNumericRangeNumber(a: NumericRange, b: number): NumericRange {
+  let aMin = getMin(a)
+  let aMax = getMax(a)
+
+  return between(aMin * b, aMax * b)
+}
+
 export function divNumericRangeNumberPropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, b: number, result: CellRef): void {
   // a / b = result
   net.unaryPropagator(writer, a, result, (aVal: NumericRange): NumericRange => {
@@ -229,7 +236,7 @@ export function divNumericRangeNumberPropagator(writer: string, net: PropagatorN
 
   // result * b = a
   net.unaryPropagator(writer, result, a, (resultVal: NumericRange): NumericRange => {
-    return addNumericRange(resultVal, exactly(b))
+    return multNumericRangeNumber(resultVal, b)
   })
 }
 
