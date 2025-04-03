@@ -14,11 +14,19 @@ export class ChangeTracker<A, B> {
   private changer: ((x: B) => [A, B] | null);
 
   constructor(item: B, changer: ((x: B) => [A, B] | null)) {
-    let [change, nextItem] = changer(item)!;
+    let next = changer(item);
 
-    this.changes = [change];
-    this.currentChangeIx = 0;
-    this.history = [item, nextItem];
+    if (!next) {
+      this.changes = [];
+      this.currentChangeIx = 0;
+      this.history = [item];
+    } else {
+      let [change, nextItem] = next
+
+      this.changes = [change];
+      this.currentChangeIx = 0;
+      this.history = [item, nextItem];
+    }
 
     this.changer = changer
   }

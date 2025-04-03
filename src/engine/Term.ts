@@ -124,15 +124,17 @@ export function hasAllIds(t: Term): boolean {
 export let idTerm = (ty: Type): Term =>
   lamTerm('z', ty, varTerm(0, 'z'));
 
-export let exampleTerm: Term =
-  appTerm(
-    lamTerm('x', piTerm()(unitTyTerm(), unitTyTerm()),
-      lamTerm('y', unitTyTerm(),
-        appTerm(
-          varTerm(1, 'x'),
-          varTerm(0, 'y')
-        )
-      )
-    ),
-    idTerm(unitTyTerm())
-  );
+export let exampleTerm: Term = appTerm(varTerm(0, 'y'), varTerm(1, 'x'))
+
+// export let exampleTerm: Term =
+//   appTerm(
+//     lamTerm('x', piTerm()(unitTyTerm(), unitTyTerm()),
+//       lamTerm('y', unitTyTerm(),
+//         appTerm(
+//           varTerm(1, 'x'),
+//           varTerm(0, 'y')
+//         )
+//       )
+//     ),
+//     idTerm(unitTyTerm())
+//   );
