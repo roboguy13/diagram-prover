@@ -1,17 +1,7 @@
-import { CellRef } from "../../../../constraint/propagator/Propagator";
-import { LayoutData } from "./constraints/LayoutData";
-
-export type Spacing = {
-  xSpacing: CellRef
-  ySpacing: CellRef
-}
+import { NumericRange } from "../../../../constraint/propagator/NumericRange";
+import { PropagatorNetwork } from "../../../../constraint/propagator/Propagator";
+import { LayoutTree } from "./LayoutTree";
 
 export interface Constraint {
-  apply(spacingMap: LayoutData): void;
+  apply(layoutTree: LayoutTree): void;
 }
-
-export type ExactDimensions =
-  { width: number,
-    height: number
-  }
-export type DimensionsMap = Map<string, ExactDimensions>

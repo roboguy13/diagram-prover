@@ -1,4 +1,5 @@
 import { NumericRange } from "../../../../constraint/propagator/NumericRange";
+
 import { Conflict, ConflictHandler, PropagatorNetwork } from "../../../../constraint/propagator/Propagator";
 import { Msg } from "../../../architecture/Msg";
 
@@ -11,7 +12,9 @@ export function debugConfictHandler(dispatch: (msg: Msg) => void) { return (net:
 
       inPropagatorDebugMode = true
       console.log('Conflict detected:', conflict)
+      // dispatch({ kind: 'EditorMsg', msg: { type: 'ToggleDebugPropagatorsMode' }});
       dispatch({ kind: 'EditorMsg', msg: { type: 'PropagatorConflict', net: net, conflict: conflict } })
     }
   }
 }
+ 

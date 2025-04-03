@@ -147,7 +147,6 @@ export default function App() {
     }, 100)
   }, []);
 
-
   return (
     <div style={{ 
       position: 'relative',
@@ -196,9 +195,9 @@ export default function App() {
         </Panel> */}
         <Controls>
           {/* Button for rendering the propagator network as a graph to debug it */}
-          {/* <ControlButton onClick={handleLayoutDebug} >
+          <ControlButton onClick={handleLayoutDebug} >
             <MagicWandIcon />
-          </ControlButton> */}
+          </ControlButton>
 
           <ControlButton onClick={handleBetaStep}>
             <ChevronRightIcon />

@@ -175,17 +175,17 @@ export function partialSemigroupNumericRange(): PartialSemigroup<NumericRange> {
 
 export function addRangePropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, b: CellRef, result: CellRef): void {
   // a + b = result
-  net.binaryPropagator(writer, a, b, result, (aVal: NumericRange, bVal: NumericRange): NumericRange => {
+  net.binaryPropagator(writer, 'add', a, b, result, (aVal: NumericRange, bVal: NumericRange): NumericRange => {
     return addNumericRange(aVal, bVal)
   })
 
   // result - a = b
-  net.binaryPropagator(writer, result, a, b, (resultVal: NumericRange, aVal: NumericRange): NumericRange => {
+  net.binaryPropagator(writer, 'sub', result, a, b, (resultVal: NumericRange, aVal: NumericRange): NumericRange => {
     return subNumericRange(resultVal, aVal)
   })
 
   // result - b = a
-  net.binaryPropagator(writer, result, b, a, (resultVal: NumericRange, bVal: NumericRange): NumericRange => {
+  net.binaryPropagator(writer, 'sub', result, b, a, (resultVal: NumericRange, bVal: NumericRange): NumericRange => {
     return subNumericRange(resultVal, bVal)
   })
 }
@@ -196,29 +196,15 @@ export function subtractRangePropagator(writer: string, net: PropagatorNetwork<N
 }
 
 export function addRangeListPropagator(writer: string, net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
-  // a1 + a2 + ... + an = result
-  net.naryPropagator(writer, aList, result, (aListVals: NumericRange[]): NumericRange => {
-    let result = aListVals[0]!
-
-    for (let i = 0; i < aListVals.length; i++) {
-      result = addNumericRange(result, aListVals[i]!)
+  net.foldLeftPropagator(
+    `${writer}: addList(aList)->result`,
+    'addList',
+    aList,
+    result,
+    (a: CellRef, b: CellRef, result: CellRef): void => {
+      addRangePropagator(writer, net, a, b, result)
     }
-
-    return result
-  })
-
-  for (let i = 0; i < aList.length; i++) {
-    // result - (a1 + ... + a(i-1) + a(i+1) + ... + an) = ai
-    let contentsBeforeIx = aList.slice(0, i)
-    let contentsAfterIx = aList.slice(i + 1)
-
-    net.naryPropagator(writer, [result, ...contentsBeforeIx, ...contentsAfterIx], aList[i]!, (theRanges: NumericRange[]): NumericRange => {
-      let result = theRanges[0]!
-      let otherRanges = theRanges.slice(1)
-
-      return subNumericRange(result, addNumericRangeList(otherRanges))
-    })
-  }
+  )
 }
 
 export function multNumericRangeNumber(a: NumericRange, b: number): NumericRange {
@@ -230,24 +216,36 @@ export function multNumericRangeNumber(a: NumericRange, b: number): NumericRange
 
 export function divNumericRangeNumberPropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, b: number, result: CellRef): void {
   // a / b = result
-  net.unaryPropagator(writer, a, result, (aVal: NumericRange): NumericRange => {
+  net.unaryPropagator(writer, `/${b}`, a, result, (aVal: NumericRange): NumericRange => {
     return divNumericRangeNumber(aVal, b)
   })
 
   // result * b = a
-  net.unaryPropagator(writer, result, a, (resultVal: NumericRange): NumericRange => {
+  net.unaryPropagator(writer, `*${b}`, result, a, (resultVal: NumericRange): NumericRange => {
     return multNumericRangeNumber(resultVal, b)
+  })
+}
+
+export function multNumericRangeNumberPropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, b: number, result: CellRef): void {
+  // a * b = result
+  net.unaryPropagator(writer, `*${b}`, a, result, (aVal: NumericRange): NumericRange => {
+    return multNumericRangeNumber(aVal, b)
+  })
+
+  // result / b = a
+  net.unaryPropagator(writer, `/${b}`, result, a, (resultVal: NumericRange): NumericRange => {
+    return divNumericRangeNumber(resultVal, b)
   })
 }
 
 export function negateNumericRangePropagator(writer: string, net: PropagatorNetwork<NumericRange>, a: CellRef, result: CellRef): void {
   // -a = result
-  net.unaryPropagator(writer, a, result, (aVal: NumericRange): NumericRange => {
+  net.unaryPropagator(writer, `negate`, a, result, (aVal: NumericRange): NumericRange => {
     return { kind: 'Range', min: -getMax(aVal), max: -getMin(aVal) }
   })
 
   // -result = a
-  net.unaryPropagator(writer, result, a, (resultVal: NumericRange): NumericRange => {
+  net.unaryPropagator(writer, `negate`, result, a, (resultVal: NumericRange): NumericRange => {
     return { kind: 'Range', min: -getMax(resultVal), max: -getMin(resultVal) }
   })
 }
@@ -267,64 +265,54 @@ export function writeAtLeastPropagator(net: PropagatorNetwork<NumericRange>, cel
   net.writeCell({ description: `cell ∈ [${min}, ∞)`, inputs: [], outputs: [cell] }, cell, known(atLeast(min)))
 }
 
-export function minRangePropagator(net: PropagatorNetwork<NumericRange>, a: CellRef, b: CellRef, result: CellRef): void {
-  // min(a, b) = result
-  net.binaryPropagator('min', a, b, result, (aVal: NumericRange, bVal: NumericRange): NumericRange => {
-    let aMin = getMin(aVal)
-    let bMin = getMin(bVal)
+export function maxNumericRange(a: NumericRange, b: NumericRange): NumericRange {
+  let aMin = getMin(a)
+  let aMax = getMax(a)
+  let bMin = getMin(b)
+  let bMax = getMax(b)
 
-    if (aMin < bMin) {
-      return selectMin(aVal)
-    } else {
-      return selectMin(bVal)
-    }
-  })
-
-  // result <= a
-  net.binaryPropagator('min-reverse-a', result, a, a, (resultVal: NumericRange, aVal: NumericRange): NumericRange => {
-    return selectMin(aVal)
-  })
-
-  // result <= b
-  net.binaryPropagator('min-reverse-b', result, b, b, (resultVal: NumericRange, bVal: NumericRange): NumericRange => {
-    return selectMin(bVal)
-  })
+  return between(Math.max(aMin, bMin), Math.max(aMax, bMax))
 }
 
-export function maxRangePropagator(net: PropagatorNetwork<NumericRange>, a: CellRef, b: CellRef, result: CellRef): void {
+export function minNumericRange(a: NumericRange, b: NumericRange): NumericRange {
+  let aMin = getMin(a)
+  let aMax = getMax(a)
+  let bMin = getMin(b)
+  let bMax = getMax(b)
+
+  return between(Math.min(aMin, bMin), Math.min(aMax, bMax))
+}
+
+export function maxRangePropagator(
+  writer: string,
+  net: PropagatorNetwork<NumericRange>,
+  a: CellRef,
+  b: CellRef,
+  result: CellRef
+){
   // max(a, b) = result
-  net.binaryPropagator('max', a, b, result, (aVal: NumericRange, bVal: NumericRange): NumericRange => {
-    let aMax = getMax(aVal)
-    let bMax = getMax(bVal)
+  net.binaryPropagator(`${writer}: max(a,b)->result`, 'max', a, b, result, maxNumericRange)
 
-    if (aMax > bMax) {
-      return selectMin(aVal) // select max
-    } else {
-      return selectMin(bVal) // select max
+  // a <= result
+  lessThanEqualPropagator(`${writer}: a<=result`, net, a, result)
+
+  // b <= result
+  lessThanEqualPropagator(`${writer}: b<=result`, net, b, result)
+}
+
+export function maxRangeListPropagator(
+  writer: string,
+  net: PropagatorNetwork<NumericRange>,
+  aList: CellRef[],
+  result: CellRef
+){
+  net.foldLeftPropagator(
+    `${writer}: maxList(aList)->result`,
+    'maxList',
+    aList,
+    result,
+    (a: CellRef, b: CellRef, result: CellRef): void => {
+      maxRangePropagator(writer, net, a, b, result)
     }
-  })
-
-  // result >= a
-  net.binaryPropagator('max-reverse-a', result, a, a, (resultVal: NumericRange, aVal: NumericRange): NumericRange => {
-    return selectMin(aVal) // select max
-  }
   )
-
-  // result >= b
-  net.binaryPropagator('max-reverse-b', result, b, b, (resultVal: NumericRange, bVal: NumericRange): NumericRange => {
-    return selectMin(bVal) // select max
-  }
-  )
-}
-
-export function maxRangeListPropagator(writer: string, net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
-  net.foldLeftPropagator(writer, 'max', aList, result, (acc: CellRef, aVal: CellRef, intermediateResult): void => {
-    maxRangePropagator(net, acc, aVal, intermediateResult)
-  })
-}
-
-export function minRangeListPropagator(writer: string, net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
-  net.foldLeftPropagator(writer, 'min', aList, result, (acc: CellRef, aVal: CellRef, intermediateResult): void => {
-    minRangePropagator(net, acc, aVal, intermediateResult)
-  })
 }

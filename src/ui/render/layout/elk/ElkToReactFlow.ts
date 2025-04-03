@@ -15,7 +15,6 @@ export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
   // Deduplicate edges using a Map with edge ID as key
   const edgeMap = new Map<string, Edge>();
   collectElkEdges(elkRoot).forEach(edge => {
-    console.log('edge type: ', edge.id, edge.type);
     // Convert ELK extended edge to React Flow edge
     const flowEdge: Edge = {
       id: edge.id,
@@ -33,10 +32,6 @@ export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
   
   const edges = Array.from(edgeMap.values());
   const nodeMap = buildNodeMap(nodes);
-  
-  console.log('nodeMap: ', nodeMap);
-  console.log('edges: ', edges);
-  
   return { nodes: nodeMap, edges: edges };
 }
 
@@ -116,7 +111,6 @@ function collectElkEdges(elk: ElkNode): Edge[] {
   const localEdges: Edge[] = (elk.edges ?? [])
     .filter(edge => edge.sources?.[0] !== undefined && edge.targets?.[0] !== undefined)
     .map((edge, index) => {
-      console.log('edge: ', edge.id, edge.sources[0], edge.targets[0]);
       let colorLabel: ElkColorLabel | undefined = edge.labels?.find(label => label instanceof ElkColorLabel)
       // let noHandles = edge.labels?.find(label => label instanceof ElkNoHandlesLabel)
       // let edgeKind = noHandles ? 'floating' : 'default'
@@ -140,8 +134,6 @@ function collectElkEdges(elk: ElkNode): Edge[] {
   const childEdges = (elk.children ?? []).flatMap(collectElkEdges);
 
   const theEdges = [...localEdges, ...childEdges];
-  
-  console.log('theEdges: ', theEdges);
 
   return theEdges
 }

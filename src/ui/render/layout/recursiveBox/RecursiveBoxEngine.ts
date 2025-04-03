@@ -1,18 +1,12 @@
-import { Edge } from "@xyflow/react";
-import { getEdges, getImmediateEdges, SemanticNode } from "../../../../ir/SemanticGraph";
-import { ConstraintLayoutEngine, LayoutEngine, NodesAndEdges } from "../LayoutEngine";
-import { ConstraintCalculator } from "./ConstraintCalculator";
-import { Locator } from "./Locator";
+import { NumericRange, partialSemigroupNumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
+import { ConflictHandler, PropagatorNetwork } from "../../../../constraint/propagator/Propagator";
+import { SemanticNode } from "../../../../ir/SemanticGraph";
 import { AppNode } from "../../../components/Nodes/nodeTypes";
-import { ConflictHandler } from "../../../../constraint/propagator/Propagator";
-import { atMost, NumericRange } from "../../../../constraint/propagator/NumericRange";
+import { ConstraintLayoutEngine, NodesAndEdges } from "../LayoutEngine";
+import { ConstraintApplicator } from "./ConstraintApplicator";
+import { LayoutTree } from "./LayoutTree";
 
-type InternalRep = [ConstraintCalculator, SemanticNode<void>, Edge[], string | null]
-
-export const MAX_WIDTH: number = 1000;
-export const MAX_HEIGHT: number = 500;
-
-export class RecursiveBoxEngine implements ConstraintLayoutEngine<InternalRep> {
+export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
   private _conflictHandlers: ConflictHandler<NumericRange>[]
 
   constructor() {
@@ -23,78 +17,33 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<InternalRep> {
     this._conflictHandlers.push(handler)
   }
 
-  public fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<InternalRep> {
-    return new Promise<InternalRep>((resolve, _reject) => {
-      const constraintCalculator = new ConstraintCalculator([n], this._conflictHandlers)
-      const edges = getEdges(n)
-
-      resolve([constraintCalculator, n, edges, activeRedexId])
-    })
+  fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<LayoutTree> {
+    const net = new PropagatorNetwork<NumericRange>(printNumericRange, partialSemigroupNumericRange(), this._conflictHandlers)
+    return Promise.resolve(LayoutTree.buildFromSemanticNode(net, n));
   }
 
-  public toReactFlow(g: InternalRep): Promise<NodesAndEdges> {
-    let [constraintCalculator, n, edges, activeRedexId] = g
+  toReactFlow(layoutTree: LayoutTree): Promise<NodesAndEdges> {
+    const constraintApplicator = new ConstraintApplicator();
 
-    let absolutePositionMap = constraintCalculator.absolutePositionMap
-    let dimensionsMap = constraintCalculator.dimensionsMap
+    try {
+      constraintApplicator.processLayout(layoutTree);
 
-    let locator = new Locator(absolutePositionMap, dimensionsMap, n.id, { x: 0, y: 0 })
+      layoutTree.printDebugInfo();
+      layoutTree.net.printDebugCells(printNumericRange);
 
-    let appNodes = new Map<string, AppNode>()
-    this.traverseSemanticNode(n, locator, appNodes, activeRedexId)
+      const nodesAndEdges = layoutTree.toNodesAndEdges();
+      console.log("Nodes and Edges:", nodesAndEdges);
 
-    return Promise.resolve({
-      nodes: appNodes,
-      edges: edges
-    })
+      return Promise.resolve(nodesAndEdges);
+    } catch (e) {
+      console.error("Error applying constraints:", e);
+      // throw e
+      return Promise.resolve({ nodes: new Map<string, AppNode>(), edges: new Array() });
+    }
   }
 
-  public renderDebugInfo(g: InternalRep): Promise<NodesAndEdges> {
-    let [constraintCalculator, _n, _edges, _activeRedexId] = g
-    return constraintCalculator.renderDebugInfo()
-  }
-
-  traverseSemanticNode(n: SemanticNode<void>, locator: Locator, result: Map<string, AppNode>, activeRedexId: string | null): void {
-    let position = locator.locate(n.id)
-
-    switch (n.kind) {
-      case 'Transpose': {
-        let dims = locator.getDimensions(n.id)
-
-        result.set(n.id, {
-          id: n.id,
-          type: 'grouped',
-          data: { label: n.label ?? '',
-                  width: dims.width,
-                  height: dims.height,
-                },
-          position: { x: position.x, y: position.y },
-        })
-        break
-      }
-      default:
-        let dims = locator.getDimensions(n.id)
-
-        result.set(n.id, {
-          id: n.id,
-          type: 'term',
-          data: { label: n.label ?? '',
-                  isActiveRedex: n.id === activeRedexId,
-                  outputCount: 1,
-                  inputCount: getImmediateEdges(n).length,
-                  width: dims.width,
-                  height: dims.height,
-                },
-          position: { x: position.x, y: position.y },
-        })
-    }
-
-    for (let child of n.children) {
-      this.traverseSemanticNode(child, locator, result, activeRedexId)
-    }
-
-    for (let child of n.subgraph ?? []) {
-      this.traverseSemanticNode(child, locator, result, activeRedexId)
-    }
+  // TODO: Implement this method
+  renderDebugInfo(layoutTree: LayoutTree): Promise<NodesAndEdges> {
+    return layoutTree.renderDebugInfo();
   }
 }

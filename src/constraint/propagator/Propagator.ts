@@ -181,13 +181,23 @@ export class PropagatorNetwork<A> {
   private _isInconsistent = false
   private _conflictHandlersEnabled: boolean = true
 
-  constructor(pSemigroup: PartialSemigroup<A>, conflictHandlers: ConflictHandler<A>[]) {
+  private _aPrinter: (a: A) => string
+
+  private _debugCells: [string, CellRef][] = []
+
+  constructor(aPrinter: (a: A) => string, pSemigroup: PartialSemigroup<A>, conflictHandlers: ConflictHandler<A>[]) {
+    this._aPrinter = aPrinter
+
     conflictHandlers.push(net => conflict => {
       this._isInconsistent = true
     })
 
     this._pSemigroup = pSemigroup
     this._conflictHandlers = conflictHandlers
+  }
+
+  public get aPrinter(): (a: A) => string {
+    return this._aPrinter
   }
 
   public disableConflictHandlers() {
@@ -256,6 +266,27 @@ export class PropagatorNetwork<A> {
     }
   }
 
+  addDebugCell(context: string, cellRef: CellRef) {
+    this._debugCells.push([context, cellRef])
+  }
+
+  printDebugCells(aPrinter: (a: A) => string) {
+    if (this._debugCells.length === 0) {
+      return
+    }
+
+    console.log('Debug cells:')
+    this._debugCells.forEach(pair => {
+      let [context, cellRef] = pair
+      console.log(`${context}:`, this._cells[cellRef]!.description, printContent(aPrinter)(this._cells[cellRef]!.read()))
+    }
+    )
+  }
+
+  addKnownTransitionDebugCell(cellRef: CellRef) {
+    this._cells[cellRef]!.signalKnownTransition = true
+  }
+
   cells(): CellRef[] {
     return this._cells.map((_, i) => i as CellRef)
   }
@@ -303,27 +334,27 @@ export class PropagatorNetwork<A> {
         :
       (_description: string, _input: CellRef[], _output: CellRef[]) => { }
 
-  unaryPropagator(writer: string, input: CellRef, output: CellRef, f: (a: A) => A) {
+  unaryPropagator(writer: string, opName: string, input: CellRef, output: CellRef, f: (a: A) => A) {
     let inputCell = this._cells[input]!
     let outputCell = this._cells[output]!
 
     let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input], outputs: [output] }
 
-    this.addPropagatorConnection(`unaryPropagator(${inputCell.description}, ${outputCell.description})`, [input], [output])
+    this.addPropagatorConnection(`${opName}(${writer}, ${inputCell.description}, ${outputCell.description})`, [input], [output])
 
     inputCell.watch(content => {
       outputCell.write(propagatorDescription, mapContent(f)(content))
     })
   }
 
-  binaryPropagator(writer: string, input1: CellRef, input2: CellRef, output: CellRef, f: (a: A, b: A) => A) {
+  binaryPropagator(writer: string, opName: string, input1: CellRef, input2: CellRef, output: CellRef, f: (a: A, b: A) => A) {
     let input1Cell = this._cells[input1]!
     let input2Cell = this._cells[input2]!
     let outputCell = this._cells[output]!
 
     let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input1, input2], outputs: [output] }
 
-    this.addPropagatorConnection(`binaryPropagator(${input1Cell.description}, ${input2Cell.description}, ${outputCell.description})`, [input1, input2], [output])
+    this.addPropagatorConnection(`${opName}(${writer}, ${input1Cell.description}, ${input2Cell.description}, ${outputCell.description})`, [input1, input2], [output])
 
     input1Cell.watch(content1 => {
       let content2 = input2Cell.read()
@@ -342,7 +373,7 @@ export class PropagatorNetwork<A> {
 
     let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input], outputs: [output] }
 
-    this.addPropagatorConnection(`unaryPropagatorBind(${inputCell.description}, ${outputCell.description})`, [input], [output])
+    this.addPropagatorConnection(`unaryPropagatorBind(${writer}, ${inputCell.description}, ${outputCell.description})`, [input], [output])
 
     inputCell.watch(content => {
       outputCell.write(propagatorDescription, bindContent(f)(content))
@@ -356,7 +387,7 @@ export class PropagatorNetwork<A> {
 
     let propagatorDescription: PropagatorDescription = { description: writer, inputs: [input1, input2], outputs: [output] }
 
-    this.addPropagatorConnection(`binaryPropagatorBind(${input1Cell.description}, ${input2Cell.description}, ${outputCell.description})`, [input1, input2], [output])
+    this.addPropagatorConnection(`binaryPropagatorBind(${writer}, ${input1Cell.description}, ${input2Cell.description}, ${outputCell.description})`, [input1, input2], [output])
 
     input1Cell.watch(content1 => {
       let content2 = input2Cell.read()
@@ -375,7 +406,7 @@ export class PropagatorNetwork<A> {
 
     let propagatorDescription: PropagatorDescription = { description: writer, inputs, outputs: [output] }
 
-    this.addPropagatorConnection(`naryPropagator(${inputCells.map(cell => cell.description).join(', ')}, ${outputCell.description})`, inputs, [output])
+    this.addPropagatorConnection(`naryPropagator(${writer}, ${inputCells.map(cell => cell.description).join(', ')}, ${outputCell.description})`, inputs, [output])
 
     inputCells.forEach((inputCell, i) => {
       inputCell.watch(content => {
@@ -416,10 +447,10 @@ export class PropagatorNetwork<A> {
   }
 
   equalPropagator(writer: string, cell1: CellRef, cell2: CellRef): void {
-    this.addPropagatorConnection(`equalPropagator(${this._cells[cell1]!.description}, ${this._cells[cell2]!.description})`, [cell1], [cell2])
+    this.addPropagatorConnection(`equalPropagator(${writer}, ${this._cells[cell1]!.description}, ${this._cells[cell2]!.description})`, [cell1], [cell2])
 
-    this.unaryPropagator(writer, cell1, cell2, a => a)
-    this.unaryPropagator(writer, cell2, cell1, a => a)
+    this.unaryPropagator(writer, '=', cell1, cell2, a => a)
+    this.unaryPropagator(writer, '=', cell2, cell1, a => a)
   }
 }
 
@@ -461,6 +492,8 @@ class Cell<A> {
   private _allWrites: [PropagatorDescription, Content<A>][] = []
   private _signaledInconsistency = false
 
+  private _signalKnownTransition = false
+
   private _undoStack: Content<A>[] = []
 
   private _ref: CellRef
@@ -479,6 +512,14 @@ class Cell<A> {
 
   get ref(): CellRef {
     return this._ref
+  }
+
+  set signalKnownTransition(value: boolean) {
+    this._signalKnownTransition = value
+
+    if (this._content.kind === 'Known') {
+      console.warn(`Known (already) transition: ${this._description} ${this._net.aPrinter(this._content.value)}`)
+    }
   }
 
   checkpoint(): void {
@@ -541,6 +582,14 @@ class Cell<A> {
                 this._allWrites.push([writer, this._content])
               }
               this._subscribers.forEach(subscriber => subscriber(content))
+            }
+          } else {
+            if (DEBUG_PROPAGATOR_NETWORK) {
+                this._allWrites.push([writer, this._content]);
+            }
+            this._subscribers.forEach(subscriber => subscriber(content));
+            if (this._signalKnownTransition) {
+              console.warn(`Known transition: ${this._description} ${this._net.aPrinter(this._content.value)}`)
             }
           }
           break

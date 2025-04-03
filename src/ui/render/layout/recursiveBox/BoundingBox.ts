@@ -1,6 +1,6 @@
-import { NumericRange, addRangePropagator, divNumericRangeNumberPropagator } from "../../../../constraint/propagator/NumericRange";
-import { CellRef, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
-
+import { NumericRange, addRangePropagator, atLeast, divNumericRangeNumberPropagator, exactly, printNumericRange } from "../../../../constraint/propagator/NumericRange";
+import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
+import { Dimensions } from "../../../NodeDimensions";
 
 export class BoundingBox {
   private _minX: CellRef;
@@ -16,18 +16,42 @@ export class BoundingBox {
   private _typePrefix: string;
   private _nodeId: string;
 
+  public static createNew(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string): BoundingBox {
+    return new BoundingBox(
+      net,
+      typePrefix,
+      nodeId,
+      net.newCell(`${typePrefix} minX for ${nodeId}`, unknown()),
+      net.newCell(`${typePrefix} minY for ${nodeId}`, unknown()),
+      net.newCell(`${typePrefix} width for ${nodeId}`, known(atLeast(0))),
+      net.newCell(`${typePrefix} height for ${nodeId}`, known(atLeast(0)))
+    );
+  }
+
+  public static createNewWithDims(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string, dims: Dimensions): BoundingBox {
+    return new BoundingBox(
+      net,
+      typePrefix,
+      nodeId,
+      net.newCell(`${typePrefix} minX for ${nodeId}`, unknown()),
+      net.newCell(`${typePrefix} minY for ${nodeId}`, unknown()),
+      net.newCell(`${typePrefix} width for ${nodeId}`, known(dims.width)),
+      net.newCell(`${typePrefix} height for ${nodeId}`, known(dims.height))
+    );
+  }
+
   constructor(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
     this._minX = minX;
     this._minY = minY;
     this._width = width;
     this._height = height;
 
-    this._maxX = net.newCell('maxX', unknown());
-    this._maxY = net.newCell('maxY', unknown());
-
     this._typePrefix = typePrefix;
 
     this._nodeId = nodeId;
+
+    this._maxX = net.newCell(`maxX [node ${nodeId}]`, unknown());
+    this._maxY = net.newCell(`maxY [node ${nodeId}]`, unknown());
 
     // maxX = minX + width
     addRangePropagator(
@@ -47,9 +71,10 @@ export class BoundingBox {
       this._maxY
     );
 
-    const halfWidth = net.newCell('halfWidth', unknown());
-    this._centerX = net.newCell('centerX', unknown());
+    const halfWidth = net.newCell(`halfWidth [node ${nodeId}]`, unknown());
+    this._centerX = net.newCell(`centerX [node ${nodeId}]`, unknown());
 
+    // halfWidth = width / 2
     divNumericRangeNumberPropagator(
       `${this._typePrefix} halfWidth calculation [node ${this._nodeId}]`,
       net,
@@ -68,19 +93,19 @@ export class BoundingBox {
     );
   }
 
-  public get minX(): CellRef {
+  public get left(): CellRef {
     return this._minX;
   }
 
-  public get minY(): CellRef {
+  public get top(): CellRef {
     return this._minY;
   }
 
-  public get maxX(): CellRef {
+  public get right(): CellRef {
     return this._maxX;
   }
 
-  public get maxY(): CellRef {
+  public get bottom(): CellRef {
     return this._maxY;
   }
 
@@ -94,5 +119,14 @@ export class BoundingBox {
 
   public get centerX(): CellRef {
     return this._centerX;
+  }
+
+  public getDebugInfo(net: PropagatorNetwork<NumericRange>): string {
+    const minXContent = net.readCell(this._minX);
+    const minYContent = net.readCell(this._minY);
+    const widthContent = net.readCell(this._width);
+    const heightContent = net.readCell(this._height);
+
+    return `BoundingBox: minX: ${printContent(printNumericRange)(minXContent)}, minY: ${printContent(printNumericRange)(minYContent)}, width: ${printContent(printNumericRange)(widthContent)}, height: ${printContent(printNumericRange)(heightContent)}`;
   }
 }

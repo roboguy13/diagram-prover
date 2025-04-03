@@ -1,6 +1,7 @@
-import { addRangePropagator, writeBetweenPropagator } from "../../../../../constraint/propagator/NumericRange";
+import { addRangePropagator, exactly, NumericRange } from "../../../../../constraint/propagator/NumericRange";
+import { known, PropagatorNetwork } from "../../../../../constraint/propagator/Propagator";
 import { Constraint } from "../Constraint";
-import { LayoutData } from "./LayoutData";
+import { LayoutTree } from "../LayoutTree";
 
 export class VerticalPlacementConstraint implements Constraint {
   private _parentId: string;
@@ -11,21 +12,24 @@ export class VerticalPlacementConstraint implements Constraint {
     this._childId = childId;
   }
 
-  public apply(spacingMap: LayoutData): void {
-    const parentNodeBox = spacingMap.lookupIntrinsicBox(this._parentId);
-    const childSubtreeBox = spacingMap.lookupSubtreeExtentBox(this._childId);
+  public apply(layoutTree: LayoutTree): void {
+    const parentLayout = layoutTree.getNodeLayout(this._parentId);
+    const childLayout = layoutTree.getNodeLayout(this._childId);
 
-    const standardVSpacing = spacingMap.standardVSpacing
+    if (parentLayout && childLayout) {
+      const parentIntrinsicBox = parentLayout.intrinsicBox;
+      const childSubtreeBox = childLayout.subtreeExtentBox;
 
-    const parentBottom = parentNodeBox.maxY;
-    const childTop = childSubtreeBox.minY;
+      console.log(`======= VerticalPlacementConstraint: ${this._parentId} -> ${this._childId}`);
 
-    addRangePropagator(
-      `VPlace:[${this._parentId}]->[${this._childId}]`,
-      spacingMap.net,
-      parentBottom,
-      standardVSpacing,
-      childTop
-    );
+      // child.subtreeExtent.top = parent.intrinsicBox.bottom + standardVSpacing
+      addRangePropagator(
+        `VPlace:[${this._parentId}]->[${this._childId}]`,
+        layoutTree.net,
+        parentIntrinsicBox.bottom,
+        layoutTree.standardVSpacing,
+        childSubtreeBox.top
+      );
+    }
   }
 }
