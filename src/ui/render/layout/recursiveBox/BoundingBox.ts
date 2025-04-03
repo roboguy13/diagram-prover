@@ -1,4 +1,4 @@
-import { NumericRange, addRangePropagator } from "../../../../constraint/propagator/NumericRange";
+import { NumericRange, addRangePropagator, divNumericRangeNumberPropagator } from "../../../../constraint/propagator/NumericRange";
 import { CellRef, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 
 
@@ -11,9 +11,12 @@ export class BoundingBox {
   private _maxX: CellRef;
   private _maxY: CellRef;
 
-  private _typePrefix: string;
+  private _centerX: CellRef;
 
-  constructor(net: PropagatorNetwork<NumericRange>, typePrefix: string, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
+  private _typePrefix: string;
+  private _nodeId: string;
+
+  constructor(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
     this._minX = minX;
     this._minY = minY;
     this._width = width;
@@ -24,9 +27,11 @@ export class BoundingBox {
 
     this._typePrefix = typePrefix;
 
+    this._nodeId = nodeId;
+
     // maxX = minX + width
     addRangePropagator(
-      `${this._typePrefix} maxX calculation`,
+      `${this._typePrefix} maxX calculation [node ${this._nodeId}]`,
       net,
       this._minX,
       this._width,
@@ -35,11 +40,31 @@ export class BoundingBox {
 
     // maxY = minY + height
     addRangePropagator(
-      `${this._typePrefix} maxY calculation`,
+      `${this._typePrefix} maxY calculation [node ${this._nodeId}]`,
       net,
       this._minY,
       this._height,
       this._maxY
+    );
+
+    const halfWidth = net.newCell('halfWidth', unknown());
+    this._centerX = net.newCell('centerX', unknown());
+
+    divNumericRangeNumberPropagator(
+      `${this._typePrefix} halfWidth calculation [node ${this._nodeId}]`,
+      net,
+      this._width,
+      2,
+      halfWidth
+    );
+
+    // centerX = minX + halfWidth
+    addRangePropagator(
+      `${this._typePrefix} centerX calculation [node ${this._nodeId}]`,
+      net,
+      this._minX,
+      halfWidth,
+      this._centerX
     );
   }
 
@@ -65,5 +90,9 @@ export class BoundingBox {
 
   public get height(): CellRef {
     return this._height;
+  }
+
+  public get centerX(): CellRef {
+    return this._centerX;
   }
 }

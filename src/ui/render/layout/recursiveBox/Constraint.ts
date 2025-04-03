@@ -1,5 +1,5 @@
 import { CellRef } from "../../../../constraint/propagator/Propagator";
-import { SpacingMap } from "./constraints/SpacingMap";
+import { LayoutData } from "./constraints/LayoutData";
 
 export type Spacing = {
   xSpacing: CellRef
@@ -7,7 +7,7 @@ export type Spacing = {
 }
 
 export interface Constraint {
-  apply(spacingMap: SpacingMap): void;
+  apply(spacingMap: LayoutData): void;
 }
 
 export type ExactDimensions =

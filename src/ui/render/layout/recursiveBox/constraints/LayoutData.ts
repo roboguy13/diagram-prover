@@ -1,4 +1,4 @@
-import { atLeast, exactly, getMin, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange } from "../../../../../constraint/propagator/NumericRange";
+import { addRangePropagator, atLeast, divNumericRangeNumberPropagator, exactly, getMin, negateNumericRangePropagator, NumericRange, partialSemigroupNumericRange, subtractRangePropagator } from "../../../../../constraint/propagator/NumericRange";
 import { CellRef, ConflictHandler, known, PropagatorNetwork, unknown } from "../../../../../constraint/propagator/Propagator";
 import { propagatorNetworkToElkNode } from "../../../../../constraint/propagator/PropagatorToElk";
 import { SemanticNode } from "../../../../../ir/SemanticGraph";
@@ -10,28 +10,30 @@ import { makeEdgeKey } from "../../NodeLevels";
 import { BoundingBox } from "../BoundingBox";
 import { DimensionsMap, Spacing } from "../Constraint";
 
-export class SpacingMap {
-  private _spacings: Map<string, Spacing> = new Map();
+export class LayoutData {
   private _intrinsicBoxes: Map<string, BoundingBox> = new Map();
   private _subtreeExtentBoxes: Map<string, BoundingBox> = new Map();
   private _net: PropagatorNetwork<NumericRange>;
   private _rootNodeId: string;
+  private _linkedNodes: Set<string> = new Set();
+
+  private _vSpacing: CellRef
+  private _hSpacing: CellRef
 
   constructor(rootNodeId: string, conflictHandlers: ConflictHandler<NumericRange>[]) {
     this._rootNodeId = rootNodeId;
 
     this._net = new PropagatorNetwork<NumericRange>(partialSemigroupNumericRange(), conflictHandlers);
 
-    this._spacings.set(makeEdgeKey(rootNodeId, rootNodeId), {
-      xSpacing: this._net.newCell('root self spacing X', known(exactly(0))),
-      ySpacing: this._net.newCell('root self spacing Y', known(exactly(0))),
-    });
+    this._vSpacing = this._net.newCell('vertical spacing', known(atLeast(20)))
+    this._hSpacing = this._net.newCell('horizontal spacing', known(atLeast(20)))
 
     this._intrinsicBoxes.set(
       this._rootNodeId,
       new BoundingBox(
         this._net,
         'intrinsic',
+        this._rootNodeId,
         this._net.newCell(`intrinsic minX for ${this._rootNodeId}`, known(exactly(0))),
         this._net.newCell(`intrinsic minY for ${this._rootNodeId}`, known(exactly(0))),
         this._net.newCell(`intrinsic width for ${this._rootNodeId}`, unknown()),
@@ -44,8 +46,9 @@ export class SpacingMap {
       new BoundingBox(
         this._net,
         'subtree extent',
-        this._net.newCell(`subtree extent minX for ${this._rootNodeId}`, known(exactly(0))),
-        this._net.newCell(`subtree extent minY for ${this._rootNodeId}`, known(exactly(0))),
+        this._rootNodeId,
+        this._net.newCell(`subtree extent minX for ${this._rootNodeId}`, unknown()),
+        this._net.newCell(`subtree extent minY for ${this._rootNodeId}`, unknown()),
         this._net.newCell(`subtree extent width for ${this._rootNodeId}`, unknown()),
         this._net.newCell(`subtree extent height for ${this._rootNodeId}`, unknown())
       )
@@ -74,6 +77,14 @@ export class SpacingMap {
     return result;
   }
 
+  public get standardVSpacing(): CellRef {
+    return this._vSpacing;
+  }
+
+  public get standardHSpacing(): CellRef {
+    return this._hSpacing;
+  }
+
   public refineIntrinsicBoxDimensions(n: SemanticNode<void>, dims: Dimensions) {
     let boundingBox = this.lookupIntrinsicBox(n.id);
 
@@ -97,14 +108,7 @@ export class SpacingMap {
   }
 
   public getRelativeSpacingCells(): CellRef[] {
-    let result: CellRef[] = [];
-
-    for (let [edgeKey, spacing] of this._spacings) {
-      result.push(spacing.xSpacing);
-      result.push(spacing.ySpacing);
-    }
-
-    return result;
+    return [this._vSpacing, this._hSpacing];
   }
 
   public get net(): PropagatorNetwork<NumericRange> {
@@ -118,6 +122,7 @@ export class SpacingMap {
       boundingBox = new BoundingBox(
         this._net,
         'intrinsic',
+        nodeId,
         this._net.newCell(`intrinsic minX for ${nodeId}`, unknown()),
         this._net.newCell(`intrinsic minY for ${nodeId}`, unknown()),
         this._net.newCell(`intrinsic width for ${nodeId}`, known(atLeast(0))),
@@ -125,6 +130,8 @@ export class SpacingMap {
       );
 
       this._intrinsicBoxes.set(nodeId, boundingBox);
+
+      this.ensureBoxesAndLink(nodeId);
     }
 
     return boundingBox;
@@ -137,6 +144,7 @@ export class SpacingMap {
       boundingBox = new BoundingBox(
         this._net,
         'subtree extent',
+        nodeId,
         this._net.newCell(`subtree extent minX for ${nodeId}`, unknown()),
         this._net.newCell(`subtree extent minY for ${nodeId}`, unknown()),
         this._net.newCell(`subtree extent width for ${nodeId}`, known(atLeast(0))),
@@ -144,37 +152,84 @@ export class SpacingMap {
       );
 
       this._subtreeExtentBoxes.set(nodeId, boundingBox);
+
+      this.ensureBoxesAndLink(nodeId);
     }
 
     return boundingBox;
   }
 
-  public getSpacing(nodeId1: string, nodeId2: string): Spacing {
-    let spacing = this._spacings.get(makeEdgeKey(nodeId1, nodeId2));
+  private ensureBoxesAndLink(nodeId: string): void {
+    // Don't link the root node this way, its position is the anchor (0,0)
+    if (nodeId === this._rootNodeId) {
+        // Optional: Add equate propagators for root if not already implicitly linked
+         const intrinsicRootBox = this._intrinsicBoxes.get(nodeId);
+         const subtreeRootBox = this._subtreeExtentBoxes.get(nodeId);
+         if (intrinsicRootBox && subtreeRootBox && !this._linkedNodes.has(nodeId)) {
+             this._net.equalPropagator(`LinkRoot_Y:[${nodeId}]`, intrinsicRootBox.minY, subtreeRootBox.minY);
+             this._net.equalPropagator(`LinkRoot_X:[${nodeId}]`, intrinsicRootBox.minX, subtreeRootBox.minX);
+             this._linkedNodes.add(nodeId); // Mark root as 'linked' even if different logic applies
+         }
+        return;
+    }
+    console.log(`=== Ensuring boxes and linking for node ${nodeId}`); // Add log
 
-    if (!spacing) {
-      spacing = {
-        xSpacing: this._net.newCell('X spacing between ' + nodeId1 + ' and ' + nodeId2, unknown()),
-        ySpacing: this._net.newCell('Y spacing between ' + nodeId1 + ' and ' + nodeId2, unknown())
-      };
-
-      let negativeSpacing = {
-        isRelative: nodeId1 !== this._rootNodeId && nodeId2 !== this._rootNodeId,
-        xSpacing: this._net.newCell('negative X spacing between ' + nodeId1 + ' and ' + nodeId2, unknown()),
-        ySpacing: this._net.newCell('negative Y spacing between ' + nodeId1 + ' and ' + nodeId2, unknown()),
-      };
-
-      negateNumericRangePropagator('negate', this._net, spacing.xSpacing, negativeSpacing.xSpacing);
-      negateNumericRangePropagator('negate', this._net, spacing.ySpacing, negativeSpacing.ySpacing);
-
-      this._spacings.set(makeEdgeKey(nodeId1, nodeId2), spacing);
-      this._spacings.set(makeEdgeKey(nodeId2, nodeId1), negativeSpacing);
-
-      return spacing;
+    // Exit if already linked or if one of the boxes doesn't exist yet
+    if (this._linkedNodes.has(nodeId) || !this._intrinsicBoxes.has(nodeId) || !this._subtreeExtentBoxes.has(nodeId)) {
+        return;
     }
 
-    return spacing;
-  }
+    const intrinsicBox = this._intrinsicBoxes.get(nodeId)!;
+    const subtreeBox = this._subtreeExtentBoxes.get(nodeId)!;
+
+    console.log(`Linking boxes for node ${nodeId}`); // Add log
+
+    // --- Add Linking Propagators ---
+
+    // 1. Link Vertical Position: intrinsicBox.minY = subtreeBox.minY
+    this._net.equalPropagator(
+        `Link_Y:[${nodeId}]`, // Unique descriptive name
+        intrinsicBox.minY, // Target
+        subtreeBox.minY    // Source
+    );
+
+    // 2. Link Horizontal Position: intrinsicBox.minX = subtreeBox.minX + (subtreeBox.width - intrinsicBox.width) / 2
+    const totalWidthDiff = this._net.newCell(`Link_WidthDiff_[${nodeId}]`, unknown());
+    const halfWidthDiff = this._net.newCell(`Link_HalfWidthDiff_[${nodeId}]`, unknown());
+
+    // Calculate difference: totalWidthDiff = subtreeBox.width - intrinsicBox.width
+    // Ensure subtractNumericRangePropagator handles ranges correctly (min = sub.min - intr.max, max = sub.max - intr.min)
+    subtractRangePropagator(
+        `Link_WidthDiff_Calc_[${nodeId}]`,
+        this._net,
+        subtreeBox.width,  // Input 1
+        intrinsicBox.width,// Input 2
+        totalWidthDiff     // Output
+    );
+
+    // Divide difference by two: halfWidthDiff = totalWidthDiff / 2
+    // Ensure divideByTwoPropagator handles ranges correctly
+    divNumericRangeNumberPropagator(
+        `Link_HalfWidthDiff_Calc_[${nodeId}]`,
+        this._net,
+        totalWidthDiff,    // Input
+        2,
+        halfWidthDiff      // Output
+    );
+
+    // Add offset to subtree position: intrinsicBox.minX = subtreeBox.minX + halfWidthDiff
+    // Ensure addNumericRangePropagator handles ranges correctly
+    addRangePropagator(
+        `Link_X_[${nodeId}]`,
+        this._net,
+        subtreeBox.minX,   // Input 1
+        halfWidthDiff,     // Input 2
+        intrinsicBox.minX  // Output
+    );
+
+    // Mark as linked
+    this._linkedNodes.add(nodeId);
+}
 
   public getAbsoluteX(nodeId: string): number {
     let boundingBox = this.lookupIntrinsicBox(nodeId);
@@ -198,13 +253,5 @@ export class SpacingMap {
     }
 
     return getMin(ySpacing)!;
-  }
-
-  public getXSpacing(nodeId1: string, nodeId2: string): CellRef {
-    return this.getSpacing(nodeId1, nodeId2).xSpacing;
-  }
-
-  public getYSpacing(nodeId1: string, nodeId2: string): CellRef {
-    return this.getSpacing(nodeId1, nodeId2).ySpacing;
   }
 }

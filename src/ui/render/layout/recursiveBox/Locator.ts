@@ -1,5 +1,5 @@
 import { XYPosition } from "@xyflow/react"
-import { AbsolutePositionMap } from "./SpacingConstraints"
+import { AbsolutePositionMap } from "./ConstraintCalculator"
 import { getMin } from "../../../../constraint/propagator/NumericRange"
 import { DimensionsMap, ExactDimensions } from "./Constraint"
 

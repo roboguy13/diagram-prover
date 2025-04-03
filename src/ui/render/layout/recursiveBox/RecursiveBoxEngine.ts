@@ -1,7 +1,7 @@
 import { Edge } from "@xyflow/react";
 import { getEdges, getImmediateEdges, SemanticNode } from "../../../../ir/SemanticGraph";
 import { ConstraintLayoutEngine, LayoutEngine, NodesAndEdges } from "../LayoutEngine";
-import { ConstraintCalculator } from "./SpacingConstraints";
+import { ConstraintCalculator } from "./ConstraintCalculator";
 import { Locator } from "./Locator";
 import { AppNode } from "../../../components/Nodes/nodeTypes";
 import { ConflictHandler } from "../../../../constraint/propagator/Propagator";

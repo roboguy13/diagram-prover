@@ -310,14 +310,14 @@ export function maxRangePropagator(net: PropagatorNetwork<NumericRange>, a: Cell
   )
 }
 
-export function maxRangeListPropagator(net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
-  net.foldLeftPropagator('max-list', 'max', aList, result, (acc: CellRef, aVal: CellRef, intermediateResult): void => {
+export function maxRangeListPropagator(writer: string, net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
+  net.foldLeftPropagator(writer, 'max', aList, result, (acc: CellRef, aVal: CellRef, intermediateResult): void => {
     maxRangePropagator(net, acc, aVal, intermediateResult)
   })
 }
 
-export function minRangeListPropagator(net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
-  net.foldLeftPropagator('min-list', 'min', aList, result, (acc: CellRef, aVal: CellRef, intermediateResult): void => {
+export function minRangeListPropagator(writer: string, net: PropagatorNetwork<NumericRange>, aList: CellRef[], result: CellRef): void {
+  net.foldLeftPropagator(writer, 'min', aList, result, (acc: CellRef, aVal: CellRef, intermediateResult): void => {
     minRangePropagator(net, acc, aVal, intermediateResult)
   })
 }

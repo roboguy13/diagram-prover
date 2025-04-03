@@ -1,7 +1,7 @@
 import { lessThanEqualPropagator } from "../../../../../constraint/propagator/NumericRange";
 import { Constraint } from "../Constraint";
 import { BoundingBox } from "../BoundingBox";
-import { SpacingMap } from "./SpacingMap";
+import { LayoutData } from "./LayoutData";
 
 // Constrain the nested node to be inside the nesting node
 export class NestedNodeConstraint implements Constraint {
@@ -13,7 +13,7 @@ export class NestedNodeConstraint implements Constraint {
     this._childId = childId;
   }
 
-  public apply(spacingMap: SpacingMap): void {
+  public apply(spacingMap: LayoutData): void {
     // let parentBoundingBox = spacingMap.lookupBoundingBox(this._parentId);
     // let childBoundingBox = spacingMap.lookupBoundingBox(this._childId);
 
@@ -21,18 +21,18 @@ export class NestedNodeConstraint implements Constraint {
     // this.applyY(spacingMap, parentBoundingBox, childBoundingBox);
   }
 
-  private applyX(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+  private applyX(spacingMap: LayoutData, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
     this.applyXMin(spacingMap, parentBoundingBox, childBoundingBox);
     this.applyXMax(spacingMap, parentBoundingBox, childBoundingBox);
   }
 
-  private applyY(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+  private applyY(spacingMap: LayoutData, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
     this.applyYMin(spacingMap, parentBoundingBox, childBoundingBox);
     this.applyYMax(spacingMap, parentBoundingBox, childBoundingBox);
   }
 
   // parent.minX <= child.minX
-  private applyXMin(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+  private applyXMin(spacingMap: LayoutData, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
     lessThanEqualPropagator(
       `nested node constraint X min`,
       spacingMap.net,
@@ -42,7 +42,7 @@ export class NestedNodeConstraint implements Constraint {
   }
 
   // child.maxX <= parent.maxX
-  private applyXMax(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+  private applyXMax(spacingMap: LayoutData, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
     lessThanEqualPropagator(
       `nested node constraint X max`,
       spacingMap.net,
@@ -52,7 +52,7 @@ export class NestedNodeConstraint implements Constraint {
   }
 
   // parent.minY <= child.minY
-  private applyYMin(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+  private applyYMin(spacingMap: LayoutData, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
     lessThanEqualPropagator(
       `nested node constraint Y min`,
       spacingMap.net,
@@ -62,7 +62,7 @@ export class NestedNodeConstraint implements Constraint {
   }
 
   // child.maxY <= parent.maxY
-  private applyYMax(spacingMap: SpacingMap, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
+  private applyYMax(spacingMap: LayoutData, parentBoundingBox: BoundingBox, childBoundingBox: BoundingBox): void {
     lessThanEqualPropagator(
       `nested node constraint Y max`,
       spacingMap.net,
