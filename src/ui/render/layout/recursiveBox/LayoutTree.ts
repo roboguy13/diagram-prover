@@ -11,6 +11,7 @@ import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/Pr
 import { elk } from "../elk/ElkEngine";
 import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { PropagatorNetworkToJson } from "../../../../constraint/propagator/PropagatorToJson";
+import { inputHandleName, outputHandleName } from "../../../NodeUtils";
 
 export class LayoutTree {
   private _nodeLayouts: Map<string, NodeLayout> = new Map();
@@ -136,8 +137,8 @@ export class LayoutTree {
     });
 
     this._children.forEach((children, parentId) => {
-      children.forEach((childId) => {
-        edges.push({ id: `${parentId}-${childId}`, source: parentId, target: childId });
+      children.forEach((childId, index) => {
+        edges.push({ id: `${parentId}-${childId}`, source: parentId, target: childId, sourceHandle: inputHandleName(index) });
       });
     });
 

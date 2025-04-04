@@ -6,6 +6,8 @@ import { ConstraintLayoutEngine, NodesAndEdges } from "../LayoutEngine";
 import { ConstraintApplicator } from "./ConstraintApplicator";
 import { LayoutTree } from "./LayoutTree";
 
+const LOG_PROPAGATOR_NETWORK_SIZE = true 
+
 export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
   private _conflictHandlers: ConflictHandler<NumericRange>[]
 
@@ -33,6 +35,11 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
 
       const nodesAndEdges = layoutTree.toNodesAndEdges();
       console.log("Nodes and Edges:", nodesAndEdges);
+
+      if (LOG_PROPAGATOR_NETWORK_SIZE) {
+        console.log("Propagator network cell count:", layoutTree.net.cells().length)
+        console.log("Propagator count:", layoutTree.net.propagatorConnections.length)
+      }
 
       return Promise.resolve(nodesAndEdges);
     } catch (e) {
