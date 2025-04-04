@@ -1,4 +1,5 @@
-import { addRangeListPropagator, addRangePropagator, NumericRange } from "../../../../../../constraint/propagator/NumericRange";
+import { layout } from "dagre";
+import { addRangeListPropagator, addRangePropagator, maxRangeListPropagator, maxRangePropagator, multNumericRangeNumberPropagator, NumericRange } from "../../../../../../constraint/propagator/NumericRange";
 import { unknown } from "../../../../../../constraint/propagator/Propagator";
 import { Constraint } from "../../Constraint";
 import { LayoutTree } from "../../LayoutTree";
@@ -10,7 +11,6 @@ export class SubtreeWidthConstraint implements Constraint {
     this._parentId = parentId;
   }
 
-  // subtreeWidth = sum(children.subtree.width) + sum(child.spacing)
   apply(layoutTree: LayoutTree): void {
     const childIds = layoutTree.getChildren(this._parentId);
 
@@ -24,6 +24,8 @@ export class SubtreeWidthConstraint implements Constraint {
     const childWidths = childLayouts.map(childLayout => childLayout!.subtreeExtentBox.width);
 
     const sumChildWidths = layoutTree.net.newCell(`sumChildWidths`, unknown());
+
+    // sumChildWidths = sum(children.subtree.width)
     addRangeListPropagator(
       `sumChildWidths: ${this._parentId}`,
       layoutTree.net,
@@ -31,25 +33,45 @@ export class SubtreeWidthConstraint implements Constraint {
       sumChildWidths
     );
 
-    const hSpacing = layoutTree.standardHSpacing;
+    // if (this._parentId === "term-1") {
+    //   for (const childWidth of childWidths) {
+    //     layoutTree.net.addDebugCell(this._parentId, childWidth);
+    //   }
 
-    const hSpacingPlusParentWidth = layoutTree.net.newCell(`hSpacingPlusParentWidth`, unknown());
+    //   layoutTree.net.addDebugCell(this._parentId, sumChildWidths);
+    // }
+
+    const totalSpacing = layoutTree.net.newCell(`totalSpacing`, unknown());
+
+    // totalSpacing = children.spacing * (children.count - 1)
+    multNumericRangeNumberPropagator(
+      `totalSpacing: ${this._parentId}`,
+      layoutTree.net,
+      layoutTree.standardHSpacing,
+      childIds.length - 1,
+      totalSpacing
+    );
+
+    const totalCombinedChildWidth = layoutTree.net.newCell(`totalCombinedChildWidth`, unknown());
+
+    // totalCombinedChildWidth = sumChildWidths + totalSpacing
+    addRangePropagator(
+      `totalCombinedChildWidth: ${this._parentId}`,
+      layoutTree.net,
+      sumChildWidths,
+      totalSpacing,
+      totalCombinedChildWidth
+    );
+
     const parentIntrinsicBox = parentLayout.intrinsicBox;
     const parentSubtreeBox = parentLayout.subtreeExtentBox;
 
-    addRangePropagator(
-      `hSpacingPlusParentWidth: ${this._parentId}`,
+    // parent.subtree.width = max(parent.intrinsic.width, totalCombinedChildWidth)
+    maxRangePropagator(
+      `parentWidth: ${this._parentId}`,
       layoutTree.net,
       parentIntrinsicBox.width,
-      hSpacing,
-      hSpacingPlusParentWidth
-    );
-
-    addRangePropagator(
-      `parentWidthPlusChildWidth: ${this._parentId}`,
-      layoutTree.net,
-      hSpacingPlusParentWidth,
-      sumChildWidths,
+      totalCombinedChildWidth,
       parentSubtreeBox.width
     );
   }

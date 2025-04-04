@@ -428,6 +428,14 @@ export class PropagatorNetwork<A> {
       return
     }
 
+    let firstResultCellRef: CellRef;
+    if (inputs.length === 2) {
+      // If exactly 2 inputs, calculate directly into the output cell
+      firstResultCellRef = output; // Use output cell directly
+      f(inputs[0]!, inputs[1]!, firstResultCellRef);
+      return; // Done for N=2 case
+    }
+
     if (inputs.length < 2) {
       throw new Error('foldLeftPropagator requires at least two inputs')
     }

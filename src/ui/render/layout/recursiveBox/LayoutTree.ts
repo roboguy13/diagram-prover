@@ -53,7 +53,6 @@ export class LayoutTree {
       kind: root.kind,
       label: root.label ?? '',
     });
-    this.runTest()
   }
 
   get rootNodeId(): string {
@@ -73,6 +72,10 @@ export class LayoutTree {
   }
 
   addNodeLayout(layout: NodeLayout): void {
+    if (layout.nodeId === this._rootNodeId) {
+      throw new Error("Cannot add layout for root node");
+    }
+
     this._nodeLayouts.set(layout.nodeId, layout);
   }
 
@@ -110,8 +113,6 @@ export class LayoutTree {
   }
 
   toNodesAndEdges(): NodesAndEdges {
-    this.logDebugInfo();
-
     const nodes: AppNode[] = [];
     const edges: Edge[] = [];
 
@@ -135,8 +136,6 @@ export class LayoutTree {
   }
 
   public logDebugInfo(): void {
-    // Use getDebugInfo() on all the boxes
-
     this._nodeLayouts.forEach((layout) => {
       const intrinsicBox = layout.intrinsicBox;
       const subtreeExtentBox = layout.subtreeExtentBox;
@@ -210,24 +209,6 @@ export class LayoutTree {
     console.log(jsonText)
   }
 
-  public runTest() {
-    // Test add list propagator
-
-    const a = this._net.newCell('a', known(exactly(1)));
-    const b = this._net.newCell('b', known(exactly(2)));
-    const c = this._net.newCell('c', known(exactly(3)));
-    const r = this._net.newCell('r', unknown());
-
-    addRangeListPropagator(
-      'test',
-      this._net,
-      [a, b, c],
-      r
-    );
-
-    this._net.addDebugCell('test result', r);
-  }
-
   // TODO: Support for nested nodes
   static buildFromSemanticNode<A>(net: PropagatorNetwork<NumericRange>, rootNode: SemanticNode<A>): LayoutTree {
     const layoutTree = new LayoutTree(net, rootNode);
@@ -235,17 +216,17 @@ export class LayoutTree {
     function traverse(node: SemanticNode<A>, parentId: string | null) {
       const initialNodeDims = getNodeDimensions(node);
 
-      const nodeLayout: NodeLayout = {
-        nodeId: node.id,
-        nestingParentId: null,
-        intrinsicBox: BoundingBox.createNewWithDims(net, 'intrinsic', node.id, initialNodeDims),
-        subtreeExtentBox: BoundingBox.createNew(net, 'subtree extent', node.id),
-        position: null,
-        kind: node.kind,
-        label: node.label ?? '',
-      }
-
       if (node.id !== rootNode.id) {
+        const nodeLayout: NodeLayout = {
+          nodeId: node.id,
+          nestingParentId: null,
+          intrinsicBox: BoundingBox.createNewWithDims(net, 'intrinsic', node.id, initialNodeDims),
+          subtreeExtentBox: BoundingBox.createNew(net, 'subtree extent', node.id),
+          position: null,
+          kind: node.kind,
+          label: node.label ?? '',
+        }
+
         layoutTree.addNodeLayout(nodeLayout);
       }
 

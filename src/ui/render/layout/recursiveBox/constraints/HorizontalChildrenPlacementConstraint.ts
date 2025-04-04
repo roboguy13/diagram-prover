@@ -1,4 +1,5 @@
-import { addRangeListPropagator, addRangePropagator, divNumericRangeNumberPropagator, multNumericRangeNumber, multNumericRangeNumberPropagator } from "../../../../../constraint/propagator/NumericRange";
+import { layout } from "dagre";
+import { addRangeListPropagator, addRangePropagator, divNumericRangeNumberPropagator, multNumericRangeNumber, multNumericRangeNumberPropagator, subtractRangePropagator } from "../../../../../constraint/propagator/NumericRange";
 import { unknown } from "../../../../../constraint/propagator/Propagator";
 import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
@@ -50,37 +51,33 @@ export class HorizontalChildrenPlacementConstraint implements Constraint {
       totalChildSubtreeWidthWithSpacing
     );
 
+    const parentSubtreeMinusTotalChildWidthWithSpacing = layoutTree.net.newCell(`parentSubtreeMinusTotalChildWidthWithSpacing`, unknown());
     const firstChildLayout = childLayouts[0]!;
 
-    const parentSubtreeMinusTotalChildWidth = layoutTree.net.newCell(`parentSubtreeMinusTotalChildWidth`, unknown());
-
-    // parent.subtree.width - totalChildSubtreeWidth
-    addRangePropagator(
-      `parentSubtreeMinusTotalChildWidth: ${this._parentId}`,
+    subtractRangePropagator(
+      `parentSubtreeMinusTotalChildWidthWithSpacing: ${this._parentId}`,
       layoutTree.net,
       parentLayout.subtreeExtentBox.width,
-      totalChildSubtreeWidth,
-      parentSubtreeMinusTotalChildWidth
+      totalChildSubtreeWidthWithSpacing,
+      parentSubtreeMinusTotalChildWidthWithSpacing
     );
 
-    const parentSubtreeMinusTotalChildWidthDiv2 = layoutTree.net.newCell(`parentSubtreeMinusTotalChildWidthDiv2`, unknown());
 
-    // parent.subtree.width - totalChildSubtreeWidth / 2
+    const placementOffset = layoutTree.net.newCell(`placementOffset`, unknown());
     divNumericRangeNumberPropagator(
-      `parentSubtreeMinusTotalChildWidthDiv2: ${this._parentId}`,
+      `placementOffset: ${this._parentId}`,
       layoutTree.net,
-      parentSubtreeMinusTotalChildWidth,
+      parentSubtreeMinusTotalChildWidthWithSpacing,
       2,
-      parentSubtreeMinusTotalChildWidthDiv2
+      placementOffset
     );
 
-    // firstChild.subtreeExtent.left = parent.subtree.left + ((parent.subtree.width - totalChildSubtreeWidth) / 2)
     addRangePropagator(
-      `firstChildSubtreeWidth: ${this._parentId}`,
+      `firstChildPlacement: ${this._parentId}`,
       layoutTree.net,
       parentLayout.subtreeExtentBox.left,
-      parentSubtreeMinusTotalChildWidthDiv2,
+      placementOffset,
       firstChildLayout.subtreeExtentBox.left
-    );
+    )
   }
 }

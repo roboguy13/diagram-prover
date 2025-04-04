@@ -1,3 +1,4 @@
+import { layout } from "dagre";
 import { HorizontalCenteringConstraint } from "./constraints/HorizontalCenteringConstraint";
 import { HorizontalChildrenPlacementConstraint } from "./constraints/HorizontalChildrenPlacementConstraint";
 import { HorizontalSpacingConstraint } from "./constraints/HorizontalSpacingConstraint";
@@ -5,6 +6,8 @@ import { SubtreeDimensionConstraint } from "./constraints/subtree/SubtreeDimensi
 import { VerticalPlacementConstraint } from "./constraints/VerticalPlacementConstraint";
 import { VerticalSubtreeConstraint } from "./constraints/VerticalSubtreeConstraint";
 import { LayoutTree } from "./LayoutTree";
+import { exactly } from "../../../../constraint/propagator/NumericRange";
+import { known } from "../../../../constraint/propagator/Propagator";
 
 export class ConstraintApplicator {
   processLayout(layoutTree: LayoutTree): void {
@@ -41,6 +44,14 @@ export class ConstraintApplicator {
       for (const nestingChildId of nestingChildren) {
         traverse(nestingChildId);
       }
+
+      // if (nodeId === layoutTree.rootNodeId) {
+      //   let subtreeExtentBox = layoutTree.getNodeLayout(nodeId)!.subtreeExtentBox;
+      //   layoutTree.net.equalPropagator('RootSubtreeMinXAnchor', layoutTree.getNodeLayout(nodeId)!.subtreeExtentBox.left, layoutTree.getNodeLayout(nodeId)!.intrinsicBox.left)
+      //   // layoutTree.net.writeCell(
+      //   //   { description: "root.subtreeExtentBox.left", inputs: [subtreeExtentBox.left], outputs: [] },
+      //   //   subtreeExtentBox.left, known(exactly(0)));
+      // }
     }
 
     traverse(layoutTree.rootNodeId);

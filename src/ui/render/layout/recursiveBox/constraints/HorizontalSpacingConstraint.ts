@@ -16,6 +16,7 @@ export class HorizontalSpacingConstraint implements Constraint {
     const rightNodeLayout = layoutTree.getNodeLayout(this._rightNodeId);
 
     const leftNodeBox = leftNodeLayout!.intrinsicBox
+    const leftSubtreeBox = leftNodeLayout!.subtreeExtentBox
     const rightSubtreeBox = rightNodeLayout!.subtreeExtentBox
 
     const standardHSpacing = layoutTree.standardHSpacing;
@@ -24,7 +25,7 @@ export class HorizontalSpacingConstraint implements Constraint {
     addRangePropagator(
       `HPlace:[${this._leftNodeId}]->[${this._rightNodeId}]`,
       layoutTree.net,
-      leftNodeBox.right,
+      leftSubtreeBox.right,
       standardHSpacing,
       rightSubtreeBox.left
     );

@@ -20,8 +20,6 @@ export class VerticalPlacementConstraint implements Constraint {
       const parentIntrinsicBox = parentLayout.intrinsicBox;
       const childSubtreeBox = childLayout.subtreeExtentBox;
 
-      console.log(`======= VerticalPlacementConstraint: ${this._parentId} -> ${this._childId}`);
-
       // child.subtreeExtent.top = parent.intrinsicBox.bottom + standardVSpacing
       addRangePropagator(
         `VPlace:[${this._parentId}]->[${this._childId}]`,
