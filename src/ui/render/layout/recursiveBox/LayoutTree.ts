@@ -44,7 +44,7 @@ export class LayoutTree {
         'intrinsic',
         root.id,
         net.newCell(`intrinsic minX [node ${root.id}]`, unknown()),
-        net.newCell(`intrinsic minY [node ${root.id}]`, known(exactly(0))),
+        net.newCell(`intrinsic minY [node ${root.id}]`, unknown()),
         net.newCell(`intrinsic width [node ${root.id}]`, known(rootDims.width)),
         net.newCell(`intrinsic height [node ${root.id}]`, known(rootDims.height))
       ),
@@ -62,6 +62,12 @@ export class LayoutTree {
       kind: root.kind,
       label: root.label ?? '',
     });
+
+    this._net.writeCell(
+      { description: `intrinsicBox.minY [node ${root.id}]`, inputs: [], outputs: [this._nodeLayouts.get(root.id)!.intrinsicBox.bottom] },
+      this._nodeLayouts.get(root.id)!.intrinsicBox.bottom,
+      known(exactly(0))
+    )
   }
 
   get rootNodeId(): string {

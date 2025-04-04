@@ -18,11 +18,11 @@ export class VerticalSubtreeConstraint implements Constraint {
     const intrinsicBox = nodeLayout.intrinsicBox;
     const subtreeBox = nodeLayout.subtreeExtentBox;
 
-    // node.subtreeExtent.top = node.intrinsicBox.top
+    // node.subtreeExtent.bottom = node.intrinsicBox.bottom
     layoutTree.net.equalPropagator(
       `VerticalSubtreeConstraint: ${this._nodeId}`,
-      intrinsicBox.top,
-      subtreeBox.top
+      intrinsicBox.bottom,
+      subtreeBox.bottom
     );
   }
 }

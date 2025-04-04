@@ -14,7 +14,7 @@ export function mkTermNode(
       outputHandles.push(
         <Handle
           type="target"
-          position={Position.Top}
+          position={Position.Bottom}
           id={outputHandleName(i)}
           key={i}
           style={{
@@ -29,7 +29,7 @@ export function mkTermNode(
       inputHandles.push(
         <Handle
           type="source"
-          position={Position.Bottom}
+          position={Position.Top}
           id={inputHandleName(i)}
           key={i}
           style={{
