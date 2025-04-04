@@ -43,12 +43,21 @@ export class LayoutTree {
         net,
         'intrinsic',
         root.id,
-        net.newCell(`intrinsic minX [node ${root.id}]`, known(exactly(0))),
+        net.newCell(`intrinsic minX [node ${root.id}]`, unknown()),
         net.newCell(`intrinsic minY [node ${root.id}]`, known(exactly(0))),
         net.newCell(`intrinsic width [node ${root.id}]`, known(rootDims.width)),
         net.newCell(`intrinsic height [node ${root.id}]`, known(rootDims.height))
       ),
-      subtreeExtentBox: BoundingBox.createNew(net, 'subtree extent', root.id),
+      subtreeExtentBox: new BoundingBox(
+        net,
+        'subtree extent',
+        root.id,
+        net.newCell(`subtree extent minX [node ${root.id}]`, known(exactly(0))),
+        net.newCell(`subtree extent minY [node ${root.id}]`, unknown()),
+        net.newCell(`subtree extent width [node ${root.id}]`, unknown()),
+        net.newCell(`subtree extent height [node ${root.id}]`, unknown())
+      ),
+      // subtreeExtentBox: BoundingBox.createNew(net, 'subtree extent', root.id),
       position: null,
       kind: root.kind,
       label: root.label ?? '',
