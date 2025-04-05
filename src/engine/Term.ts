@@ -1,19 +1,32 @@
-export type VarId = { type: 'VarId'; ix: number; name?: string } 
-
 export type TermId = string
 
 // TODO: Is there a way to remove this duplication?
 export type TermKind = 'Var' | 'UnitTy' | 'Empty' | 'Type' | 'unit' | 'Pi' | 'Lam' | 'App' | 'Ann'
 
-export type VarTerm = { type: 'Var'; name: VarId; id?: TermId }
+export type VarTerm =
+  | {
+    type: 'Var';
+    kind: 'BoundVar';
+    index: number;
+    // name?: string; // TODO: Add this later for better pretty printing?
+    id?: TermId;
+  }
+  | {
+    type: 'Var';
+    kind: 'FreeVar';
+    name: string;
+    id?: TermId;
+  }
+
+
 export type UnitTyTerm = { type: 'UnitTy'; id?: TermId }
 export type EmptyTerm = { type: 'Empty'; id?: TermId }
 export type TypeTerm = { type: 'Type'; universe: number; id?: TermId }
-export type UnitTerm = { type: 'unit'; id?: TermId}
-export type PiTerm = { type: 'Pi'; paramName?: string; paramTy: Type; body: Term; id?: TermId}
-export type LamTerm = { type: 'Lam'; paramName?: string; paramTy: Type; body: Term; id?: TermId}
-export type AppTerm = { type: 'App'; func: Term; arg: Term; id?: TermId}
-export type AnnTerm = { type: 'Ann'; term: Term; ty: Type; id?: TermId}
+export type UnitTerm = { type: 'unit'; id?: TermId }
+export type PiTerm = { type: 'Pi'; paramTy: Type; body: Term; id?: TermId }
+export type LamTerm = { type: 'Lam'; paramTy: Type; body: Term; id?: TermId }
+export type AppTerm = { type: 'App'; func: Term; arg: Term; id?: TermId }
+export type AnnTerm = { type: 'Ann'; term: Term; ty: Type; id?: TermId }
 
 // TODO: Add sigma types, identity types and Prop
 export type Term =
@@ -29,17 +42,21 @@ export type Term =
   | AppTerm
   | AnnTerm
 
-export function collectLams(t: Term): { params: string[]; body: Term } {
+export function collectLams(t: Term): { paramCount: number; body: Term } {
   if (t.type === 'Lam') {
-    let { params, body } = collectLams(t.body);
-    return { params: [t.paramName!, ...params], body };
+    let { paramCount, body } = collectLams(t.body);
+    return { paramCount: paramCount + 1, body };
   } else {
-    return { params: [], body: t };
+    return { paramCount: 0, body: t };
   }
 }
 
-export function varTerm(ix: number, name?: string, id?: TermId): Term {
-  return { type: 'Var', name: { type: 'VarId', ix: ix, ...(name !== undefined) ? { name } : {} }, ...(id !== undefined ? { id } : {}) }
+export function boundVarTerm(index: number, id?: TermId): Term {
+  return { type: 'Var', kind: 'BoundVar', index, ...(id !== undefined ? { id } : {}) }
+}
+
+export function freeVarTerm(name: string, id?: TermId): Term {
+  return { type: 'Var', kind: 'FreeVar', name, ...(id !== undefined ? { id } : {}) }
 }
 
 export function unitTyTerm(id?: TermId): Term {
@@ -58,16 +75,15 @@ export function unitTerm(id?: TermId): Term {
   return { type: 'unit', ...(id !== undefined ? { id } : {}) }
 }
 
-export const piTerm = (paramName?: string) => function (paramTy: Type, body: Term, id?: TermId): Term {
+export function piTerm(paramTy: Type, body: Term, id?: TermId): Term {
   return { type: 'Pi',
-           ...(paramName !== undefined ? { paramName } : {}),
            paramTy,
            body,
            ...(id !== undefined ? { id } : {}) }
 }
 
-export function lamTerm(paramName: string, paramTy: Type, body: Term, id?: TermId): Term {
-  return { type: 'Lam', paramName, paramTy, body, ...(id !== undefined ? { id } : {}) }
+export function lamTerm(paramTy: Type, body: Term, id?: TermId): Term {
+  return { type: 'Lam', paramTy, body, ...(id !== undefined ? { id } : {}) }
 }
 
 export function appTerm(func: Term, arg: Term, id?: TermId): Term {
@@ -138,17 +154,17 @@ export function hasAllIds(t: Term): boolean {
 
 // A simple example term
 export let idTerm = (ty: Type): Term =>
-  lamTerm('z', ty, varTerm(0, 'z'));
+  lamTerm(ty, boundVarTerm(0));
 
 // export let exampleTerm: Term = appTerm(varTerm(0, 'y'), varTerm(1, 'x'))
 
 export let exampleTerm: Term =
   appTerm(
-    lamTerm('x', piTerm()(unitTyTerm(), unitTyTerm()),
-      lamTerm('y', unitTyTerm(),
+    lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
+      lamTerm(unitTyTerm(),
         appTerm(
-          varTerm(1, 'x'),
-          varTerm(0, 'y')
+          boundVarTerm(1),
+          boundVarTerm(0)
         )
       )
     ),

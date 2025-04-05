@@ -1,14 +1,16 @@
-import { VarId, Term } from './Term'
+import { boundVarTerm, Term, VarTerm } from './Term'
 
-type Renaming = (x: VarId) => VarId
-type Subst = (x: VarId) => Term
+type IndexRenaming = (x: number) => number
+type Subst = (x: number) => Term
+
+type Renamer = (v: VarTerm) => VarTerm
 
 export function subst1(term: Term, u: Term): Term {
-  return subst(function(x: VarId) {
-    if (x.ix === 0) {
+  return subst(function(x: number): Term {
+    if (x === 0) {
       return u
     } else {
-      return { type: 'Var', name: { ...x, ix: x.ix - 1 } }
+      return { type: 'Var', kind: 'BoundVar', index: x - 1 }
     }
   }, term)
 }
@@ -16,7 +18,11 @@ export function subst1(term: Term, u: Term): Term {
 export function subst(sigma: Subst, term: Term): Term {
   switch (term.type) {
     case 'Var':
-      return sigma(term.name)
+      if (term.kind === 'FreeVar') {
+        return term
+      } else {
+        return sigma(term.index)
+      }
     case 'UnitTy':
       return term
     case 'Empty':
@@ -36,19 +42,31 @@ export function subst(sigma: Subst, term: Term): Term {
   }
 }
 
-const ext = (rho: Renaming) => (x: VarId): VarId => {
-  if (x.ix === 0) {
-    return x;
-  } else {
-    let newId = rho(x);
-    return { ...newId, ix: newId.ix + 1 };
+function indexRenamerToRenamer(rho: IndexRenaming): Renamer {
+  return (v: VarTerm): VarTerm => {
+    switch (v.kind) {
+      case 'FreeVar':
+        return v
+      case 'BoundVar':
+        return { ...v, index: rho(v.index) }
+    }
   }
 }
 
-function rename<A>(rho: Renaming, term: Term): Term {
+const ext = (rho: IndexRenaming) => (x: number): number => {
+  if (x === 0) {
+    return x;
+  } else {
+    let newId = rho(x);
+    return newId + 1
+  }
+}
+
+function renameIndices<A>(rho: IndexRenaming, term: Term): Term {
   switch (term.type) {
     case 'Var':
-      return { ...term, name: rho(term.name) }
+      return indexRenamerToRenamer(rho)(term);
+      // return { ...term, name: indexRenamerToRenamer(rho)(term.name) }
     case 'UnitTy':
       return term;
     case 'Empty':
@@ -58,23 +76,23 @@ function rename<A>(rho: Renaming, term: Term): Term {
     case 'unit':
       return term;
     case 'Pi':
-      return { ...term, paramTy: rename(rho, term.paramTy), body: rename(ext(rho), term.body) }
+      return { ...term, paramTy: renameIndices(rho, term.paramTy), body: renameIndices(ext(rho), term.body) }
     case 'Lam':
-      return { ...term, paramTy: rename(rho, term.paramTy), body: rename(ext(rho), term.body) }
+      return { ...term, paramTy: renameIndices(rho, term.paramTy), body: renameIndices(ext(rho), term.body) }
     case 'App':
-      return { ...term, func: rename(rho, term.func), arg: rename(rho, term.arg) }
+      return { ...term, func: renameIndices(rho, term.func), arg: renameIndices(rho, term.arg) }
     case 'Ann':
-      return { ...term, term: rename(rho, term.term), ty: rename(rho, term.ty) }
+      return { ...term, term: renameIndices(rho, term.term), ty: renameIndices(rho, term.ty) }
   }
 }
 
 const exts = function(sigma: Subst) {
-  return (x: VarId): Term => {
-    if (x.ix === 0) {
-      return { type: 'Var', name: x };
+  return (x: number): Term => {
+    if (x === 0) {
+      return boundVarTerm(x)
     } else {
-      let newX = { ...x, ix: x.ix - 1 };
-      return rename((function(y: VarId) { return { ... y, ix: y.ix + 1 } }), sigma(newX));
+      let newX = x - 1
+      return renameIndices((function(y: number) { return y + 1 }), sigma(newX));
     }
   }
 }

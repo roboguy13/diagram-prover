@@ -58,7 +58,11 @@ export function getEdges(n: SemanticNode<void>): Edge[] {
 export function termToSemanticNode(t: Term): SemanticNode<void> {
   switch (t.type) {
     case 'Var':
-      return { id: t.id ? t.id : 'type', label: JSON.stringify(t.name.ix), kind: 'Var', children: [], payload: undefined };
+      if (t.kind === 'FreeVar') {
+        return { id: t.id ? t.id : 'type', label: JSON.stringify(t.name), kind: 'Var', children: [], payload: undefined };
+      } else {
+        return { id: t.id ? t.id : 'type', label: JSON.stringify(t.index), kind: 'Var', children: [], payload: undefined };
+      }
     case 'UnitTy':
       return { id: t.id ? t.id : 'type', label: 'Unit', kind: 'UnitTy', children: [], payload: undefined };
     case 'Empty':
