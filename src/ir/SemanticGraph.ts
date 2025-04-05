@@ -76,7 +76,7 @@ export function termToSemanticNode(t: Term): SemanticNode<void> {
       let lamNode: SemanticNode<void> = { id: thisId, label: 'λ', kind: 'Lam', children: [termToSemanticNode(t.paramTy), termToSemanticNode(t.body)], payload: undefined };
       // let parentNode: SemanticNode<void> = { id: 'transpose-' + thisId, label: 'transpose', kind: 'Transpose', subgraph: [lamNode], children: [], payload: undefined };
       let parentNode: SemanticNode<void> = { id: 'transpose-' + thisId, label: 'transpose', kind: 'Transpose', subgraph: [lamNode], children: [], payload: undefined };
-      return lamNode
+      return parentNode
     }
     case 'App':
       // TODO: Exponential transpose

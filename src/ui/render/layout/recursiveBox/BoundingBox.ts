@@ -40,6 +40,18 @@ export class BoundingBox {
     );
   }
 
+  public static createNewWithUnknowns(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string): BoundingBox {
+    return new BoundingBox(
+      net,
+      typePrefix,
+      nodeId,
+      net.newCell(`${typePrefix} minX for ${nodeId}`, unknown()),
+      net.newCell(`${typePrefix} minY for ${nodeId}`, unknown()),
+      net.newCell(`${typePrefix} width for ${nodeId}`, unknown()),
+      net.newCell(`${typePrefix} height for ${nodeId}`, unknown())
+    );
+  }
+
   constructor(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
     this._minX = minX;
     this._minY = minY;
@@ -92,11 +104,11 @@ export class BoundingBox {
       this._centerX
     );
 
-    if (nodeId === 'term-0' || nodeId === 'term-1' || nodeId === 'term-10') {
-      for (const cell of [this._minX, this._width, this._maxX, this._centerX]) {
+    // if (nodeId === 'term-0' || nodeId === 'term-1' || nodeId === 'term-10') {
+      for (const cell of [this._minX, this._width, this._maxX, this._centerX, this._minY, this._height, this._maxY]) {
         net.addDebugCell(this._nodeId, cell);
       }
-    }
+    // }
   }
 
   public get left(): CellRef {

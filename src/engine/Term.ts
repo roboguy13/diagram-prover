@@ -5,22 +5,38 @@ export type TermId = string
 // TODO: Is there a way to remove this duplication?
 export type TermKind = 'Var' | 'UnitTy' | 'Empty' | 'Type' | 'unit' | 'Pi' | 'Lam' | 'App' | 'Ann'
 
+export type VarTerm = { type: 'Var'; name: VarId; id?: TermId }
+export type UnitTyTerm = { type: 'UnitTy'; id?: TermId }
+export type EmptyTerm = { type: 'Empty'; id?: TermId }
+export type TypeTerm = { type: 'Type'; universe: number; id?: TermId }
+export type UnitTerm = { type: 'unit'; id?: TermId}
+export type PiTerm = { type: 'Pi'; paramName?: string; paramTy: Type; body: Term; id?: TermId}
+export type LamTerm = { type: 'Lam'; paramName?: string; paramTy: Type; body: Term; id?: TermId}
+export type AppTerm = { type: 'App'; func: Term; arg: Term; id?: TermId}
+export type AnnTerm = { type: 'Ann'; term: Term; ty: Type; id?: TermId}
+
 // TODO: Add sigma types, identity types and Prop
 export type Term =
-  | { type: 'Var'; name: VarId; id?: TermId }
+  | VarTerm
 
-  | { type: 'UnitTy'; id?: TermId }
-  | { type: 'Empty'; id?: TermId }
-  | { type: 'Type'; universe: number; id?: TermId }
+  | UnitTyTerm
+  | EmptyTerm
+  | TypeTerm
 
-  | { type: 'unit'; id?: TermId}
-  | { type: 'Pi'; paramName?: string; paramTy: Type; body: Term; id?: TermId}
-  | { type: 'Lam'; paramName?: string //params: Array<{ name: VarId, paramTy: Term }>
-                 ; paramTy: Type
-                 ; body: Term
-                 ; id?: TermId}
-  | { type: 'App'; func: Term; arg: Term; id?: TermId}
-  | { type: 'Ann'; term: Term; ty: Type; id?: TermId}
+  | UnitTerm
+  | PiTerm
+  | LamTerm
+  | AppTerm
+  | AnnTerm
+
+export function collectLams(t: Term): { params: string[]; body: Term } {
+  if (t.type === 'Lam') {
+    let { params, body } = collectLams(t.body);
+    return { params: [t.paramName!, ...params], body };
+  } else {
+    return { params: [], body: t };
+  }
+}
 
 export function varTerm(ix: number, name?: string, id?: TermId): Term {
   return { type: 'Var', name: { type: 'VarId', ix: ix, ...(name !== undefined) ? { name } : {} }, ...(id !== undefined ? { id } : {}) }

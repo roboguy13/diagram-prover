@@ -1,7 +1,7 @@
 import { Edge, XYPosition } from "@xyflow/react";
 import { NodeLayout } from "./NodeLayout";
 import { BoundingBox } from "./BoundingBox";
-import { addRangeListPropagator, exactly, getMin, NumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
+import { addRangeListPropagator, between, exactly, getMin, NumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
 import { getNodeDimensions } from "../../../NodeDimensions";
@@ -12,6 +12,7 @@ import { elk } from "../elk/ElkEngine";
 import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { PropagatorNetworkToJson } from "../../../../constraint/propagator/PropagatorToJson";
 import { inputHandleName, outputHandleName } from "../../../NodeUtils";
+import { layout } from "dagre";
 
 export class LayoutTree {
   private _nodeLayouts: Map<string, NodeLayout> = new Map();
@@ -25,14 +26,23 @@ export class LayoutTree {
   private static _STANDARD_V_SPACING = 80;
   private static _STANDARD_H_SPACING = 80;
 
+  private static _STANDARD_H_NESTING_SPACING = 80;
+  private static _STANDARD_V_NESTING_SPACING = 80;
+
   private _standardVSpacing: CellRef;
   private _standardHSpacing: CellRef;
+
+  private _standardHNestingSpacing: CellRef;
+  private _standardVNestingSpacing: CellRef;
 
   constructor(net: PropagatorNetwork<NumericRange>, root: SemanticNode<any>) {
     this._net = net;
 
-    this._standardVSpacing = net.newCell(`standardVSpacing`, known(exactly(LayoutTree._STANDARD_V_SPACING)));
-    this._standardHSpacing = net.newCell(`standardHSpacing`, known(exactly(LayoutTree._STANDARD_H_SPACING)));
+    this._standardVSpacing = net.newCell(`standardVSpacing`, known(between(LayoutTree._STANDARD_V_SPACING, 2 * LayoutTree._STANDARD_V_SPACING)));
+    this._standardHSpacing = net.newCell(`standardHSpacing`, known(between(LayoutTree._STANDARD_H_SPACING, 2 * LayoutTree._STANDARD_H_SPACING)));
+
+    this._standardHNestingSpacing = net.newCell(`standardHNestingSpacing`, known(exactly(LayoutTree._STANDARD_H_NESTING_SPACING)));
+    this._standardVNestingSpacing = net.newCell(`standardVNestingSpacing`, known(exactly(LayoutTree._STANDARD_V_NESTING_SPACING)));
 
     this._rootNodeId = root.id
     const rootDims = getNodeDimensions(root);
@@ -85,6 +95,14 @@ export class LayoutTree {
 
   get standardHSpacing(): CellRef {
     return this._standardHSpacing;
+  }
+
+  get standardHNestingSpacing(): CellRef {
+    return this._standardHNestingSpacing;
+  }
+
+  get standardVNestingSpacing(): CellRef {
+    return this._standardVNestingSpacing;
   }
 
   addNodeLayout(layout: NodeLayout): void {
@@ -225,18 +243,24 @@ export class LayoutTree {
     console.log(jsonText)
   }
 
-  // TODO: Support for nested nodes
   static buildFromSemanticNode<A>(net: PropagatorNetwork<NumericRange>, rootNode: SemanticNode<A>): LayoutTree {
     const layoutTree = new LayoutTree(net, rootNode);
 
-    function traverse(node: SemanticNode<A>, parentId: string | null) {
-      const initialNodeDims = getNodeDimensions(node);
+    function traverse(node: SemanticNode<A>, parentId: string | null, nestingParentId: string | null): void {
+      let intrinsicBox: BoundingBox | null = null;
+
+      if (node.kind === 'Transpose') {
+        intrinsicBox = BoundingBox.createNewWithUnknowns(net, 'intrinsic', node.id);
+      } else {
+        let initialNodeDims = getNodeDimensions(node);
+        intrinsicBox = BoundingBox.createNewWithDims(net, 'intrinsic', node.id, initialNodeDims)
+      }
 
       if (node.id !== rootNode.id) {
         const nodeLayout: NodeLayout = {
           nodeId: node.id,
-          nestingParentId: null,
-          intrinsicBox: BoundingBox.createNewWithDims(net, 'intrinsic', node.id, initialNodeDims),
+          nestingParentId: nestingParentId,
+          intrinsicBox: intrinsicBox,
           subtreeExtentBox: BoundingBox.createNew(net, 'subtree extent', node.id),
           position: null,
           kind: node.kind,
@@ -251,11 +275,18 @@ export class LayoutTree {
       }
 
       for (const child of node.children) {
-        traverse(child, node.id);
+        traverse(child, node.id, null);
+      }
+
+      if (node.subgraph) {
+        for (const child of node.subgraph) {
+          layoutTree.addNestingChild(node.id, child.id);
+          traverse(child, null, node.id);
+        }
       }
     }
 
-    traverse(rootNode, null);
+    traverse(rootNode, null, null);
     return layoutTree
   }
 }
