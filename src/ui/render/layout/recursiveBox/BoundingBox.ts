@@ -103,12 +103,6 @@ export class BoundingBox {
       halfWidth,
       this._centerX
     );
-
-    // if (nodeId === 'term-0' || nodeId === 'term-1' || nodeId === 'term-10') {
-      for (const cell of [this._minX, this._width, this._maxX, this._centerX, this._minY, this._height, this._maxY]) {
-        net.addDebugCell(this._nodeId, cell);
-      }
-    // }
   }
 
   public get left(): CellRef {

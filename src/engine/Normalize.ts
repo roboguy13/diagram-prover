@@ -1,4 +1,4 @@
-import { VarId, Type, Term } from './Term' 
+import { Type, Term } from './Term' 
 import { subst1 } from './Subst'
 import { prettyPrintTerm } from './PrettyPrint';
 
@@ -14,7 +14,17 @@ export function equalTerms(term1: Term, term2: Term): boolean {
 function equalTermsHelper(term1: Term, term2: Term): boolean {
   switch (term1.type) {
     case 'Var':
-      return term2.type === 'Var' && term1.name.ix === term2.name.ix;
+      if (term2.type !== 'Var') {
+        return false;
+      }
+
+      if (term1.kind === 'FreeVar' && term2.kind === 'FreeVar') {
+        return term1.name === term2.name;
+      } else if (term1.kind === 'BoundVar' && term2.kind === 'BoundVar') {
+        return term1.index === term2.index;
+      } else {
+        return false;
+      }
     case 'UnitTy':
       return term2.type === 'UnitTy';
     case 'Empty':

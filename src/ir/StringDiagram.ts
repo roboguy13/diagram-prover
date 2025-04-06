@@ -43,7 +43,7 @@ export type LamNode = {
   id?: NodeId;
   label?: string;
   internalInterface: PortInterface;
-  nestedDiagram: StringDiagram;
+  // nestedDiagram: StringDiagram;
 }
 
 export class StringDiagram {

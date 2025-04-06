@@ -3,7 +3,12 @@ import { Term } from "./Term";
 export function prettyPrintTerm(t: Term): string {
   switch (t.type) {
     case 'Var':
-      return t.name.name ?? ('?' + t.name.ix);
+      if (t.kind === 'FreeVar') {
+        return t.name;
+      } else {
+        return JSON.stringify(t.index);
+      }
+      break
     case 'UnitTy':
       return 'UnitTy';
     case 'Empty':
@@ -11,17 +16,14 @@ export function prettyPrintTerm(t: Term): string {
     case 'Type':
       return 'Type';
     case 'Pi': {
-      let paramName = t.paramName ? t.paramName : '?'
-
       if (binderUsed(0, t.body)) {
-        return `((${paramName} : ${prettyPrintTerm(t.paramTy)}) → ${prettyPrintTerm(t.body)})`;
+        return `((? : ${prettyPrintTerm(t.paramTy)}) → ${prettyPrintTerm(t.body)})`;
       } else {
         return `(${ppParens(t.paramTy)} → ${prettyPrintTerm(t.body)})`;
       }
     }
     case 'Lam': {
-      let paramName = t.paramName ? t.paramName : '?'
-      return `λ(${paramName} : ${prettyPrintTerm(t.paramTy)}). ${prettyPrintTerm(t.body)}`;
+      return `λ(? : ${prettyPrintTerm(t.paramTy)}). ${prettyPrintTerm(t.body)}`;
     }
     case 'App':
       return prettyPrintApps(t.func, t.arg);
@@ -73,7 +75,12 @@ function needsParens(t: Term): boolean {
 function binderUsed(ix: number, t: Term): boolean {
   switch (t.type) {
     case 'Var':
-      return t.name.ix === ix;
+      if (t.kind === 'FreeVar') {
+        return false;
+      } else {
+        return t.index === ix;
+      }
+      break
     case 'UnitTy':
       return false;
     case 'Empty':

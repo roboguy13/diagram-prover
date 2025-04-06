@@ -12,8 +12,36 @@ import { NestedContainmentConstraint } from "./constraints/nesting/NestedContain
 import { NestedParentSizeConstraint } from "./constraints/nesting/NestedParentSizeConstaint";
 
 export class ConstraintApplicator {
+  private static debugLeaves(layoutTree: LayoutTree, nodeId: string): void {
+    if (layoutTree.getChildren(nodeId).length === 0) {
+      ConstraintApplicator.debugNode('leaf', layoutTree, nodeId);
+    } else {
+      ConstraintApplicator.debugNode('non-leaf', layoutTree, nodeId)
+    }
+  }
+
+  private static debugNode(prefix: string, layoutTree: LayoutTree, nodeId: string): void {
+    const nodeLayout = layoutTree.getNodeLayout(nodeId);
+    if (nodeLayout) {
+      const intrinsicBox = nodeLayout.intrinsicBox;
+      const subtreeBox = nodeLayout.subtreeExtentBox;
+
+        layoutTree.net.addDebugCell(prefix + ': ' + nodeId, intrinsicBox.centerX);
+        layoutTree.net.addDebugCell(prefix + ': ' + nodeId, intrinsicBox.left);
+        layoutTree.net.addDebugCell(prefix + ': ' + nodeId, intrinsicBox.right);
+        layoutTree.net.addDebugCell(prefix + ': ' + nodeId, intrinsicBox.top);
+        layoutTree.net.addDebugCell(prefix + ': ' + nodeId, intrinsicBox.bottom);
+        layoutTree.net.addDebugCell(prefix + ': ' + nodeId, subtreeBox.left);
+        layoutTree.net.addDebugCell(prefix + ': ' + nodeId, subtreeBox.right);
+        layoutTree.net.addDebugCell(prefix + ': ' + nodeId, subtreeBox.top);
+        layoutTree.net.addDebugCell(prefix + ': ' + nodeId, subtreeBox.bottom);
+    }
+  }
+
   processLayout(layoutTree: LayoutTree): void {
     function traverse(nodeId: string): void {
+      ConstraintApplicator.debugLeaves(layoutTree, nodeId);
+
       const children = layoutTree.getChildren(nodeId);
       const nestingChildren = layoutTree.getNestingChildren(nodeId);
 
@@ -51,6 +79,18 @@ export class ConstraintApplicator {
         nestedParentSizeConstraint.apply(layoutTree);
 
         traverse(nestingChildId);
+      }
+
+      const nodeLayout = layoutTree.getNodeLayout(nodeId);
+      if (nodeLayout) {
+        const intrinsicBox = nodeLayout.intrinsicBox;
+        const subtreeBox = nodeLayout.subtreeExtentBox;
+
+        layoutTree.net.equalPropagator(
+          `CenterXLink: ${nodeId}`,
+          intrinsicBox.centerX,
+          subtreeBox.centerX
+        );
       }
     }
 

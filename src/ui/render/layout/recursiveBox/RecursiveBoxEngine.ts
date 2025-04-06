@@ -1,6 +1,7 @@
 import { NumericRange, partialSemigroupNumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { ConflictHandler, PropagatorNetwork } from "../../../../constraint/propagator/Propagator";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
+import { StringDiagram } from "../../../../ir/StringDiagram";
 import { AppNode } from "../../../components/Nodes/nodeTypes";
 import { ConstraintLayoutEngine, NodesAndEdges } from "../LayoutEngine";
 import { ConstraintApplicator } from "./ConstraintApplicator";
@@ -24,7 +25,13 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
     return Promise.resolve(LayoutTree.buildFromSemanticNode(net, n));
   }
 
+  fromStringDiagram(diagram: StringDiagram, activeRedexId: string | null): Promise<LayoutTree> {
+    const net = new PropagatorNetwork<NumericRange>(printNumericRange, partialSemigroupNumericRange(), this._conflictHandlers)
+    return Promise.resolve(LayoutTree.buildFromStringDiagram(net, diagram));
+  }
+
   toReactFlow(layoutTree: LayoutTree): Promise<NodesAndEdges> {
+    console.log("Layout tree:", layoutTree);
     const constraintApplicator = new ConstraintApplicator();
 
     try {
@@ -44,7 +51,7 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
       return Promise.resolve(nodesAndEdges);
     } catch (e) {
       console.error("Error applying constraints:", e);
-      // throw e
+      throw e
       return Promise.resolve({ nodes: new Map<string, AppNode>(), edges: new Array() });
     }
   }

@@ -5,6 +5,7 @@ import { getEdges, getImmediateEdges, SemanticNode } from "../../../../ir/Semant
 import { LayoutEngine, NodesAndEdges } from "../LayoutEngine";
 import { BreadthIndexMap, computeIndexedNodes, IndexedNode, LevelMap } from "../NodeLevels";
 import { AppNode } from "../../../components/Nodes/nodeTypes";
+import { StringDiagram } from "../../../../ir/StringDiagram";
 
 type InternalRep = [SemanticNode<void>, [LevelMap, BreadthIndexMap, IndexedNode[]], Edge[]]
 
@@ -22,6 +23,14 @@ export class SimpleLayoutEngine implements LayoutEngine<InternalRep> {
 
       resolve([n, ixNodes, edges])
     })
+  }
+
+  fromStringDiagram(diagram: StringDiagram, activeRedexId: string | null): Promise<InternalRep> {
+    throw new Error("Method not implemented.");
+  }
+
+  renderDebugInfo(g: InternalRep): Promise<NodesAndEdges> {
+    throw new Error("Method not implemented.");
   }
 
   toReactFlow(pair: InternalRep): Promise<NodesAndEdges> {

@@ -8,12 +8,17 @@ import { AppNode } from "../../../components/Nodes/nodeTypes";
 import { TermKind } from "../../../../engine/Term";
 import cytoscapeDagre from "cytoscape-dagre";
 import klay from 'cytoscape-klay';
+import { StringDiagram } from "../../../../ir/StringDiagram";
 
 export class CytoscapeEngine implements LayoutEngine<NodesAndEdges> {
   constructor() {
     // cytoscape.use(euler);
     cytoscape.use(cytoscapeDagre)
     // cytoscape.use(klay)
+  }
+
+  fromStringDiagram(diagram: StringDiagram, activeRedexId: string | null): Promise<NodesAndEdges> {
+    throw new Error("Method not implemented."); // TODO
   }
 
   fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<NodesAndEdges> {

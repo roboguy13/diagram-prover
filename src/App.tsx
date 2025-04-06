@@ -92,6 +92,7 @@ export default function App() {
       // Clean up timeout if component unmounts or effect runs again
       return () => clearTimeout(timeoutId);
     }
+    return () => { }
   }, [state.updateCenter]); // Only depend on the updateCenter flag
 
   // console.log("Rendering React Flow with nodes:", nodes, "and edges:", edges);

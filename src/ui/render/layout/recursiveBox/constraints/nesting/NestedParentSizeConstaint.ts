@@ -7,7 +7,7 @@ export class NestedParentSizeConstraint implements Constraint {
 
   constructor(parentId: string, childId: string) {
     this._parentId = parentId;
-    this._childId = childId;
+    // this._childId = childId;
   }
 
   public apply(layoutTree: LayoutTree): void {
@@ -17,5 +17,7 @@ export class NestedParentSizeConstraint implements Constraint {
     if (!parentLayout || !childLayouts) {
       return
     }
+
+    
   }
 }

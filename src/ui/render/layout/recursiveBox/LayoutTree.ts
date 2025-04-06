@@ -4,7 +4,7 @@ import { BoundingBox } from "./BoundingBox";
 import { addRangeListPropagator, between, exactly, getMin, NumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
-import { getNodeDimensions } from "../../../NodeDimensions";
+import { Dimensions, getNodeDimensions, getStringNodeDimensions, } from "../../../NodeDimensions";
 import { NodesAndEdges } from "../LayoutEngine";
 import { AppNode } from "../../../components/Nodes/nodeTypes";
 import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/PropagatorToElk";
@@ -13,6 +13,7 @@ import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { PropagatorNetworkToJson } from "../../../../constraint/propagator/PropagatorToJson";
 import { inputHandleName, outputHandleName } from "../../../NodeUtils";
 import { layout } from "dagre";
+import { StringDiagram } from "../../../../ir/StringDiagram";
 
 export class LayoutTree {
   private _nodeLayouts: Map<string, NodeLayout> = new Map();
@@ -35,50 +36,49 @@ export class LayoutTree {
   private _standardHNestingSpacing: CellRef;
   private _standardVNestingSpacing: CellRef;
 
-  constructor(net: PropagatorNetwork<NumericRange>, root: SemanticNode<any>) {
+  constructor(net: PropagatorNetwork<NumericRange>, rootNodeId: string, rootDims: Dimensions, rootLabel: string, rootKind: string) {
     this._net = net;
 
-    this._standardVSpacing = net.newCell(`standardVSpacing`, known(between(LayoutTree._STANDARD_V_SPACING, 2 * LayoutTree._STANDARD_V_SPACING)));
-    this._standardHSpacing = net.newCell(`standardHSpacing`, known(between(LayoutTree._STANDARD_H_SPACING, 2 * LayoutTree._STANDARD_H_SPACING)));
+    this._standardVSpacing = net.newCell(`standardVSpacing`, known(exactly(LayoutTree._STANDARD_V_SPACING)));
+    this._standardHSpacing = net.newCell(`standardHSpacing`, known(exactly(LayoutTree._STANDARD_H_SPACING)));
 
     this._standardHNestingSpacing = net.newCell(`standardHNestingSpacing`, known(exactly(LayoutTree._STANDARD_H_NESTING_SPACING)));
     this._standardVNestingSpacing = net.newCell(`standardVNestingSpacing`, known(exactly(LayoutTree._STANDARD_V_NESTING_SPACING)));
 
-    this._rootNodeId = root.id
-    const rootDims = getNodeDimensions(root);
+    this._rootNodeId = rootNodeId
 
-    this._nodeLayouts.set(root.id, {
-      nodeId: root.id,
+    this._nodeLayouts.set(rootNodeId, {
+      nodeId: rootNodeId,
       nestingParentId: null,
       intrinsicBox: new BoundingBox(
         net,
         'intrinsic',
-        root.id,
-        net.newCell(`intrinsic minX [node ${root.id}]`, unknown()),
-        net.newCell(`intrinsic minY [node ${root.id}]`, unknown()),
-        net.newCell(`intrinsic width [node ${root.id}]`, known(rootDims.width)),
-        net.newCell(`intrinsic height [node ${root.id}]`, known(rootDims.height))
+        rootNodeId,
+        net.newCell(`intrinsic minX [node ${rootNodeId}]`, unknown()),
+        net.newCell(`intrinsic minY [node ${rootNodeId}]`, unknown()),
+        net.newCell(`intrinsic width [node ${rootNodeId}]`, known(rootDims.width)),
+        net.newCell(`intrinsic height [node ${rootNodeId}]`, known(rootDims.height))
       ),
       subtreeExtentBox: new BoundingBox(
         net,
         'subtree extent',
-        root.id,
-        net.newCell(`subtree extent minX [node ${root.id}]`, known(exactly(0))),
-        net.newCell(`subtree extent minY [node ${root.id}]`, unknown()),
-        net.newCell(`subtree extent width [node ${root.id}]`, unknown()),
-        net.newCell(`subtree extent height [node ${root.id}]`, unknown())
+        rootNodeId,
+        net.newCell(`subtree extent minX [node ${rootNodeId}]`, known(exactly(0))),
+        net.newCell(`subtree extent minY [node ${rootNodeId}]`, known(exactly(0))),
+        net.newCell(`subtree extent width [node ${rootNodeId}]`, unknown()),
+        net.newCell(`subtree extent height [node ${rootNodeId}]`, unknown())
       ),
       // subtreeExtentBox: BoundingBox.createNew(net, 'subtree extent', root.id),
       position: null,
-      kind: root.kind,
-      label: root.label ?? '',
+      kind: rootKind,
+      label: rootLabel ?? '',
     });
 
-    this._net.writeCell(
-      { description: `intrinsicBox.minY [node ${root.id}]`, inputs: [], outputs: [this._nodeLayouts.get(root.id)!.intrinsicBox.bottom] },
-      this._nodeLayouts.get(root.id)!.intrinsicBox.bottom,
-      known(exactly(0))
-    )
+    // this._net.writeCell(
+    //   { description: `intrinsicBox.minY [node ${rootNodeId}]`, inputs: [], outputs: [this._nodeLayouts.get(rootNodeId)!.intrinsicBox.bottom] },
+    //   this._nodeLayouts.get(rootNodeId)!.intrinsicBox.bottom,
+    //   known(exactly(0))
+    // )
   }
 
   get rootNodeId(): string {
@@ -147,6 +147,7 @@ export class LayoutTree {
   }
 
   toNodesAndEdges(): NodesAndEdges {
+    console.log("Converting layout tree to nodes and edges...");
     const nodes: AppNode[] = [];
     const edges: Edge[] = [];
 
@@ -243,8 +244,112 @@ export class LayoutTree {
     console.log(jsonText)
   }
 
+static buildFromStringDiagram(net: PropagatorNetwork<NumericRange>, diagram: StringDiagram): LayoutTree {
+    console.log("Building layout tree using BFS traversal...");
+
+    const allNodeIds = Array.from(diagram.nodes.keys());
+    if (allNodeIds.length === 0) {
+        throw new Error("No nodes in diagram");
+    }
+    allNodeIds.sort(); // Deterministic root selection
+    const rootNodeId = allNodeIds[0]!;
+    console.log(`Stable Root node ID: ${rootNodeId}`);
+
+    const rootNodeData = diagram.nodes.get(rootNodeId)!;
+    // Initialize LayoutTree with root node and anchors
+    const layoutTree = new LayoutTree(net, rootNodeId, getStringNodeDimensions(rootNodeData), rootNodeData.label ?? '', rootNodeData.kind);
+    // Set root anchors (ensure only non-conflicting ones)
+    net.writeCell({ description: `anchor root minX`, inputs: [], outputs: [layoutTree.getNodeLayout(rootNodeId)!.subtreeExtentBox.left] }, layoutTree.getNodeLayout(rootNodeId)!.subtreeExtentBox.left, known(exactly(0)));
+    net.writeCell({ description: `anchor root minY`, inputs: [], outputs: [layoutTree.getNodeLayout(rootNodeId)!.subtreeExtentBox.top] }, layoutTree.getNodeLayout(rootNodeId)!.subtreeExtentBox.top, known(exactly(0)));
+    // Removed the conflicting intrinsicBox.bottom = 0 anchor
+
+    // Create NodeLayout objects for all other nodes
+    allNodeIds.forEach(nodeId => {
+        if (nodeId === rootNodeId) return;
+        const node = diagram.nodes.get(nodeId)!;
+        const intrinsicBox = BoundingBox.createNewWithDims(net, 'intrinsic', nodeId, getStringNodeDimensions(node));
+        const subtreeExtentBox = BoundingBox.createNew(net, 'subtree extent', nodeId);
+        const nodeLayout: NodeLayout = {
+            nodeId: nodeId,
+            nestingParentId: null, // TODO: Handle nesting
+            intrinsicBox: intrinsicBox,
+            subtreeExtentBox: subtreeExtentBox,
+            position: null,
+            kind: node.kind,
+            label: node.label ?? '',
+        };
+        layoutTree.addNodeLayout(nodeLayout);
+    });
+
+    // --- Build Hierarchy using BFS Spanning Tree/Forest ---
+    const visited = new Set<string>();
+    const connectionsToProcess = [...diagram.connections]; // Copy connections
+
+    // Function to perform BFS from a starting node
+    const performBFS = (startNodeId: string) => {
+        if (visited.has(startNodeId)) {
+            return; // Already visited as part of another component
+        }
+        const queue: string[] = [startNodeId];
+        visited.add(startNodeId);
+        let head = 0;
+
+        while (head < queue.length) {
+            const currentParentId = queue[head++]; // Dequeue
+
+            // Find connections originating from the current node
+            for (const connection of connectionsToProcess) {
+                 // Ensure connection starts from the current node and targets another node in the diagram
+                if (connection.source.type.startsWith('Node') &&
+                    connection.source.id === currentParentId &&
+                    connection.target.type.startsWith('Node') &&
+                    diagram.nodes.has(connection.target.id)) // Check target node exists
+                {
+                    const targetChildId = connection.target.id;
+
+                    // Skip self-loops
+                    if (currentParentId === targetChildId) continue;
+
+                    // If the target node hasn't been visited yet in our traversal
+                    if (!visited.has(targetChildId)) {
+                        visited.add(targetChildId);
+                        console.log(`Adding hierarchical link: ${currentParentId} -> ${targetChildId} (via ${connection.id})`);
+                        layoutTree.addChild(currentParentId, targetChildId);
+                        console.log(`Enqueuing child node: ${targetChildId} for parent node: ${currentParentId}`);
+                        queue.push(targetChildId); // Enqueue child
+                    }
+                     // No 'else' needed - if visited, it's implicitly a non-hierarchical link
+                }
+            }
+        }
+    };
+
+    // Start BFS from the chosen root
+    performBFS(rootNodeId);
+
+    // Handle potentially disconnected components
+    let allVisited = true;
+    for (const nodeId of allNodeIds) {
+        if (!visited.has(nodeId)) {
+            allVisited = false;
+            console.log(`Node ${nodeId} not reached from root, starting new BFS component.`);
+            performBFS(nodeId); // Start BFS for the disconnected component
+        }
+    }
+    if (!allVisited) {
+         console.warn("LayoutTree build: The hierarchy has multiple disconnected components (forest).");
+    } else {
+        console.log("LayoutTree build: All nodes successfully included in the hierarchy.");
+    }
+     // --- End Hierarchy Build ---
+
+    console.log(`Done handling disconnected components. _children map:`, layoutTree._children);
+    console.log("Finished building layout tree hierarchy.");
+    console.log("Final _children map:", layoutTree._children);
+    return layoutTree;
+}
   static buildFromSemanticNode<A>(net: PropagatorNetwork<NumericRange>, rootNode: SemanticNode<A>): LayoutTree {
-    const layoutTree = new LayoutTree(net, rootNode);
+    const layoutTree = new LayoutTree(net, rootNode.id, getNodeDimensions(rootNode), rootNode.label ?? '', rootNode.kind);
 
     function traverse(node: SemanticNode<A>, parentId: string | null, nestingParentId: string | null): void {
       let intrinsicBox: BoundingBox | null = null;

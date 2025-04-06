@@ -15,7 +15,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 enableMapSet(); // Initialize immer so it can use Map and Set
 
 console.log('Term: ', prettyPrintTerm(exampleTerm));
-console.log('Type infer: ', inferType([], exampleTerm));
+console.log('Type infer: ', inferType([], new Map([]), exampleTerm));
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

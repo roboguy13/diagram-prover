@@ -23,6 +23,10 @@ export class SubtreeWidthConstraint implements Constraint {
 
     const childWidths = childLayouts.map(childLayout => childLayout!.subtreeExtentBox.width);
 
+    if (childWidths.length === 1) {
+      return
+    }
+
     const sumChildWidths = layoutTree.net.newCell(`sumChildWidths`, unknown());
 
     // sumChildWidths = sum(children.subtree.width)
