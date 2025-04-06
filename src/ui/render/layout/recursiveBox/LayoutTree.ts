@@ -13,9 +13,9 @@ import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { PropagatorNetworkToJson } from "../../../../constraint/propagator/PropagatorToJson";
 import { inputHandleName, outputHandleName } from "../../../NodeUtils";
 import { layout } from "dagre";
-import { isNodePortLocation, StringDiagram } from "../../../../ir/StringDiagram";
+import { Connection, isNodePortLocation, StringDiagram } from "../../../../ir/StringDiagram";
 import { Graph, spanningForest } from "../../../../utils/SpanningForest";
-import { buildRootedHierarchy } from "../../../../utils/RootedHierarchy";
+import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedHierarchy";
 
 export class LayoutTree {
   private _nodeLayouts: Map<string, NodeLayout> = new Map();
@@ -38,8 +38,15 @@ export class LayoutTree {
   private _standardHNestingSpacing: CellRef;
   private _standardVNestingSpacing: CellRef;
 
-  constructor(net: PropagatorNetwork<NumericRange>, rootNodeId: string, rootDims: Dimensions, rootLabel: string, rootKind: string) {
+  private _originalConnections: Connection[];
+  private _allRoots: string[] = [];
+
+  constructor(net: PropagatorNetwork<NumericRange>, originalConnections: Connection[], allRoots: string[], rootNodeId: string, rootDims: Dimensions, rootLabel: string, rootKind: string) {
     this._net = net;
+
+    this._allRoots = allRoots;
+
+    this._originalConnections = originalConnections;
 
     this._standardVSpacing = net.newCell(`standardVSpacing`, known(exactly(LayoutTree._STANDARD_V_SPACING)));
     this._standardHSpacing = net.newCell(`standardHSpacing`, known(exactly(LayoutTree._STANDARD_H_SPACING)));
@@ -56,8 +63,8 @@ export class LayoutTree {
         net,
         'intrinsic',
         rootNodeId,
-        net.newCell(`intrinsic minX [node ${rootNodeId}]`, unknown()),
-        net.newCell(`intrinsic minY [node ${rootNodeId}]`, unknown()),
+        net.newCell(`intrinsic minX [node ${rootNodeId}]`, known(exactly(0))),
+        net.newCell(`intrinsic minY [node ${rootNodeId}]`, known(exactly(0))),
         net.newCell(`intrinsic width [node ${rootNodeId}]`, known(rootDims.width)),
         net.newCell(`intrinsic height [node ${rootNodeId}]`, known(rootDims.height))
       ),
@@ -65,8 +72,8 @@ export class LayoutTree {
         net,
         'subtree extent',
         rootNodeId,
-        net.newCell(`subtree extent minX [node ${rootNodeId}]`, known(exactly(0))),
-        net.newCell(`subtree extent minY [node ${rootNodeId}]`, known(exactly(0))),
+        net.newCell(`subtree extent minX [node ${rootNodeId}]`, unknown()),
+        net.newCell(`subtree extent minY [node ${rootNodeId}]`, unknown()),
         net.newCell(`subtree extent width [node ${rootNodeId}]`, unknown()),
         net.newCell(`subtree extent height [node ${rootNodeId}]`, unknown())
       ),
@@ -105,6 +112,10 @@ export class LayoutTree {
 
   get standardVNestingSpacing(): CellRef {
     return this._standardVNestingSpacing;
+  }
+
+  public get originalConnections(): Connection[] {
+    return this._originalConnections;
   }
 
   addNodeLayout(layout: NodeLayout): void {
@@ -263,7 +274,7 @@ export class LayoutTree {
 
     let firstNode = diagram.nodes.get(firstNodeId)!
 
-    const layoutTree = new LayoutTree(net, firstNodeId, getStringNodeDimensions(firstNode), firstNode.label ?? '', firstNode.kind);
+    const layoutTree = new LayoutTree(net, diagram.connections, [], firstNodeId, getStringNodeDimensions(firstNode), firstNode.label ?? '', firstNode.kind);
 
     const nodeIds = Array.from(diagram.nodes.keys()); // TODO: Do I want to skip the first node here?
 
@@ -294,16 +305,27 @@ export class LayoutTree {
 
     let graph: Graph<string> = { vertices: nodeIds, edges: nodeToNodeConnections.map((e) => ({ source: e.source.id, target: e.target.id })) };
     const forestEdges = spanningForest(graph);
-    const hierarchyEdges = buildRootedHierarchy<string>([firstNodeId], [...forestEdges]); // TODO: Handle multiple roots
+    layoutTree.allRoots = findForestRoots(nodeIds, layoutTree._children);
+    const rootedHierarchy = buildRootedHierarchy<string>(layoutTree._allRoots, [...forestEdges]);
 
-    for (const edge of hierarchyEdges) {
+    for (const edge of rootedHierarchy.edges) {
       console.log(`Processing hierarchy edge: ${edge.source} -> ${edge.target}`);
       layoutTree.addChild(edge.source, edge.target);
       console.log(`Called addChild for: ${edge.source} -> ${edge.target}`);
     }
     console.log("Final _children map after processing hierarchy edges:", layoutTree._children);
 
+    console.log("All roots found:", layoutTree.allRoots);
+
     return layoutTree;
+  }
+
+  public get allRoots(): string[] {
+    return this._allRoots;
+  }
+
+  private set allRoots(roots: string[]) {
+    this._allRoots = roots;
   }
 
   private canReach(startNodeId: string, targetNodeId: string): boolean {
@@ -335,7 +357,7 @@ export class LayoutTree {
   }
 
   static buildFromSemanticNode<A>(net: PropagatorNetwork<NumericRange>, rootNode: SemanticNode<A>): LayoutTree {
-    const layoutTree = new LayoutTree(net, rootNode.id, getNodeDimensions(rootNode), rootNode.label ?? '', rootNode.kind);
+    const layoutTree = new LayoutTree(net, [], [rootNode.id], rootNode.id, getNodeDimensions(rootNode), rootNode.label ?? '', rootNode.kind);
 
     function traverse(node: SemanticNode<A>, parentId: string | null, nestingParentId: string | null): void {
       let intrinsicBox: BoundingBox | null = null;
