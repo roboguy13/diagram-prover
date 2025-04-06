@@ -12,6 +12,10 @@ export type PortLocation =
 | { type: 'NodeInput', id: NodeId, portId: PortId }
 | { type: 'NodeOutput', id: NodeId, portId: PortId }
 
+export function isNodePortLocation(location: PortLocation): boolean {
+  return location.type === 'NodeInput' || location.type === 'NodeOutput';
+}
+
 export type Connection =
   {
     id: string;

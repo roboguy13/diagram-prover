@@ -13,7 +13,9 @@ import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { PropagatorNetworkToJson } from "../../../../constraint/propagator/PropagatorToJson";
 import { inputHandleName, outputHandleName } from "../../../NodeUtils";
 import { layout } from "dagre";
-import { StringDiagram } from "../../../../ir/StringDiagram";
+import { isNodePortLocation, StringDiagram } from "../../../../ir/StringDiagram";
+import { Graph, spanningForest } from "../../../../utils/SpanningForest";
+import { buildRootedHierarchy } from "../../../../utils/RootedHierarchy";
 
 export class LayoutTree {
   private _nodeLayouts: Map<string, NodeLayout> = new Map();
@@ -244,110 +246,94 @@ export class LayoutTree {
     console.log(jsonText)
   }
 
-static buildFromStringDiagram(net: PropagatorNetwork<NumericRange>, diagram: StringDiagram): LayoutTree {
-    console.log("Building layout tree using BFS traversal...");
+  static buildFromStringDiagram(net: PropagatorNetwork<NumericRange>, diagram: StringDiagram): LayoutTree {
+    console.log("Building layout tree from string diagram...")
+    console.log("Diagram:", diagram);
 
     const allNodeIds = Array.from(diagram.nodes.keys());
-    if (allNodeIds.length === 0) {
-        throw new Error("No nodes in diagram");
+    if (allNodeIds.length === 0) { throw new Error("No nodes in diagram"); }
+    allNodeIds.sort(); // Sort alphabetically
+    let firstNodeId = allNodeIds[0]!; // Pick the first one
+
+    if (!firstNodeId) {
+      throw new Error("No nodes in diagram"); // TODO: Handle this case
     }
-    allNodeIds.sort(); // Deterministic root selection
-    const rootNodeId = allNodeIds[0]!;
-    console.log(`Stable Root node ID: ${rootNodeId}`);
 
-    const rootNodeData = diagram.nodes.get(rootNodeId)!;
-    // Initialize LayoutTree with root node and anchors
-    const layoutTree = new LayoutTree(net, rootNodeId, getStringNodeDimensions(rootNodeData), rootNodeData.label ?? '', rootNodeData.kind);
-    // Set root anchors (ensure only non-conflicting ones)
-    net.writeCell({ description: `anchor root minX`, inputs: [], outputs: [layoutTree.getNodeLayout(rootNodeId)!.subtreeExtentBox.left] }, layoutTree.getNodeLayout(rootNodeId)!.subtreeExtentBox.left, known(exactly(0)));
-    net.writeCell({ description: `anchor root minY`, inputs: [], outputs: [layoutTree.getNodeLayout(rootNodeId)!.subtreeExtentBox.top] }, layoutTree.getNodeLayout(rootNodeId)!.subtreeExtentBox.top, known(exactly(0)));
-    // Removed the conflicting intrinsicBox.bottom = 0 anchor
+    console.log("First node ID:", firstNodeId);
 
-    // Create NodeLayout objects for all other nodes
-    allNodeIds.forEach(nodeId => {
-        if (nodeId === rootNodeId) return;
-        const node = diagram.nodes.get(nodeId)!;
-        const intrinsicBox = BoundingBox.createNewWithDims(net, 'intrinsic', nodeId, getStringNodeDimensions(node));
-        const subtreeExtentBox = BoundingBox.createNew(net, 'subtree extent', nodeId);
-        const nodeLayout: NodeLayout = {
-            nodeId: nodeId,
-            nestingParentId: null, // TODO: Handle nesting
-            intrinsicBox: intrinsicBox,
-            subtreeExtentBox: subtreeExtentBox,
-            position: null,
-            kind: node.kind,
-            label: node.label ?? '',
-        };
+    let firstNode = diagram.nodes.get(firstNodeId)!
+
+    const layoutTree = new LayoutTree(net, firstNodeId, getStringNodeDimensions(firstNode), firstNode.label ?? '', firstNode.kind);
+
+    const nodeIds = Array.from(diagram.nodes.keys()); // TODO: Do I want to skip the first node here?
+
+    for (const nodeId of nodeIds) {
+      const node = diagram.nodes.get(nodeId)!;
+
+      const intrinsicBox = BoundingBox.createNewWithDims(net, 'intrinsic', nodeId, getStringNodeDimensions(node));
+      const subtreeExtentBox = BoundingBox.createNew(net, 'subtree extent', nodeId);
+
+      const nodeLayout: NodeLayout = {
+        nodeId: nodeId,
+        nestingParentId: null, // TODO: Handle nesting
+        intrinsicBox: intrinsicBox,
+        subtreeExtentBox: subtreeExtentBox,
+        position: null,
+        kind: node.kind,
+        label: node.label ?? '',
+      }
+
+      if (nodeId !== firstNodeId) {
         layoutTree.addNodeLayout(nodeLayout);
-    });
-
-    // --- Build Hierarchy using BFS Spanning Tree/Forest ---
-    const visited = new Set<string>();
-    const connectionsToProcess = [...diagram.connections]; // Copy connections
-
-    // Function to perform BFS from a starting node
-    const performBFS = (startNodeId: string) => {
-        if (visited.has(startNodeId)) {
-            return; // Already visited as part of another component
-        }
-        const queue: string[] = [startNodeId];
-        visited.add(startNodeId);
-        let head = 0;
-
-        while (head < queue.length) {
-            const currentParentId = queue[head++]; // Dequeue
-
-            // Find connections originating from the current node
-            for (const connection of connectionsToProcess) {
-                 // Ensure connection starts from the current node and targets another node in the diagram
-                if (connection.source.type.startsWith('Node') &&
-                    connection.source.id === currentParentId &&
-                    connection.target.type.startsWith('Node') &&
-                    diagram.nodes.has(connection.target.id)) // Check target node exists
-                {
-                    const targetChildId = connection.target.id;
-
-                    // Skip self-loops
-                    if (currentParentId === targetChildId) continue;
-
-                    // If the target node hasn't been visited yet in our traversal
-                    if (!visited.has(targetChildId)) {
-                        visited.add(targetChildId);
-                        console.log(`Adding hierarchical link: ${currentParentId} -> ${targetChildId} (via ${connection.id})`);
-                        layoutTree.addChild(currentParentId, targetChildId);
-                        console.log(`Enqueuing child node: ${targetChildId} for parent node: ${currentParentId}`);
-                        queue.push(targetChildId); // Enqueue child
-                    }
-                     // No 'else' needed - if visited, it's implicitly a non-hierarchical link
-                }
-            }
-        }
-    };
-
-    // Start BFS from the chosen root
-    performBFS(rootNodeId);
-
-    // Handle potentially disconnected components
-    let allVisited = true;
-    for (const nodeId of allNodeIds) {
-        if (!visited.has(nodeId)) {
-            allVisited = false;
-            console.log(`Node ${nodeId} not reached from root, starting new BFS component.`);
-            performBFS(nodeId); // Start BFS for the disconnected component
-        }
+      }
     }
-    if (!allVisited) {
-         console.warn("LayoutTree build: The hierarchy has multiple disconnected components (forest).");
-    } else {
-        console.log("LayoutTree build: All nodes successfully included in the hierarchy.");
-    }
-     // --- End Hierarchy Build ---
 
-    console.log(`Done handling disconnected components. _children map:`, layoutTree._children);
-    console.log("Finished building layout tree hierarchy.");
-    console.log("Final _children map:", layoutTree._children);
+    const nodeToNodeConnections = diagram.connections.filter(conn =>
+      isNodePortLocation(conn.source) && isNodePortLocation(conn.target)
+    );
+
+    let graph: Graph<string> = { vertices: nodeIds, edges: nodeToNodeConnections.map((e) => ({ source: e.source.id, target: e.target.id })) };
+    const forestEdges = spanningForest(graph);
+    const hierarchyEdges = buildRootedHierarchy<string>([firstNodeId], [...forestEdges]); // TODO: Handle multiple roots
+
+    for (const edge of hierarchyEdges) {
+      console.log(`Processing hierarchy edge: ${edge.source} -> ${edge.target}`);
+      layoutTree.addChild(edge.source, edge.target);
+      console.log(`Called addChild for: ${edge.source} -> ${edge.target}`);
+    }
+    console.log("Final _children map after processing hierarchy edges:", layoutTree._children);
+
     return layoutTree;
-}
+  }
+
+  private canReach(startNodeId: string, targetNodeId: string): boolean {
+    const visited = new Set<string>();
+    const stack: string[] = [startNodeId]; // Start DFS from the potential child
+
+    while (stack.length > 0) {
+      const currentNodeId = stack.pop()!;
+
+      // If we reached the target (the potential parent), a cycle would be formed
+      if (currentNodeId === targetNodeId) {
+        return true;
+      }
+
+      if (visited.has(currentNodeId)) {
+        continue;
+      }
+      visited.add(currentNodeId);
+
+      // Traverse to children based on the tree built so far
+      const children = this.getChildren(currentNodeId);
+      for (const child of children) {
+        // No need to check visited here for cycle detection path finding
+        stack.push(child);
+      }
+    }
+    // If the target was never reached, adding the edge is safe
+    return false;
+  }
+
   static buildFromSemanticNode<A>(net: PropagatorNetwork<NumericRange>, rootNode: SemanticNode<A>): LayoutTree {
     const layoutTree = new LayoutTree(net, rootNode.id, getNodeDimensions(rootNode), rootNode.label ?? '', rootNode.kind);
 
