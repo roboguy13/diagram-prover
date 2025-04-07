@@ -39,12 +39,12 @@ export class LayoutTree {
   private _standardVNestingSpacing: CellRef;
 
   private _originalConnections: Connection[];
-  private _allRoots: string[] = [];
+  // private _allRoots: string[] = [];
 
   constructor(net: PropagatorNetwork<NumericRange>, originalConnections: Connection[], allRoots: string[], rootNodeId: string, rootDims: Dimensions, rootLabel: string, rootKind: string) {
     this._net = net;
 
-    this._allRoots = allRoots;
+    // this._allRoots = allRoots;
 
     this._originalConnections = originalConnections;
 
@@ -305,8 +305,9 @@ export class LayoutTree {
 
     let graph: Graph<string> = { vertices: nodeIds, edges: nodeToNodeConnections.map((e) => ({ source: e.source.id, target: e.target.id })) };
     const forestEdges = spanningForest(graph);
-    layoutTree.allRoots = findForestRoots(nodeIds, layoutTree._children);
-    const rootedHierarchy = buildRootedHierarchy<string>(layoutTree._allRoots, [...forestEdges]);
+    // layoutTree.allRoots = findForestRoots(nodeIds, layoutTree._children);
+    const allRoots = layoutTree.getHierarchyRoots(layoutTree);
+    const rootedHierarchy = buildRootedHierarchy<string>(allRoots, [...forestEdges]);
 
     for (const edge of rootedHierarchy.edges) {
       console.log(`Processing hierarchy edge: ${edge.source} -> ${edge.target}`);
@@ -321,39 +322,30 @@ export class LayoutTree {
   }
 
   public get allRoots(): string[] {
-    return this._allRoots;
+    return this.getHierarchyRoots(this);
   }
 
-  private set allRoots(roots: string[]) {
-    this._allRoots = roots;
-  }
-
-  private canReach(startNodeId: string, targetNodeId: string): boolean {
-    const visited = new Set<string>();
-    const stack: string[] = [startNodeId]; // Start DFS from the potential child
-
-    while (stack.length > 0) {
-      const currentNodeId = stack.pop()!;
-
-      // If we reached the target (the potential parent), a cycle would be formed
-      if (currentNodeId === targetNodeId) {
-        return true;
-      }
-
-      if (visited.has(currentNodeId)) {
-        continue;
-      }
-      visited.add(currentNodeId);
-
-      // Traverse to children based on the tree built so far
-      const children = this.getChildren(currentNodeId);
-      for (const child of children) {
-        // No need to check visited here for cycle detection path finding
-        stack.push(child);
-      }
+  // Helper function perhaps in ConstraintApplicator or a utility file
+  getHierarchyRoots(layoutTree: LayoutTree): string[] {
+    const allNodes = new Set(this._nodeLayouts.keys());
+    const childrenNodes = new Set<string>();
+    for (const children of layoutTree._children.values()) {
+        children.forEach(childId => childrenNodes.add(childId));
     }
-    // If the target was never reached, adding the edge is safe
-    return false;
+
+    const hierarchyRoots: string[] = [];
+    allNodes.forEach(nodeId => {
+        if (!childrenNodes.has(nodeId)) {
+            hierarchyRoots.push(nodeId);
+        }
+    });
+    // Handle edge case: if graph is single node, it might be missed.
+    if (hierarchyRoots.length === 0 && allNodes.size > 0) {
+        const firstNode = allNodes.values().next().value;
+        if (firstNode) return [firstNode];
+    }
+    console.log("Determined Hierarchy Roots:", hierarchyRoots);
+    return hierarchyRoots;
   }
 
   static buildFromSemanticNode<A>(net: PropagatorNetwork<NumericRange>, rootNode: SemanticNode<A>): LayoutTree {

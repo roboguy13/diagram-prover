@@ -1,4 +1,3 @@
-import { uniqueId } from "lodash";
 import { AppTerm, collectLams, LamTerm, Term, VarTerm } from "../engine/Term";
 import { inputHandleName, outputHandleName } from "../ui/NodeUtils";
 import { readonlyMap } from "fp-ts";
@@ -28,27 +27,91 @@ export type PortInterface = {
   outputPorts: PortId[];
 }
 
-export type StringNode = LamNode | AppNode | UnitNode;
-
-export type UnitNode = {
-  kind: 'UnitNode';
-  id?: NodeId;
-  label?: string;
+export interface StringNode {
+  kind: 'LamNode' | 'AppNode' | 'UnitNode';
+  id: NodeId;
+  label: string;
+  get externalInterface(): PortInterface;
 }
 
-export type AppNode = {
-  kind: 'AppNode';
-  id?: NodeId;
-  label?: string;
+export class UnitNode implements StringNode {
+  kind: 'UnitNode' = 'UnitNode';
+  id: NodeId;
+  label: string;
+  private _externalInterface: PortInterface;
+
+  constructor(label: string) {
+    this.id = StringDiagram.createNodeId();
+    this.label = label;
+    this._externalInterface = StringDiagram.createPortInterface(0, 1);
+  }
+
+  get externalInterface(): PortInterface {
+    return this._externalInterface;
+  }
 }
 
-export type LamNode = {
-  kind: 'LamNode';
-  id?: NodeId;
-  label?: string;
-  internalInterface: PortInterface;
-  // nestedDiagram: StringDiagram;
+export class AppNode implements StringNode {
+  kind: 'AppNode' = 'AppNode';
+  id: NodeId;
+  label: string;
+  private _externalInterface: PortInterface;
+
+  constructor(label: string) {
+    this.id = StringDiagram.createNodeId();
+    this.label = label;
+    this._externalInterface = StringDiagram.createPortInterface(2, 1);
+  }
+
+  get externalInterface(): PortInterface {
+    return this._externalInterface;
+  }
 }
+
+export class LamNode implements StringNode {
+  kind: 'LamNode' = 'LamNode';
+  id: NodeId;
+  label: string;
+  private _internalInterface: PortInterface;
+  private _externalInterface: PortInterface;
+
+  constructor(label: string) {
+    this.id = StringDiagram.createNodeId();
+    this.label = label;
+    this._internalInterface = StringDiagram.createPortInterface(1, 1);
+    this._externalInterface = StringDiagram.createPortInterface(0, 1);
+  }
+
+  get externalInterface(): PortInterface {
+    return this._externalInterface;
+  }
+
+  get internalInterface(): PortInterface {
+    return this._internalInterface;
+  }
+}
+
+// export type StringNode = LamNode | AppNode | UnitNode;
+
+// export type UnitNode = {
+//   kind: 'UnitNode';
+//   id?: NodeId;
+//   label?: string;
+// }
+
+// export type AppNode = {
+//   kind: 'AppNode';
+//   id?: NodeId;
+//   label?: string;
+// }
+
+// export type LamNode = {
+//   kind: 'LamNode';
+//   id?: NodeId;
+//   label?: string;
+//   nestedInterface: PortInterface;
+//   // nestedDiagram: StringDiagram;
+// }
 
 export class StringDiagram {
   private _connections: Connection[] = [];
@@ -103,6 +166,30 @@ export class StringDiagram {
     newDiagram._connections = [...this._connections, ...otherDiagram._connections];
     newDiagram._nodes = new Map([...this._nodes, ...otherDiagram._nodes]);
     return newDiagram;
+  }
+
+  public getChildConnections(nodeId: NodeId): Connection[] {
+    return this._connections.filter((connection) => {
+      return connection.source.type === 'NodeOutput' && connection.source.id === nodeId;
+    });
+  }
+
+  // TODO: Improve efficiency
+  public getChildren(nodeId: NodeId): StringNode[] {
+    const node = this._nodes.get(nodeId);
+    if (!node) {
+      throw new Error(`Node with ID ${nodeId} not found`);
+    }
+    const children: StringNode[] = [];
+    this._connections.forEach((connection) => {
+      if (connection.source.type === 'NodeOutput' && connection.source.id === nodeId) {
+        const childNode = this._nodes.get(connection.target.id);
+        if (childNode) {
+          children.push(childNode);
+        }
+      }
+    });
+    return children;
   }
 
   public get externalInterface(): PortInterface {

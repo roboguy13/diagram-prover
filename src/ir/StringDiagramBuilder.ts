@@ -192,9 +192,8 @@ function termToStringDiagramBuilder(
 
     case 'unit':
        // Create a UnitNode
-       const unitNodeId = StringDiagram.createNodeId();
-       const unitNode: UnitNode = { kind: 'UnitNode', id: unitNodeId, label: '()' };
-       const outputLoc: PortLocation = { type: 'NodeOutput', id: unitNodeId, portId: StringDiagram.createOutputId() }; // Assuming UnitNode has one output
+       const unitNode: UnitNode = new UnitNode('()');
+       const outputLoc: PortLocation = { type: 'NodeOutput', id: unitNode.id, portId: unitNode.externalInterface.outputPorts[0]! };
 
        return StringDiagramBuilder.empty()
                 .addNode(unitNode)
@@ -262,15 +261,10 @@ function termToLamBuilder(
     freeVarContext: ReadonlyMap<string, PortLocation>,
     boundVarEnv: BoundVarEnv
 ): StringDiagramBuilder {
-    // 1. Create LamNode structure IDs
-    const lamNodeId = StringDiagram.createNodeId();
-    // Input port on the LamNode boundary representing the bound variable source
-    const paramInputPortId = StringDiagram.createInputId();
-    // Output port on the LamNode boundary representing the final result
-    const lamOutputPortId = StringDiagram.createOutputId();
+    const lamNode: LamNode = new LamNode('λ');
 
     // Location where the bound variable originates *inside* the lambda body's context
-    const paramInputLocation: PortLocation = { type: 'NodeOutput', id: lamNodeId, portId: paramInputPortId };
+    const paramInputLocation: PortLocation = { type: 'NodeOutput', id: lamNode.id, portId: lamNode.internalInterface.inputPorts[0]! };
 
     // 2. Recursively process the body with updated environment
     const newBoundVarEnv: BoundVarEnv = [paramInputLocation, ...boundVarEnv];
@@ -282,17 +276,17 @@ function termToLamBuilder(
     //    Option B: Nested - Store bodyBuilder result inside LamNode (requires LamNode type change).
     //    Let's go with Flatten (Option A) for now.
 
-    const lamNode: LamNode = {
-        kind: 'LamNode',
-        id: lamNodeId,
-        label: `λ`,
-        // Interface represents the node's *external* connection points
-        internalInterface: { // Renaming this field might be clearer, e.g., boundaryInterface
-            inputPorts: [paramInputPortId], // Input for the bound variable wire
-            outputPorts: [lamOutputPortId], // Final output wire
-        },
-        // nestedDiagram: bodyBuilder.buildDiagram(...) // Remove if flattening
-    };
+    // const lamNode: LamNode = {
+    //     kind: 'LamNode',
+    //     id: lamNodeId,
+    //     label: `λ`,
+    //     // Interface represents the node's *external* connection points
+    //     nestedInterface: { // Renaming this field might be clearer, e.g., boundaryInterface
+    //         inputPorts: [paramInputPortId], // Input for the bound variable wire
+    //         outputPorts: [lamOutputPortId], // Final output wire
+    //     },
+    //     // nestedDiagram: bodyBuilder.buildDiagram(...) // Remove if flattening
+    // };
 
     // 4. Assemble the builder for the LamTerm
     //    Start by merging the body's builder state
@@ -306,7 +300,7 @@ function termToLamBuilder(
         resultBuilder = resultBuilder.addConnection(
             bodyBuilder.outputPortLocation,
             // Target is the *input* side of the LamNode's output port boundary
-            { type: 'NodeInput', id: lamNodeId, portId: lamOutputPortId }
+            { type: 'NodeInput', id: lamNode.id, portId: lamNode.externalInterface.outputPorts[0]! }
         );
     } else {
         // Handle case where lambda body has no output (e.g., `λx.y` where y is free)
@@ -314,7 +308,7 @@ function termToLamBuilder(
     }
 
     //    The overall output location is now the LamNode's external output port
-    resultBuilder = resultBuilder.withOutputLocation({ type: 'NodeOutput', id: lamNodeId, portId: lamOutputPortId });
+    resultBuilder = resultBuilder.withOutputLocation({ type: 'NodeOutput', id: lamNode.id, portId: lamNode.externalInterface.outputPorts[0]! });
 
     //    Free variables from the body remain free, *unless* they were the variable bound by this lambda.
     //    The recursive call handles context correctly, so we just use bodyBuilder.freeVarInputTargets.
@@ -334,17 +328,7 @@ function termToAppBuilder(
     const argBuilder = termToStringDiagramBuilder(term.arg, freeVarContext, boundVarEnv);
 
     // 2. Create AppNode structure
-    const appNodeId = StringDiagram.createNodeId();
-    // Define input/output ports for the AppNode
-    const funcInputPortId = StringDiagram.createInputId(); // Port receiving the function
-    const argInputPortId = StringDiagram.createInputId();  // Port receiving the argument
-    const outputPortId = StringDiagram.createOutputId(); // Port providing the result
-
-    const appNode: AppNode = {
-        kind: 'AppNode',
-        id: appNodeId,
-        label: '@',
-    };
+    const appNode: AppNode = new AppNode('@'); // Placeholder label, adjust as needed
 
     // 3. Combine nodes, connections, free variables from children
     let resultBuilder = StringDiagramBuilder.empty()
@@ -358,18 +342,18 @@ function termToAppBuilder(
     if (funcBuilder.outputPortLocation) {
         resultBuilder = resultBuilder.addConnection(
             funcBuilder.outputPortLocation,
-            { type: 'NodeInput', id: appNodeId, portId: funcInputPortId }
+            { type: 'NodeInput', id: appNode.id, portId: appNode.externalInterface.inputPorts[0]! }
         );
     }
     if (argBuilder.outputPortLocation) {
         resultBuilder = resultBuilder.addConnection(
             argBuilder.outputPortLocation,
-            { type: 'NodeInput', id: appNodeId, portId: argInputPortId }
+            { type: 'NodeInput', id: appNode.id, portId: appNode.externalInterface.inputPorts[1]! }
         );
     }
 
     // 6. Set the final output location to the AppNode's output port
-    resultBuilder = resultBuilder.withOutputLocation({ type: 'NodeOutput', id: appNodeId, portId: outputPortId });
+    resultBuilder = resultBuilder.withOutputLocation({ type: 'NodeOutput', id: appNode.id, portId: appNode.externalInterface.outputPorts[0]! });
 
     return resultBuilder;
 }

@@ -4,38 +4,36 @@ import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
 
 export class VerticalOrderingConstraint implements Constraint {
-  constructor(
-    private _sourceNodeId: string,
-    private _targetNodeId: string) {
+  constructor(private _parentNodeId: string, private _childNodeId: string) {
   }
 
-  public apply(layoutTree: LayoutTree): void {
-    const sourceNodeLayout = layoutTree.getNodeLayout(this._sourceNodeId)!;
-    const targetNodeLayout = layoutTree.getNodeLayout(this._targetNodeId)!;
+  apply(layoutTree: LayoutTree): void {
+    const parentNodeLayout = layoutTree.getNodeLayout(this._parentNodeId)!;
+    const childNodeLayout = layoutTree.getNodeLayout(this._childNodeId)!;
     const net = layoutTree.net;
 
     const verticalSpacing = layoutTree.standardVSpacing;
 
-    const sourceBottomPlusSpacing = net.newCell(
-      `temp_${this._sourceNodeId}.bottom+${net.cellDescription(verticalSpacing)}`,
+    const parentBottomPlusSpacing = net.newCell(
+      `temp_${this._parentNodeId}.bottom+${net.cellDescription(verticalSpacing)}`,
       unknown()
     );
 
-    // sourceBottomPlusSpacing = source.intrinsicBox.bottom + verticalSpacing
+    // parentBottomPlusSpacing = parent.intrinsicBox.bottom + verticalSpacing
     addRangePropagator(
-      `calc_${net.cellDescription(sourceBottomPlusSpacing)}`,
+      `calc_${net.cellDescription(parentBottomPlusSpacing)}`,
       net,
-      sourceNodeLayout.intrinsicBox.bottom,
+      parentNodeLayout.intrinsicBox.bottom,
       verticalSpacing,
-      sourceBottomPlusSpacing
+      parentBottomPlusSpacing
     );
 
-    // sourceBottomPlusSpacing <= target.intrinsicBox.top
+    // parentBottomPlusSpacing <= child.intrinsicBox.top
     lessThanEqualPropagator(
-      `${net.cellDescription(sourceBottomPlusSpacing)} <= ${this._targetNodeId}.top`,
+      `${net.cellDescription(parentBottomPlusSpacing)} <= ${this._childNodeId}.top`,
       net,
-      sourceBottomPlusSpacing,
-      targetNodeLayout.intrinsicBox.top
+      parentBottomPlusSpacing,
+      childNodeLayout.intrinsicBox.top
     );
   }
 }

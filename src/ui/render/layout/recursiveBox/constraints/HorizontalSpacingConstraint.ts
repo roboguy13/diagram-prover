@@ -4,51 +4,39 @@ import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
 
 export class HorizontalSpacingConstraint implements Constraint {
-  private _leftNodeId: string;
-  private _rightNodeId: string;
-
-  constructor(leftNodeId: string, rightNodeId: string) {
-      this._leftNodeId = leftNodeId;
-      this._rightNodeId = rightNodeId;
+  constructor(private _nodeId1: string, private _nodeId2: string) {
   }
 
-  public apply(layoutTree: LayoutTree): void {
-      const leftNodeLayout = layoutTree.getNodeLayout(this._leftNodeId);
-      const rightNodeLayout = layoutTree.getNodeLayout(this._rightNodeId);
+  // node1.right + horizontalSpacing <= node2.left
+  apply(layoutTree: LayoutTree): void {
+    const nodeLayout1 = layoutTree.getNodeLayout(this._nodeId1)!;
+    const nodeLayout2 = layoutTree.getNodeLayout(this._nodeId2)!;
 
-      // Check if layouts exist (important!)
-      if (!leftNodeLayout || !rightNodeLayout) {
-          console.warn(`HorizontalSpacingConstraint: Could not find layout for ${this._leftNodeId} or ${this._rightNodeId}`);
-          return;
-      }
+    const net = layoutTree.net;
+    const horizontalSpacing = layoutTree.standardHSpacing;
+    const node1IntrinsicBox = nodeLayout1.intrinsicBox;
+    const node2IntrinsicBox = nodeLayout2.intrinsicBox;
 
-      const leftNodeBox = leftNodeLayout.intrinsicBox;  // Use intrinsicBox
-      const rightNodeBox = rightNodeLayout.intrinsicBox; // Use intrinsicBox
-      const standardHSpacing = layoutTree.standardHSpacing;
-      const net = layoutTree.net;
+    // node1.right + horizontalSpacing
+    const node1RightPlusSpacing = net.newCell(
+      `temp_${this._nodeId1}.right+${net.cellDescription(horizontalSpacing)}`,
+      unknown()
+    );
 
-      // Create intermediate cell for leftNodeBox.right + standardHSpacing
-      const leftRightPlusSpacing = net.newCell(
-           `temp_${this._leftNodeId}.right+${net.cellDescription(standardHSpacing)}`,
-           unknown()
-       );
+    addRangePropagator(
+      `calc_${net.cellDescription(node1RightPlusSpacing)}`,
+      net,
+      node1IntrinsicBox.right,
+      horizontalSpacing,
+      node1RightPlusSpacing
+    );
 
-      // Calculate leftRightPlusSpacing = leftNodeBox.right + standardHSpacing
-      addRangePropagator(
-          `calc_${net.cellDescription(leftRightPlusSpacing)}`,
-          net,
-          leftNodeBox.right, // Use intrinsicBox.right
-          standardHSpacing,
-          leftRightPlusSpacing
-      );
-
-      // Enforce leftRightPlusSpacing <= rightNodeBox.left
-      // (Ensures right node is at least spacing away from the left node)
-      lessThanEqualPropagator(
-          `${net.cellDescription(leftRightPlusSpacing)} <= ${this._rightNodeId}.left`,
-          net,
-          leftRightPlusSpacing, // source.right + spacing
-          rightNodeBox.left     // target.left
-      );
+    // node1.right + horizontalSpacing <= node2.left
+    lessThanEqualPropagator(
+      `${net.cellDescription(node1RightPlusSpacing)} <= ${this._nodeId2}.left`,
+      net,
+      node1RightPlusSpacing,
+      node2IntrinsicBox.left
+    );
   }
 }

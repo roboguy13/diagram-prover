@@ -51,6 +51,7 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
       return Promise.resolve(nodesAndEdges);
     } catch (e) {
       console.error("Error applying constraints:", e);
+      layoutTree.net.printDebugCells(printNumericRange);
       throw e
       return Promise.resolve({ nodes: new Map<string, AppNode>(), edges: new Array() });
     }

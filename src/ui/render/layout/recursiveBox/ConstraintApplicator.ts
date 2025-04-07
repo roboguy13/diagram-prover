@@ -9,7 +9,10 @@ import { Connection, isNodePortLocation } from "../../../../ir/StringDiagram";
 import { VerticalOrderingConstraint } from "./constraints/VerticalOrderingConstraint";
 import { HorizontalSpacingConstraint } from "./constraints/HorizontalSpacingConstraint";
 import { isNode } from "reactflow";
-import { HorizontalCenteringConstraint } from "./constraints_old/HorizontalCenteringConstraint";
+import { determineLayers } from "../../../../utils/LevelOrder";
+import { Constraint } from "@lume/kiwi";
+import { RootGroundingConstraint } from "./constraints/RootGroundingConstraint";
+import { CenteringConstraint } from "./constraints/CenteringConstraint";
 
 export class ConstraintApplicator {
   private static debugLeaves(layoutTree: LayoutTree, nodeId: string): void {
@@ -31,81 +34,102 @@ export class ConstraintApplicator {
       layoutTree.net.addDebugCell(prefix + ': ' + nodeId, intrinsicBox.right);
       layoutTree.net.addDebugCell(prefix + ': ' + nodeId, intrinsicBox.top);
       layoutTree.net.addDebugCell(prefix + ': ' + nodeId, intrinsicBox.bottom);
-      layoutTree.net.addDebugCell(prefix + ': ' + nodeId, subtreeBox.left);
-      layoutTree.net.addDebugCell(prefix + ': ' + nodeId, subtreeBox.right);
-      layoutTree.net.addDebugCell(prefix + ': ' + nodeId, subtreeBox.top);
-      layoutTree.net.addDebugCell(prefix + ': ' + nodeId, subtreeBox.bottom);
     }
   }
-  private visitedInHierarchyTraversal: Set<string> = new Set();
 
   public processLayout(layoutTree: LayoutTree): void {
-    this.visitedInHierarchyTraversal.clear();
-    const net = layoutTree.net;
-    const primaryRootId = layoutTree.rootNodeId;
-    const allRoots = layoutTree.allRoots;
+    const getChildren = (nodeId: string) => layoutTree.getChildren(nodeId);
+    const { layers, nodeLayer } = determineLayers(layoutTree.allRoots, getChildren);
 
-    console.log(`Applying Inequality Hierarchy Constraints, anchoring ${primaryRootId} fully, others horizontally.`);
+    const rootGroundingConstraint = new RootGroundingConstraint()
+    rootGroundingConstraint.apply(layoutTree)
 
-    // --- Anchor Roots ---
-    console.log("Anchoring roots...");
-    let rootIndex = 0;
-    const HORIZONTAL_ROOT_GAP = 400; // Adjust as needed
-
-    // First, anchor the primary root fully
-    const primaryRootLayout = layoutTree.getNodeLayout(primaryRootId);
-    if (primaryRootLayout) {
-        console.log(`Anchoring primary root ${primaryRootId} at (0, 0)`);
-        net.writeCell( { description: `Anchor Root ${primaryRootId} minX`, inputs:[], outputs:[primaryRootLayout.intrinsicBox.left] }, primaryRootLayout.intrinsicBox.left, known(exactly(0)) );
-        net.writeCell( { description: `Anchor Root ${primaryRootId} minY`, inputs:[], outputs:[primaryRootLayout.intrinsicBox.top] }, primaryRootLayout.intrinsicBox.top, known(exactly(0)) );
-    } else {
-         console.warn(`Could not find layout for primary root node ${primaryRootId} during anchoring.`);
+    for (const root of layoutTree.allRoots) {
+      this.traverseComponent(root, layoutTree);
     }
 
-    // Then, anchor other roots horizontally only
-    for (const rootId of allRoots) {
-         // Skip the primary root, we already anchored it
-         if (rootId === primaryRootId) continue;
+    this.applyVerticalConstraints(layoutTree);
+    this.applyHorizontalConstraints(layers, layoutTree);
+  }
 
-         const rootLayout = layoutTree.getNodeLayout(rootId);
-         if (rootLayout) {
-             const intrinsicBox = rootLayout.intrinsicBox;
-             // Assign horizontal position based on index, leave vertical float
-             const anchorX = rootIndex * HORIZONTAL_ROOT_GAP;
-             console.log(`Anchoring non-primary root ${rootId} at minX = ${anchorX}`);
-             net.writeCell( { description: `Anchor NonPrimary Root ${rootId} minX`, inputs:[], outputs:[intrinsicBox.left] }, intrinsicBox.left, known(exactly(anchorX)) );
-             // DO NOT anchor minY for these roots
-             rootIndex++; // Increment index only for non-primary roots to ensure staggering
-         } else { console.warn(`Could not find layout for root node ${rootId} during anchoring.`); }
-    }
-
-    // --- Hierarchical Traversal Applying Inequalities ---
-    console.log("Starting traversal from actual roots:", allRoots);
-    for (const currentRoot of allRoots) {
-        if (!this.visitedInHierarchyTraversal.has(currentRoot)) {
-            // console.log(`Traversing component rooted at: ${currentRoot}`);
-            this.traverseAndApplyHierarchyInequalities(currentRoot, layoutTree);
+  private applyHorizontalConstraints(layers: Map<number, string[]>, layoutTree: LayoutTree): void {
+    console.log("Applying horizontal constraints...");
+    for (const [layerIndex, layer] of layers.entries()) {
+        console.log(`Layer <span class="math-inline">\{layerIndex\}\: \[</span>{layer.join(', ')}]`);
+        if (layerIndex === 0) {
+            console.log("  Skipping horizontal constraints for Layer 0 (roots layer).");
+            continue;
+        }
+        if (layer.length <= 1) {
+             console.log(`  Skipping layer ${layerIndex} - only ${layer.length} node(s).`);
+             continue;
+        }
+        for (let i = 0; i < layer.length - 1; i++) {
+            const nodeId1 = layer[i]!;
+            const nodeId2 = layer[i + 1]!;
+            console.log(`  Applying HSpacing between ${nodeId1} and ${nodeId2}`); // LOG
+            const constraint = new HorizontalSpacingConstraint(nodeId1, nodeId2);
+            constraint.apply(layoutTree);
         }
     }
-    console.log("Finished applying hierarchy inequality constraints.");
+    console.log("Finished applying horizontal constraints.");
 }
 
-// Inequality constraints based on hierarchy (NO CHANGE NEEDED HERE from last step)
-private traverseAndApplyHierarchyInequalities(nodeId: string, layoutTree: LayoutTree): void {
-   if (this.visitedInHierarchyTraversal.has(nodeId)) return;
-    this.visitedInHierarchyTraversal.add(nodeId);
-    ConstraintApplicator.debugLeaves(layoutTree, nodeId);
-
-    const hierarchicalChildren = layoutTree.getChildren(nodeId);
-    let previousSiblingId: string | null = null;
-
-    for (const childId of hierarchicalChildren) {
-        new VerticalOrderingConstraint(nodeId, childId).apply(layoutTree); // Inequality version
-        if (previousSiblingId) {
-             new HorizontalSpacingConstraint(previousSiblingId, childId).apply(layoutTree); // Inequality version
-        }
-        previousSiblingId = childId;
-        this.traverseAndApplyHierarchyInequalities(childId, layoutTree);
+  private applyVerticalConstraints(layoutTree: LayoutTree): void {
+    // Need a way to track visited nodes during traversal to avoid infinite loops
+    // if getChildren could somehow form a cycle (shouldn't with spanning forest)
+    // or re-applying constraints unnecessarily.
+    const visitedForVertical = new Set<string>();
+    for (const rootId of layoutTree.allRoots) {
+      this.applyVerticalConstraintsRecursive(rootId, layoutTree, visitedForVertical);
     }
-}
+  }
+
+  private applyVerticalConstraintsRecursive(
+    nodeId: string,
+    layoutTree: LayoutTree,
+    visited: Set<string>
+  ): void {
+    if (visited.has(nodeId)) {
+      return;
+    }
+    visited.add(nodeId);
+
+    const children = layoutTree.getChildren(nodeId);
+    const allRootsSet = new Set(layoutTree.allRoots); // Create a Set for efficient lookup
+
+    for (const childId of children) {
+      // Skip applying vertical constraint if BOTH parent and child are roots
+      if (allRootsSet.has(nodeId) && allRootsSet.has(childId)) {
+        console.log(`Skipping vertical constraint between roots: ${nodeId} -> ${childId}`);
+        // Still need to recurse to handle children of the child root
+        this.applyVerticalConstraintsRecursive(childId, layoutTree, visited);
+        continue; // Skip applying the constraint for this edge
+      }
+
+      // Apply constraint for non-root-to-root or root-to-non-root edges
+      const constraint = new VerticalOrderingConstraint(nodeId, childId);
+      constraint.apply(layoutTree);
+
+      // Recurse down the tree
+      this.applyVerticalConstraintsRecursive(childId, layoutTree, visited);
+    }
+  }
+
+  private traverseComponent(nodeId: string, layoutTree: LayoutTree): void {
+    const children = layoutTree.getChildren(nodeId);
+
+    if (children.length > 0) {
+      const centeringConstraint = new CenteringConstraint(nodeId, children);
+      centeringConstraint.apply(layoutTree);
+    }
+
+    for (const childId of children) {
+      ConstraintApplicator.debugLeaves(layoutTree, nodeId);
+      const verticalOrderingConstraint = new VerticalOrderingConstraint(nodeId, childId);
+      verticalOrderingConstraint.apply(layoutTree);
+
+      this.traverseComponent(childId, layoutTree);
+    }
+  }
 }
