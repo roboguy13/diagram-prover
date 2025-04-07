@@ -20,7 +20,7 @@ export function getNodeDimensions<A>(n: SemanticNode<A>): Dimensions {
 
 export function getStringNodeDimensions(node: StringNode): Dimensions {
   if (node.kind === 'LamNode') {
-    return { width: exactly(80), height: exactly(80) }
+    return { width: atLeast(80), height: atLeast(80) }
   }
   return { width: exactly(30), height: exactly(30) }
 }

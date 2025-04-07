@@ -152,8 +152,13 @@ export class ConstraintApplicator {
 
     for (const childId of children) {
       ConstraintApplicator.debugLeaves(layoutTree, nodeId);
-      const verticalOrderingConstraint = new VerticalOrderingConstraint(nodeId, childId);
-      verticalOrderingConstraint.apply(layoutTree);
+
+      const childLayout = layoutTree.getNodeLayout(childId);
+
+      if (childLayout?.nestingParentId !== nodeId) {
+        const verticalOrderingConstraint = new VerticalOrderingConstraint(nodeId, childId);
+        verticalOrderingConstraint.apply(layoutTree);
+      }
 
       this.traverseComponent(childId, layoutTree);
     }

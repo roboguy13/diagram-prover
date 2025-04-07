@@ -1,4 +1,4 @@
-import { addRangePropagator, exactly, lessThan, lessThanEqualPropagator, maxRangeListPropagator, minRangeListPropagator, subtractRangePropagator } from "../../../../../constraint/propagator/NumericRange";
+import { addRangePropagator, atLeast, exactly, lessThan, lessThanEqualPropagator, maxRangeListPropagator, minRangeListPropagator, subtractRangePropagator } from "../../../../../constraint/propagator/NumericRange";
 import { known, unknown } from "../../../../../constraint/propagator/Propagator";
 import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
@@ -11,6 +11,7 @@ export class ContainerSizeConstraint implements Constraint {
 
   public static readonly _PADDING_LEFT = 10
   public static readonly _PADDING_TOP = 10
+  public static readonly _PADDING_BOTTOM = 10
 
   constructor(private _containerNodeId: string) {
   }
@@ -48,6 +49,18 @@ export class ContainerSizeConstraint implements Constraint {
     const minChildTop = net.newCell(`minChildTop_${this._containerNodeId}`, unknown())
     const maxChildBottom = net.newCell(`maxChildBottom_${this._containerNodeId}`, unknown())
 
+    console.log(`--- Debugging maxChildBottom for ${this._containerNodeId} ---`);
+    const childBottomLayouts = childLayouts.map(l => ({ id: l.nodeId, cell: l.intrinsicBox.bottom }));
+    childBottomLayouts.forEach(cb => {
+      // Read cell content *carefully* - use readCell, not readKnownOrError yet
+      const content = net.readCell(cb.cell);
+      console.log(`Input Child Bottom (${cb.id}): Cell ${cb.cell}, Value Before Max: ${JSON.stringify(content)}`);
+      // Also add debug watch for this specific cell
+      net.addDebugCell(`Input ${cb.id}.bottom`, cb.cell);
+    });
+    console.log(`Calling maxRangeListPropagator for maxChildBottom (Cell ${maxChildBottom})...`);
+
+
     minRangeListPropagator(
       `minChildLeft_${this._containerNodeId}`,
       net,
@@ -75,6 +88,12 @@ export class ContainerSizeConstraint implements Constraint {
       childBottoms,
       maxChildBottom
     )
+
+    const maxBottomContent = net.readCell(maxChildBottom);
+    console.log(`Result maxChildBottom: Cell ${maxChildBottom}, Value After Max: ${JSON.stringify(maxBottomContent)}`);
+    // Add debug watch for the result
+    net.addDebugCell(`Result maxChildBottom_${this._containerNodeId}`, maxChildBottom);
+    console.log(`-------------------------------------------------------`);
 
     const childrenWidth = net.newCell(`childrenWidth_${this._containerNodeId}`, unknown())
     const childrenHeight = net.newCell(`childrenHeight_${this._containerNodeId}`, unknown())
@@ -157,6 +176,45 @@ export class ContainerSizeConstraint implements Constraint {
       paddingTopCell,
       containerInnerTop
     )
+
+    const paddingBottomCell = net.newCell(`paddingBottom_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_BOTTOM)))
+    const containerInnerBottom = net.newCell(`containerInnerBottom_${this._containerNodeId}`, unknown())
+
+    // containerInnerBottom = containerBox.bottom - paddingBottom
+    subtractRangePropagator(
+      `calc_containerInnerBottom_${this._containerNodeId}`,
+      net,
+      containerLayout.intrinsicBox.bottom,
+      paddingBottomCell,
+      containerInnerBottom
+    )
+
+    const containerInnerHeight = net.newCell(`containerInnerHeight_${this._containerNodeId}`, unknown())
+
+    // containerInnerHeight = containerBox.height - paddingY
+    subtractRangePropagator(
+      `calc_containerInnerHeight_${this._containerNodeId}`,
+      net,
+      containerLayout.intrinsicBox.height,
+      paddingYCell,
+      containerInnerHeight
+    )
+
+    // childrenHeight <= containerInnerHeight
+    lessThanEqualPropagator(
+      `childrenHeight_${this._containerNodeId}`,
+      net,
+      childrenHeight,
+      containerInnerHeight
+    )
+
+    // // maxChildBottom <= containerInnerBottom
+    // lessThanEqualPropagator(
+    //   `maxChildBottom_${this._containerNodeId}`,
+    //   net,
+    //   maxChildBottom,
+    //   containerInnerBottom
+    // )
 
     // minChildLeft >= containerInnerLeft
     lessThanEqualPropagator(
