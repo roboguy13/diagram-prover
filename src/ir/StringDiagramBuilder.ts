@@ -169,6 +169,7 @@ export function termToStringDiagram(term: Term): StringDiagram {
   // Construct the final interface based on generated ports
   const finalInterface: PortInterface = { inputPorts: finalInputPorts, outputPorts: finalOutputPorts };
 
+  console.log('finalBuilder connections', JSON.stringify(finalBuilder.connections));
   // Build the diagram using the final builder state and the calculated interface
   return finalBuilder.buildDiagram(finalInterface);
 }
@@ -228,12 +229,14 @@ function termToVarBuilder(
   boundVarEnv: BoundVarEnv
 ): StringDiagramBuilder {
   if (term.kind === 'BoundVar') {
+
     const index = term.index;
     if (index < 0 || index >= boundVarEnv.length) {
       throw new Error(`De Bruijn index ${index} out of bounds.`);
     }
     const location = boundVarEnv[index]!; // Index directly corresponds to env array index
     // Return a builder representing just this location as output
+    console.log("termToVarBuilder:", term, "found in boundVarEnv", location);
     return StringDiagramBuilder.empty().withOutputLocation(location);
   } else { // term.kind === 'FreeVar'
     const varName = term.name;
@@ -241,6 +244,7 @@ function termToVarBuilder(
 
     if (locationInFreeContext) {
       // Free variable already seen in an outer scope (passed down)
+      console.log("termToVarBuilder:", term, "found in freeVarContext", locationInFreeContext);
       return StringDiagramBuilder.empty().withOutputLocation(locationInFreeContext);
     } else {
       // Globally free variable - create placeholder and record it
@@ -248,6 +252,8 @@ function termToVarBuilder(
       const placeholderNodeId = `freevar_${varName}_${StringDiagram.createNodeId()}`;
       const placeholderPortId = StringDiagram.createInputId(); // Represents the needed input
       const placeholderLocation: PortLocation = { type: 'NodeInput', id: placeholderNodeId, portId: placeholderPortId };
+
+      console.log("termToVarBuilder:", term, "not found in freeVarContext, creating placeholder", placeholderLocation);
 
       // The builder's output *is* this placeholder, and it requires input *at* this placeholder
       const freeVarsMap = new Map([[varName, placeholderLocation]]);
@@ -264,10 +270,16 @@ function termToLamBuilder(
     const lamNode: LamNode = new LamNode('λ');
 
     // Location where the bound variable originates *inside* the lambda body's context
-    const paramInputLocation: PortLocation = { type: 'NodeOutput', id: lamNode.id, portId: lamNode.internalInterface.inputPorts[0]! };
+    // const paramInputLocation: PortLocation = { type: 'NodeOutput', id: lamNode.id, portId: lamNode.internalInterface.inputPorts[0]! };
+    const paramSourceLocationForBody: PortLocation =
+      { type: 'NodeOutput',
+        id: lamNode.id,
+        portId: lamNode.internalInterface.inputPorts[0]!
+      };
+    console.log("paramSourceLocationForBody", paramSourceLocationForBody);
 
     // 2. Recursively process the body with updated environment
-    const newBoundVarEnv: BoundVarEnv = [paramInputLocation, ...boundVarEnv];
+    const newBoundVarEnv: BoundVarEnv = [paramSourceLocationForBody, ...boundVarEnv];
     const bodyBuilder = termToStringDiagramBuilder(term.body, freeVarContext, newBoundVarEnv);
 
     // 3. Create the LamNode object
@@ -297,10 +309,15 @@ function termToLamBuilder(
 
     //    Connect the body's output (if it exists) to the LamNode's output port
     if (bodyBuilder.outputPortLocation) {
+      const lamExternalOutputSource: PortLocation =
+        { type: 'NodeInput',
+          id: lamNode.id,
+          portId: lamNode.externalInterface.outputPorts[0]!
+        };
         resultBuilder = resultBuilder.addConnection(
             bodyBuilder.outputPortLocation,
             // Target is the *input* side of the LamNode's output port boundary
-            { type: 'NodeInput', id: lamNode.id, portId: lamNode.externalInterface.outputPorts[0]! }
+            lamExternalOutputSource
         );
     } else {
         // Handle case where lambda body has no output (e.g., `λx.y` where y is free)

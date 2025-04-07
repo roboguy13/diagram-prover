@@ -5,6 +5,7 @@ import { LayoutTree } from "../LayoutTree";
 
 export class VerticalOrderingConstraint implements Constraint {
   constructor(private _parentNodeId: string, private _childNodeId: string) {
+    console.log(`VerticalOrderingConstraint created for parent: ${_parentNodeId}, child: ${_childNodeId}`);
   }
 
   apply(layoutTree: LayoutTree): void {

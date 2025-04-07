@@ -55,7 +55,7 @@ export class ConstraintApplicator {
   private applyHorizontalConstraints(layers: Map<number, string[]>, layoutTree: LayoutTree): void {
     console.log("Applying horizontal constraints...");
     for (const [layerIndex, layer] of layers.entries()) {
-        console.log(`Layer <span class="math-inline">\{layerIndex\}\: \[</span>{layer.join(', ')}]`);
+        console.log(`Layer ${layerIndex}: [${layer.join(', ')}]`);
         if (layerIndex === 0) {
             console.log("  Skipping horizontal constraints for Layer 0 (roots layer).");
             continue;
