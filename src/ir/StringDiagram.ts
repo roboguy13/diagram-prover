@@ -120,6 +120,8 @@ export class StringDiagram {
   private _externalInterface: PortInterface
   private static _currUniqueId = 0;
 
+  private _nestingParents: ReadonlyMap<NodeId, NodeId> = new Map()
+
   constructor() {
     this._externalInterface = { inputPorts: [], outputPorts: [] };
   }
@@ -286,16 +288,22 @@ export class StringDiagram {
     this._nodes.set(node.id!, node);
   }
 
+  public get nestingParents(): ReadonlyMap<NodeId, NodeId> {
+    return this._nestingParents;
+  }
+
   // Method intended only for builder/internal use
   /** @internal */
   _populateInternal(
     nodes: Map<NodeId, StringNode>,
     connections: Connection[],
-    externalInterface: PortInterface
+    externalInterface: PortInterface,
+    nestingParents: ReadonlyMap<NodeId, NodeId>
   ): void {
     this._nodes = nodes;
     this._connections = connections;
     this._externalInterface = externalInterface;
+    this._nestingParents = nestingParents;
   }
 }
 

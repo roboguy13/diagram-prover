@@ -13,6 +13,9 @@ import { determineLayers } from "../../../../utils/LevelOrder";
 import { Constraint } from "@lume/kiwi";
 import { RootGroundingConstraint } from "./constraints/RootGroundingConstraint";
 import { CenteringConstraint } from "./constraints/CenteringConstraint";
+import { NodeLayout } from "./NodeLayout";
+import { NodeId } from "../../../../engine/Term";
+import { ContainerSizeConstraint } from "./constraints/ContainerSizeConstraint";
 
 export class ConstraintApplicator {
   private static debugLeaves(layoutTree: LayoutTree, nodeId: string): void {
@@ -50,30 +53,32 @@ export class ConstraintApplicator {
 
     this.applyVerticalConstraints(layoutTree);
     this.applyHorizontalConstraints(layers, layoutTree);
+
+    this.applyContainerSizing(layoutTree)
   }
 
   private applyHorizontalConstraints(layers: Map<number, string[]>, layoutTree: LayoutTree): void {
     console.log("Applying horizontal constraints...");
     for (const [layerIndex, layer] of layers.entries()) {
-        console.log(`Layer ${layerIndex}: [${layer.join(', ')}]`);
-        if (layerIndex === 0) {
-            console.log("  Skipping horizontal constraints for Layer 0 (roots layer).");
-            continue;
-        }
-        if (layer.length <= 1) {
-             console.log(`  Skipping layer ${layerIndex} - only ${layer.length} node(s).`);
-             continue;
-        }
-        for (let i = 0; i < layer.length - 1; i++) {
-            const nodeId1 = layer[i]!;
-            const nodeId2 = layer[i + 1]!;
-            console.log(`  Applying HSpacing between ${nodeId1} and ${nodeId2}`); // LOG
-            const constraint = new HorizontalSpacingConstraint(nodeId1, nodeId2);
-            constraint.apply(layoutTree);
-        }
+      console.log(`Layer ${layerIndex}: [${layer.join(', ')}]`);
+      if (layerIndex === 0) {
+        console.log("  Skipping horizontal constraints for Layer 0 (roots layer).");
+        continue;
+      }
+      if (layer.length <= 1) {
+        console.log(`  Skipping layer ${layerIndex} - only ${layer.length} node(s).`);
+        continue;
+      }
+      for (let i = 0; i < layer.length - 1; i++) {
+        const nodeId1 = layer[i]!;
+        const nodeId2 = layer[i + 1]!;
+        console.log(`  Applying HSpacing between ${nodeId1} and ${nodeId2}`); // LOG
+        const constraint = new HorizontalSpacingConstraint(nodeId1, nodeId2);
+        constraint.apply(layoutTree);
+      }
     }
     console.log("Finished applying horizontal constraints.");
-}
+  }
 
   private applyVerticalConstraints(layoutTree: LayoutTree): void {
     // Need a way to track visited nodes during traversal to avoid infinite loops
@@ -113,6 +118,25 @@ export class ConstraintApplicator {
 
       // Recurse down the tree
       this.applyVerticalConstraintsRecursive(childId, layoutTree, visited);
+    }
+  }
+
+  private applyContainerSizing(layoutTree: LayoutTree): void {
+    const potentialContainers = new Map<string, NodeLayout>();
+
+    for (const nodeLayout of layoutTree.nodeLayouts.values()) {
+      if (nodeLayout.nestingParentId !== null) {
+        // Mark the parent
+        const parentLayout = layoutTree.getNodeLayout(nodeLayout.nestingParentId);
+        if (parentLayout && !potentialContainers.has(parentLayout.nodeId)) {
+          potentialContainers.set(parentLayout.nodeId, parentLayout);
+        }
+      }
+    }
+
+    for (const [containerId, containerLayout] of potentialContainers) {
+      const containerConstraint = new ContainerSizeConstraint(containerId);
+      containerConstraint.apply(layoutTree);
     }
   }
 

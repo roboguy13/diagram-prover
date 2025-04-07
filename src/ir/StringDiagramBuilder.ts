@@ -10,23 +10,32 @@ class StringDiagramBuilder {
   readonly connections: ReadonlyArray<Connection>;
   readonly outputPortLocation: PortLocation | null; // Allow null for empty/intermediate states
   readonly freeVarInputTargets: ReadonlyMap<string, PortLocation>;
+  readonly nestingParents: ReadonlyMap<NodeId, NodeId>; // Track nesting parents
 
   constructor(
     nodes: ReadonlyMap<NodeId, StringNode>,
     connections: ReadonlyArray<Connection>,
     outputPortLocation: PortLocation | null, // Allow null
-    freeVars: ReadonlyMap<string, PortLocation>
+    freeVars: ReadonlyMap<string, PortLocation>,
+    nestingParents: ReadonlyMap<NodeId, NodeId>
   ) {
     this.nodes = nodes;
     this.connections = connections;
     this.outputPortLocation = outputPortLocation;
     this.freeVarInputTargets = freeVars;
+    this.nestingParents = nestingParents;
   }
 
-  // Static factory for an empty builder
   static empty(): StringDiagramBuilder {
-    return new StringDiagramBuilder(new Map(), [], null, new Map());
+    return new StringDiagramBuilder(new Map(), [], null, new Map(), new Map());
   }
+
+  addNestingParent(nodeId: NodeId, parentId: NodeId): StringDiagramBuilder {
+    const newNestingParents = new Map(this.nestingParents);
+    newNestingParents.set(nodeId, parentId);
+    return new StringDiagramBuilder(this.nodes, this.connections, this.outputPortLocation, this.freeVarInputTargets, newNestingParents);
+  }
+
 
   addConnection(source: PortLocation, target: PortLocation): StringDiagramBuilder {
     // Ensure source and target are valid before adding
@@ -40,7 +49,7 @@ class StringDiagramBuilder {
       source,
       target
     }];
-    return new StringDiagramBuilder(this.nodes, newConnections, this.outputPortLocation, this.freeVarInputTargets);
+    return new StringDiagramBuilder(this.nodes, newConnections, this.outputPortLocation, this.freeVarInputTargets, this.nestingParents);
   }
 
   addNode(node: StringNode): StringDiagramBuilder {
@@ -48,7 +57,7 @@ class StringDiagramBuilder {
         throw new Error("Node must have an ID to be added to the builder.");
     }
     const newNodes = new Map(this.nodes).set(node.id, node);
-    return new StringDiagramBuilder(newNodes, this.connections, this.outputPortLocation, this.freeVarInputTargets);
+    return new StringDiagramBuilder(newNodes, this.connections, this.outputPortLocation, this.freeVarInputTargets, this.nestingParents);
   }
 
   // Method to merge another builder's state (nodes, connections, free vars)
@@ -58,22 +67,23 @@ class StringDiagramBuilder {
       // Merge free vars - if a var is free in both, ensure targets are consistent or handle error
       // For simplicity, assume targets will be the same placeholder if generated independently
       const newFreeVars = new Map([...this.freeVarInputTargets, ...other.freeVarInputTargets]);
+      const newNestingParents = new Map([...this.nestingParents, ...other.nestingParents]);
 
       // Output location is typically determined by the composing operation (e.g., AppNode output)
       // So we don't merge output locations directly here.
-      return new StringDiagramBuilder(newNodes, newConnections, this.outputPortLocation, newFreeVars);
+      return new StringDiagramBuilder(newNodes, newConnections, this.outputPortLocation, newFreeVars, newNestingParents);
   }
 
 
   withOutputLocation(outputLocation: PortLocation | null): StringDiagramBuilder {
-    return new StringDiagramBuilder(this.nodes, this.connections, outputLocation, this.freeVarInputTargets);
+    return new StringDiagramBuilder(this.nodes, this.connections, outputLocation, this.freeVarInputTargets, this.nestingParents);
   }
 
   // Remove a free variable target (used when binding in LamNode)
   withoutFreeVariable(varName: string): StringDiagramBuilder {
       const newFreeVars = new Map(this.freeVarInputTargets);
       newFreeVars.delete(varName);
-      return new StringDiagramBuilder(this.nodes, this.connections, this.outputPortLocation, newFreeVars);
+      return new StringDiagramBuilder(this.nodes, this.connections, this.outputPortLocation, newFreeVars, this.nestingParents);
   }
 
 
@@ -83,7 +93,7 @@ class StringDiagramBuilder {
   buildDiagram(externalInterface: PortInterface): StringDiagram {
     const diagram = new StringDiagram();
     // Pass the calculated interface
-    diagram._populateInternal(new Map(this.nodes), [...this.connections], externalInterface);
+    diagram._populateInternal(new Map(this.nodes), [...this.connections], externalInterface, this.nestingParents);
     return diagram;
   }
 
@@ -109,7 +119,8 @@ class StringDiagramBuilder {
       this.nodes,
       [...this.connections, newConnection], // Add the boundary connection
       this.outputPortLocation,
-      newFreeVars // Update free vars map
+      newFreeVars,
+      this.nestingParents // TODO: Is this right?
     );
 
     return { builder: newBuilder, portId: inputPortId };
@@ -134,7 +145,8 @@ class StringDiagramBuilder {
       this.nodes,
       [...this.connections, newConnection], // Add the boundary connection
       this.outputPortLocation, // Keep internal source location for reference
-      this.freeVarInputTargets
+      this.freeVarInputTargets,
+      this.nestingParents // TODO: Is this right?
     );
     return { builder: newBuilder, portId: outputPortId };
   }
@@ -145,7 +157,7 @@ class StringDiagramBuilder {
 // --- Top-Level Conversion Function ---
 export function termToStringDiagram(term: Term): StringDiagram {
   // Start recursion with empty contexts
-  const builderResult = termToStringDiagramBuilder(term, new Map(), []);
+  const builderResult = termToStringDiagramBuilder(term, new Map(), [], null);
 
   let finalBuilder = builderResult;
   const finalInputPorts: PortId[] = [];
@@ -179,30 +191,37 @@ export function termToStringDiagram(term: Term): StringDiagram {
 function termToStringDiagramBuilder(
   term: Term,
   freeVarContext: ReadonlyMap<string, PortLocation>,
-  boundVarEnv: BoundVarEnv
+  boundVarEnv: BoundVarEnv,
+  currentNestingParentId: NodeId | null
 ): StringDiagramBuilder {
   switch (term.type) {
     case 'Var':
       return termToVarBuilder(term, freeVarContext, boundVarEnv);
 
     case 'Lam':
-      return termToLamBuilder(term, freeVarContext, boundVarEnv);
+      return termToLamBuilder(term, freeVarContext, boundVarEnv, currentNestingParentId);
 
     case 'App':
-      return termToAppBuilder(term, freeVarContext, boundVarEnv);
+      return termToAppBuilder(term, freeVarContext, boundVarEnv, currentNestingParentId);
 
     case 'unit':
        // Create a UnitNode
        const unitNode: UnitNode = new UnitNode('()');
        const outputLoc: PortLocation = { type: 'NodeOutput', id: unitNode.id, portId: unitNode.externalInterface.outputPorts[0]! };
 
-       return StringDiagramBuilder.empty()
+       let stringDiagramBuilder = StringDiagramBuilder.empty()
                 .addNode(unitNode)
                 .withOutputLocation(outputLoc);
 
+      if (currentNestingParentId) {
+        stringDiagramBuilder = stringDiagramBuilder.addNestingParent(unitNode.id, currentNestingParentId);
+      }
+
+       return stringDiagramBuilder
+
     case 'Ann':
       // Ignore annotation for diagram structure, process the inner term
-      return termToStringDiagramBuilder(term.term, freeVarContext, boundVarEnv);
+      return termToStringDiagramBuilder(term.term, freeVarContext, boundVarEnv, currentNestingParentId);
 
     // Cases to ignore or handle specifically:
     case 'UnitTy':
@@ -257,7 +276,7 @@ function termToVarBuilder(
 
       // The builder's output *is* this placeholder, and it requires input *at* this placeholder
       const freeVarsMap = new Map([[varName, placeholderLocation]]);
-      return new StringDiagramBuilder(new Map(), [], placeholderLocation, freeVarsMap);
+      return new StringDiagramBuilder(new Map(), [], placeholderLocation, freeVarsMap, new Map());
     }
   }
 }
@@ -265,12 +284,12 @@ function termToVarBuilder(
 function termToLamBuilder(
     term: LamTerm,
     freeVarContext: ReadonlyMap<string, PortLocation>,
-    boundVarEnv: BoundVarEnv
+    boundVarEnv: BoundVarEnv,
+    currentNestingParentId: NodeId | null
 ): StringDiagramBuilder {
     const lamNode: LamNode = new LamNode('λ');
 
     // Location where the bound variable originates *inside* the lambda body's context
-    // const paramInputLocation: PortLocation = { type: 'NodeOutput', id: lamNode.id, portId: lamNode.internalInterface.inputPorts[0]! };
     const paramSourceLocationForBody: PortLocation =
       { type: 'NodeOutput',
         id: lamNode.id,
@@ -278,44 +297,37 @@ function termToLamBuilder(
       };
     console.log("paramSourceLocationForBody", paramSourceLocationForBody);
 
-    // 2. Recursively process the body with updated environment
     const newBoundVarEnv: BoundVarEnv = [paramSourceLocationForBody, ...boundVarEnv];
-    const bodyBuilder = termToStringDiagramBuilder(term.body, freeVarContext, newBoundVarEnv);
+    const bodyBuilder = termToStringDiagramBuilder(term.body, freeVarContext, newBoundVarEnv, lamNode.id);
 
-    // 3. Create the LamNode object
-    //    We need to decide how to represent the nested structure.
-    //    Option A: Flatten - include bodyBuilder nodes/connections directly.
-    //    Option B: Nested - Store bodyBuilder result inside LamNode (requires LamNode type change).
-    //    Let's go with Flatten (Option A) for now.
-
-    // const lamNode: LamNode = {
-    //     kind: 'LamNode',
-    //     id: lamNodeId,
-    //     label: `λ`,
-    //     // Interface represents the node's *external* connection points
-    //     nestedInterface: { // Renaming this field might be clearer, e.g., boundaryInterface
-    //         inputPorts: [paramInputPortId], // Input for the bound variable wire
-    //         outputPorts: [lamOutputPortId], // Final output wire
-    //     },
-    //     // nestedDiagram: bodyBuilder.buildDiagram(...) // Remove if flattening
-    // };
-
-    // 4. Assemble the builder for the LamTerm
-    //    Start by merging the body's builder state
     let resultBuilder = StringDiagramBuilder.empty().merge(bodyBuilder);
 
     //    Add the LamNode itself
     resultBuilder = resultBuilder.addNode(lamNode);
 
+    let finalNestingParents = new Map(resultBuilder.nestingParents);
+
+    if (currentNestingParentId) {
+        finalNestingParents.set(lamNode.id, currentNestingParentId);
+    }
+
+    let newBuilder = new StringDiagramBuilder(
+        resultBuilder.nodes,
+        resultBuilder.connections,
+        resultBuilder.outputPortLocation,
+        resultBuilder.freeVarInputTargets,
+        finalNestingParents
+    );
+
     //    Connect the body's output (if it exists) to the LamNode's output port
-    if (bodyBuilder.outputPortLocation) {
+    if (newBuilder.outputPortLocation) {
       const lamExternalOutputSource: PortLocation =
         { type: 'NodeInput',
           id: lamNode.id,
           portId: lamNode.externalInterface.outputPorts[0]!
         };
-        resultBuilder = resultBuilder.addConnection(
-            bodyBuilder.outputPortLocation,
+        newBuilder = newBuilder.addConnection(
+            newBuilder.outputPortLocation,
             // Target is the *input* side of the LamNode's output port boundary
             lamExternalOutputSource
         );
@@ -325,24 +337,21 @@ function termToLamBuilder(
     }
 
     //    The overall output location is now the LamNode's external output port
-    resultBuilder = resultBuilder.withOutputLocation({ type: 'NodeOutput', id: lamNode.id, portId: lamNode.externalInterface.outputPorts[0]! });
+    newBuilder = newBuilder.withOutputLocation({ type: 'NodeOutput', id: lamNode.id, portId: lamNode.externalInterface.outputPorts[0]! });
 
-    //    Free variables from the body remain free, *unless* they were the variable bound by this lambda.
-    //    The recursive call handles context correctly, so we just use bodyBuilder.freeVarInputTargets.
-    //    (No need for `withoutFreeVariable` here because the context prevents the bound var from appearing free in the body result)
-
-    return resultBuilder;
+    return newBuilder;
 }
 
 
 function termToAppBuilder(
     term: AppTerm,
     freeVarContext: ReadonlyMap<string, PortLocation>,
-    boundVarEnv: BoundVarEnv
+    boundVarEnv: BoundVarEnv,
+    currentNestingParentId: NodeId | null
 ): StringDiagramBuilder {
     // 1. Recursively process func and arg
-    const funcBuilder = termToStringDiagramBuilder(term.func, freeVarContext, boundVarEnv);
-    const argBuilder = termToStringDiagramBuilder(term.arg, freeVarContext, boundVarEnv);
+    const funcBuilder = termToStringDiagramBuilder(term.func, freeVarContext, boundVarEnv, currentNestingParentId);
+    const argBuilder = termToStringDiagramBuilder(term.arg, freeVarContext, boundVarEnv, currentNestingParentId);
 
     // 2. Create AppNode structure
     const appNode: AppNode = new AppNode('@'); // Placeholder label, adjust as needed
@@ -354,6 +363,11 @@ function termToAppBuilder(
 
     // 4. Add the AppNode itself
     resultBuilder = resultBuilder.addNode(appNode);
+
+    let finalNestingParents = new Map(resultBuilder.nestingParents);
+    if (currentNestingParentId) {
+        finalNestingParents.set(appNode.id, currentNestingParentId);
+    }
 
     // 5. Add connections from func/arg outputs (if they exist) to AppNode inputs
     if (funcBuilder.outputPortLocation) {
@@ -371,6 +385,14 @@ function termToAppBuilder(
 
     // 6. Set the final output location to the AppNode's output port
     resultBuilder = resultBuilder.withOutputLocation({ type: 'NodeOutput', id: appNode.id, portId: appNode.externalInterface.outputPorts[0]! });
+
+    resultBuilder = new StringDiagramBuilder(
+        resultBuilder.nodes,
+        resultBuilder.connections,
+        resultBuilder.outputPortLocation,
+        resultBuilder.freeVarInputTargets,
+        finalNestingParents
+    );
 
     return resultBuilder;
 }

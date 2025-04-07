@@ -300,6 +300,23 @@ export function maxRangePropagator(
   lessThanEqualPropagator(`${writer}: b<=result`, net, b, result)
 }
 
+export function minRangePropagator(
+  writer: string,
+  net: PropagatorNetwork<NumericRange>,
+  a: CellRef,
+  b: CellRef,
+  result: CellRef
+){
+  // min(a, b) = result
+  net.binaryPropagator(`${writer}: min(a,b)->result`, 'min', a, b, result, minNumericRange)
+
+  // result <= a
+  lessThanEqualPropagator(`${writer}: result<=a`, net, result, a)
+
+  // result <= b
+  lessThanEqualPropagator(`${writer}: result<=b`, net, result, b)
+}
+
 export function maxRangeListPropagator(
   writer: string,
   net: PropagatorNetwork<NumericRange>,
@@ -313,6 +330,24 @@ export function maxRangeListPropagator(
     result,
     (a: CellRef, b: CellRef, result: CellRef): void => {
       maxRangePropagator(writer, net, a, b, result)
+    }
+  )
+}
+
+
+export function minRangeListPropagator(
+  writer: string,
+  net: PropagatorNetwork<NumericRange>,
+  aList: CellRef[],
+  result: CellRef
+){
+  net.foldLeftPropagator(
+    `${writer}: minList(aList)->result`,
+    'minList',
+    aList,
+    result,
+    (a: CellRef, b: CellRef, result: CellRef): void => {
+      minRangePropagator(writer, net, a, b, result)
     }
   )
 }

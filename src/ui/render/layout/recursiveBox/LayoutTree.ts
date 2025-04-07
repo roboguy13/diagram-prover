@@ -130,6 +130,10 @@ export class LayoutTree {
     return this._nodeLayouts.get(nodeId);
   }
 
+  get nodeLayouts(): Map<string, NodeLayout> {
+    return this._nodeLayouts;
+  }
+
   setNodePosition(nodeId: string, position: XYPosition): void {
     const layout = this._nodeLayouts.get(nodeId);
     if (layout) {
@@ -225,6 +229,8 @@ export class LayoutTree {
             width,
             height
           },
+          ...(layout.nestingParentId ? { parentNode: layout.nestingParentId } : {}),
+          ...(layout.nestingParentId ? { extent: 'parent' } : {}),
           position,
         };
       default:
@@ -239,6 +245,8 @@ export class LayoutTree {
             outputCount: 1,
             inputCount: this._children.get(nodeId)?.length ?? 0,
           },
+          ...(layout.nestingParentId ? { parentNode: layout.nestingParentId } : {}),
+          ...(layout.nestingParentId ? { extent: 'parent' } : {}),
           position,
         };
     }
@@ -284,9 +292,11 @@ export class LayoutTree {
       const intrinsicBox = BoundingBox.createNewWithDims(net, 'intrinsic', nodeId, getStringNodeDimensions(node));
       const subtreeExtentBox = BoundingBox.createNew(net, 'subtree extent', nodeId);
 
+      const nestingParentId = diagram.nestingParents.get(nodeId) ?? null;
+
       const nodeLayout: NodeLayout = {
         nodeId: nodeId,
-        nestingParentId: null, // TODO: Handle nesting
+        nestingParentId: nestingParentId,
         intrinsicBox: intrinsicBox,
         subtreeExtentBox: subtreeExtentBox,
         position: null,
