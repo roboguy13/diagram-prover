@@ -28,7 +28,7 @@ export type PortInterface = {
 }
 
 export interface StringNode {
-  kind: 'LamNode' | 'AppNode' | 'UnitNode';
+  kind: 'PortBarNode' | 'LamNode' | 'AppNode' | 'UnitNode';
   id: NodeId;
   label: string;
   get externalInterface(): PortInterface;
@@ -72,22 +72,43 @@ export class LamNode implements StringNode {
   kind: 'LamNode' = 'LamNode';
   id: NodeId;
   label: string;
-  private _internalInterface: PortInterface;
   private _externalInterface: PortInterface;
+  parameterBarId: string | null = null;
+  resultBarId: string | null = null;
 
   constructor(label: string) {
     this.id = StringDiagram.createNodeId();
     this.label = label;
-    this._internalInterface = StringDiagram.createPortInterface(1, 1);
+    // this._internalInterface = StringDiagram.createPortInterface(1, 1);
     this._externalInterface = StringDiagram.createPortInterface(0, 1);
   }
 
   get externalInterface(): PortInterface {
     return this._externalInterface;
   }
+}
 
-  get internalInterface(): PortInterface {
-    return this._internalInterface;
+export class PortBarNode implements StringNode {
+  kind: 'PortBarNode' = 'PortBarNode';
+  id: NodeId;
+  label: string;
+  private _externalInterface: PortInterface;
+  private _isInputBar: boolean;
+
+  constructor(label: string, isInputBar: boolean) {
+    this.id = StringDiagram.createNodeId();
+    this.label = '';
+    this._isInputBar = isInputBar;
+
+    this._externalInterface = StringDiagram.createPortInterface(isInputBar ? 1 : 0, isInputBar ? 0 : 1);
+  }
+
+  get externalInterface(): PortInterface {
+    return this._externalInterface;
+  }
+
+  get isInputBar(): boolean {
+    return this._isInputBar
   }
 }
 

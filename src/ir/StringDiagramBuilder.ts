@@ -1,5 +1,5 @@
 import { Term, VarTerm, LamTerm, AppTerm, Type, Context as TermContext } from "../engine/Term"; // Renamed Context to TermContext
-import { NodeId, StringNode, Connection, PortLocation, StringDiagram, PortId, PortInterface, LamNode, AppNode, UnitNode } from "./StringDiagram"; // Added node types
+import { NodeId, StringNode, Connection, PortLocation, StringDiagram, PortId, PortInterface, LamNode, AppNode, UnitNode, PortBarNode } from "./StringDiagram"; // Added node types
 import { produce } from 'immer'; // If needed for immutable updates of maps/arrays
 
 // Define the type for the bound variable environment
@@ -282,65 +282,172 @@ function termToVarBuilder(
 }
 
 function termToLamBuilder(
-    term: LamTerm,
-    freeVarContext: ReadonlyMap<string, PortLocation>,
-    boundVarEnv: BoundVarEnv,
-    currentNestingParentId: NodeId | null
+  term: LamTerm,
+  freeVarContext: ReadonlyMap<string, PortLocation>,
+  boundVarEnv: BoundVarEnv,
+  currentNestingParentId: NodeId | null // The LamNode containing *this* LamNode (if any)
 ): StringDiagramBuilder {
-    const lamNode: LamNode = new LamNode('λ');
+  // 1. Create the LamNode and its internal PortBarNodes
+  const lamNode: LamNode = new LamNode('λ'); // The main container node
+  const paramBarNode: PortBarNode = new PortBarNode('param', false); // isInputBar = false
+  const resultBarNode: PortBarNode = new PortBarNode('result', true); // isInputBar = true
 
-    // Location where the bound variable originates *inside* the lambda body's context
-    const paramSourceLocationForBody: PortLocation =
-      { type: 'NodeOutput',
-        id: lamNode.id,
-        portId: lamNode.internalInterface.inputPorts[0]!
-      };
-    console.log("paramSourceLocationForBody", paramSourceLocationForBody);
+  // Optional: Link IDs if you added properties to LamNode
+  lamNode.parameterBarId = paramBarNode.id;
+  lamNode.resultBarId = resultBarNode.id;
 
-    const newBoundVarEnv: BoundVarEnv = [paramSourceLocationForBody, ...boundVarEnv];
-    const bodyBuilder = termToStringDiagramBuilder(term.body, freeVarContext, newBoundVarEnv, lamNode.id);
+  // 2. Define the source for the bound variable within the body
+  // It now comes from the output of the parameter bar
+  const paramSourceLocationForBody: PortLocation = {
+      type: 'NodeOutput',
+      id: paramBarNode.id,
+      portId: paramBarNode.externalInterface.outputPorts[0]!
+  };
+  console.log("paramSourceLocationForBody (from paramBar):", paramSourceLocationForBody);
 
-    let resultBuilder = StringDiagramBuilder.empty().merge(bodyBuilder);
+  // 3. Recursively build the body, passing the *lamNode.id* as the new nesting parent
+  const newBoundVarEnv: BoundVarEnv = [paramSourceLocationForBody, ...boundVarEnv];
+  // IMPORTANT: Pass lamNode.id as the currentNestingParentId for the body
+  const bodyBuilder = termToStringDiagramBuilder(term.body, freeVarContext, newBoundVarEnv, lamNode.id);
 
-    //    Add the LamNode itself
-    resultBuilder = resultBuilder.addNode(lamNode);
+  // 4. Start assembling the result builder
+  let resultBuilder = StringDiagramBuilder.empty()
+                          .merge(bodyBuilder); // Merge body nodes/connections first
 
-    let finalNestingParents = new Map(resultBuilder.nestingParents);
+  // 5. Add the LamNode and PortBarNodes
+  resultBuilder = resultBuilder
+                      .addNode(lamNode)
+                      .addNode(paramBarNode)
+                      .addNode(resultBarNode);
 
-    if (currentNestingParentId) {
-        finalNestingParents.set(lamNode.id, currentNestingParentId);
-    }
+  // 6. Set nesting relationships
+  resultBuilder = resultBuilder
+                      .addNestingParent(paramBarNode.id, lamNode.id)
+                      .addNestingParent(resultBarNode.id, lamNode.id);
+                      // Note: The body's nodes should have already had their nesting parent
+                      // set during the recursive call in step 3.
 
-    let newBuilder = new StringDiagramBuilder(
-        resultBuilder.nodes,
-        resultBuilder.connections,
-        resultBuilder.outputPortLocation,
-        resultBuilder.freeVarInputTargets,
-        finalNestingParents
+  // 7. Connect Body Output to Result Bar Input
+  if (bodyBuilder.outputPortLocation) {
+    const resultBarInputTarget: PortLocation = {
+        type: 'NodeInput',
+        id: resultBarNode.id,
+        portId: resultBarNode.externalInterface.inputPorts[0]!
+    };
+    resultBuilder = resultBuilder.addConnection(
+        bodyBuilder.outputPortLocation,
+        resultBarInputTarget
     );
+  } else {
+    // Handle case where lambda body has no discernible output?
+    // Maybe connect a default source or leave result bar input unconnected.
+     console.warn(`Lambda body for ${lamNode.id} has no output location.`);
+  }
 
-    //    Connect the body's output (if it exists) to the LamNode's output port
-    if (newBuilder.outputPortLocation) {
-      const lamExternalOutputSource: PortLocation =
-        { type: 'NodeInput',
-          id: lamNode.id,
-          portId: lamNode.externalInterface.outputPorts[0]!
-        };
-        newBuilder = newBuilder.addConnection(
-            newBuilder.outputPortLocation,
-            // Target is the *input* side of the LamNode's output port boundary
-            lamExternalOutputSource
-        );
-    } else {
-        // Handle case where lambda body has no output (e.g., `λx.y` where y is free)
-        // The LamNode's output port remains unconnected from the inside.
-    }
+  // 8. Connect Result Bar Output to LamNode's Conceptual Output Target
+  const resultBarOutputSource: PortLocation = {
+      type: 'NodeOutput',
+      id: resultBarNode.id,
+      portId: resultBarNode.externalInterface.outputPorts[0]!
+  };
+  // This target represents the *input side* of the LamNode's *external* output port boundary
+  const lamExternalOutputTarget: PortLocation = {
+      type: 'NodeInput', // Connection *into* the LamNode boundary
+      id: lamNode.id,
+      portId: lamNode.externalInterface.outputPorts[0]! // The ID of the external output port
+  };
+  resultBuilder = resultBuilder.addConnection(resultBarOutputSource, lamExternalOutputTarget);
 
-    //    The overall output location is now the LamNode's external output port
-    newBuilder = newBuilder.withOutputLocation({ type: 'NodeOutput', id: lamNode.id, portId: lamNode.externalInterface.outputPorts[0]! });
 
-    return newBuilder;
+  // 9. Set the Overall Output Location
+  // The final output location for the *entire* lambda expression construct
+  // is the *output side* of the LamNode's external boundary.
+  const finalOutputLocation: PortLocation = {
+      type: 'NodeOutput', // Connection *out of* the LamNode boundary
+      id: lamNode.id,
+      portId: lamNode.externalInterface.outputPorts[0]!
+  };
+  resultBuilder = resultBuilder.withOutputLocation(finalOutputLocation);
+
+
+  // 10. Handle currentNestingParentId for the LamNode itself
+  // This sets the parent if *this* LamNode is nested inside another one.
+  let finalNestingParents = new Map(resultBuilder.nestingParents);
+  if (currentNestingParentId) {
+      finalNestingParents.set(lamNode.id, currentNestingParentId);
+  }
+  // Update the builder with the potentially modified nesting parents map
+  resultBuilder = new StringDiagramBuilder(
+      resultBuilder.nodes,
+      resultBuilder.connections,
+      resultBuilder.outputPortLocation,
+      resultBuilder.freeVarInputTargets,
+      finalNestingParents
+  );
+
+  return resultBuilder;
 }
+
+// function termToLamBuilder(
+//     term: LamTerm,
+//     freeVarContext: ReadonlyMap<string, PortLocation>,
+//     boundVarEnv: BoundVarEnv,
+//     currentNestingParentId: NodeId | null
+// ): StringDiagramBuilder {
+//     const lamNode: LamNode = new LamNode('λ');
+
+//     // Location where the bound variable originates *inside* the lambda body's context
+//     const paramSourceLocationForBody: PortLocation =
+//       { type: 'NodeOutput',
+//         id: lamNode.id,
+//         portId: lamNode.internalInterface.inputPorts[0]!
+//       };
+//     console.log("paramSourceLocationForBody", paramSourceLocationForBody);
+
+//     const newBoundVarEnv: BoundVarEnv = [paramSourceLocationForBody, ...boundVarEnv];
+//     const bodyBuilder = termToStringDiagramBuilder(term.body, freeVarContext, newBoundVarEnv, lamNode.id);
+
+//     let resultBuilder = StringDiagramBuilder.empty().merge(bodyBuilder);
+
+//     //    Add the LamNode itself
+//     resultBuilder = resultBuilder.addNode(lamNode);
+
+//     let finalNestingParents = new Map(resultBuilder.nestingParents);
+
+//     if (currentNestingParentId) {
+//         finalNestingParents.set(lamNode.id, currentNestingParentId);
+//     }
+
+//     let newBuilder = new StringDiagramBuilder(
+//         resultBuilder.nodes,
+//         resultBuilder.connections,
+//         resultBuilder.outputPortLocation,
+//         resultBuilder.freeVarInputTargets,
+//         finalNestingParents
+//     );
+
+//     //    Connect the body's output (if it exists) to the LamNode's output port
+//     if (newBuilder.outputPortLocation) {
+//       const lamExternalOutputSource: PortLocation =
+//         { type: 'NodeInput',
+//           id: lamNode.id,
+//           portId: lamNode.externalInterface.outputPorts[0]!
+//         };
+//         newBuilder = newBuilder.addConnection(
+//             newBuilder.outputPortLocation,
+//             // Target is the *input* side of the LamNode's output port boundary
+//             lamExternalOutputSource
+//         );
+//     } else {
+//         // Handle case where lambda body has no output (e.g., `λx.y` where y is free)
+//         // The LamNode's output port remains unconnected from the inside.
+//     }
+
+//     //    The overall output location is now the LamNode's external output port
+//     newBuilder = newBuilder.withOutputLocation({ type: 'NodeOutput', id: lamNode.id, portId: lamNode.externalInterface.outputPorts[0]! });
+
+//     return newBuilder;
+// }
 
 
 function termToAppBuilder(

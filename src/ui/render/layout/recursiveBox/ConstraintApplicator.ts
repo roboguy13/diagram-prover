@@ -12,10 +12,11 @@ import { isNode } from "reactflow";
 import { determineLayers } from "../../../../utils/LevelOrder";
 import { Constraint } from "@lume/kiwi";
 import { RootGroundingConstraint } from "./constraints/RootGroundingConstraint";
-import { CenteringConstraint } from "./constraints/CenteringConstraint";
+import { LeftAlignConstraint } from "./constraints/LeftAlignConstraint";
 import { NodeLayout } from "./NodeLayout";
 import { NodeId } from "../../../../engine/Term";
 import { ContainerSizeConstraint } from "./constraints/ContainerSizeConstraint";
+import { HorizontalCenteringConstraint } from "./constraints/HorizontalCenteringConstraint";
 
 export class ConstraintApplicator {
   private static debugLeaves(layoutTree: LayoutTree, nodeId: string): void {
@@ -123,30 +124,75 @@ export class ConstraintApplicator {
 
   private applyContainerSizing(layoutTree: LayoutTree): void {
     const potentialContainers = new Map<string, NodeLayout>();
+    const nestedChildrenMap = new Map<string, NodeLayout[]>(); // Map containerId to its nested children
 
+    // First pass: Identify containers and group their nested children (same as before)
     for (const nodeLayout of layoutTree.nodeLayouts.values()) {
       if (nodeLayout.nestingParentId !== null) {
-        // Mark the parent
-        const parentLayout = layoutTree.getNodeLayout(nodeLayout.nestingParentId);
+        const parentId = nodeLayout.nestingParentId;
+        const parentLayout = layoutTree.getNodeLayout(parentId);
 
-        if (parentLayout && !potentialContainers.has(parentLayout.nodeId)) {
-          console.log(`Found potential container with label: ${parentLayout.nodeId}, ${parentLayout?.label}`);
-          potentialContainers.set(parentLayout.nodeId, parentLayout);
+        if (parentLayout) {
+          if (!potentialContainers.has(parentId)) {
+            console.log(`Found potential container with label: ${parentId}, ${parentLayout?.label}`);
+            potentialContainers.set(parentId, parentLayout);
+          }
+          if (!nestedChildrenMap.has(parentId)) {
+            nestedChildrenMap.set(parentId, []);
+          }
+          nestedChildrenMap.get(parentId)!.push(nodeLayout);
         }
       }
     }
 
-    for (const [containerId, containerLayout] of potentialContainers) {
-      const containerConstraint = new ContainerSizeConstraint(containerId);
-      containerConstraint.apply(layoutTree);
+    // Second pass: Apply constraints for each container
+    for (const [containerId, containerLayout] of potentialContainers) { // Use containerLayout if needed later
+
+      // 1. Apply the overall container sizing constraint (which now includes padding logic)
+      const containerSizeConstraint = new ContainerSizeConstraint(containerId);
+      containerSizeConstraint.apply(layoutTree); // This handles container size based on children + padding
+
+      // 2. Find and Center the Nested Port Bars
+      const nestedChildren = nestedChildrenMap.get(containerId) ?? [];
+      for (const childLayout of nestedChildren) {
+        // Check if the nested child is a port bar
+        if (childLayout.kind === 'PortBarNode') { // Use the correct kind check
+          // Apply horizontal centering: container.centerX = portBar.centerX
+          const hCenterConstraint = new HorizontalCenteringConstraint(containerId, childLayout.nodeId);
+          hCenterConstraint.apply(layoutTree);
+          // No need to apply padding constraints here anymore - ContainerSizeConstraint handles it.
+        }
+        // TODO: Apply positioning/ordering constraints for other nested content (body) if necessary
+      }
     }
   }
+
+  // private applyContainerSizing(layoutTree: LayoutTree): void {
+  //   const potentialContainers = new Map<string, NodeLayout>();
+
+  //   for (const nodeLayout of layoutTree.nodeLayouts.values()) {
+  //     if (nodeLayout.nestingParentId !== null) {
+  //       // Mark the parent
+  //       const parentLayout = layoutTree.getNodeLayout(nodeLayout.nestingParentId);
+
+  //       if (parentLayout && !potentialContainers.has(parentLayout.nodeId)) {
+  //         console.log(`Found potential container with label: ${parentLayout.nodeId}, ${parentLayout?.label}`);
+  //         potentialContainers.set(parentLayout.nodeId, parentLayout);
+  //       }
+  //     }
+  //   }
+
+  //   for (const [containerId, containerLayout] of potentialContainers) {
+  //     const containerConstraint = new ContainerSizeConstraint(containerId);
+  //     containerConstraint.apply(layoutTree);
+  //   }
+  // }
 
   private traverseComponent(nodeId: string, layoutTree: LayoutTree): void {
     const children = layoutTree.getChildren(nodeId);
 
     if (children.length > 0) {
-      const centeringConstraint = new CenteringConstraint(nodeId, children);
+      const centeringConstraint = new LeftAlignConstraint(nodeId, children);
       centeringConstraint.apply(layoutTree);
     }
 

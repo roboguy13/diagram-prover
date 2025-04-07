@@ -172,11 +172,57 @@ export class LayoutTree {
       nodes.push(this.nodeToApplicationNode(layout.nodeId));
     });
 
-    this._children.forEach((children, parentId) => {
-      children.forEach((childId, index) => {
-        edges.push({ id: `${parentId}-${childId}`, source: parentId, target: childId, sourceHandle: inputHandleName(index) });
-      });
+    this._originalConnections.forEach((conn: Connection) => {
+      let sourceId: string | null = null;
+      let targetId: string | null = null;
+      let sourceHandle: string | null = null;
+      let targetHandle: string | null = null;
+
+      // Determine React Flow source node ID and source handle ID
+      if (conn.source.type === 'NodeOutput') {
+        sourceId = conn.source.id;
+        sourceHandle = conn.source.portId; // Use the specific portId from the connection
+      } else if (conn.source.type === 'DiagramInput') {
+        sourceId = 'input-bar'; // Use the actual ID of your input bar node
+        sourceHandle = conn.source.id; // Diagram port ID often serves as handle ID
+      }
+      // Add cases for other source types if necessary (e.g., internal ports)
+
+      // Determine React Flow target node ID and target handle ID
+      if (conn.target.type === 'NodeInput') {
+        targetId = conn.target.id;
+        targetHandle = conn.target.portId; // Use the specific portId from the connection
+      } else if (conn.target.type === 'DiagramOutput') {
+        targetId = 'output-bar'; // Use the actual ID of your output bar node
+        targetHandle = conn.target.id; // Diagram port ID often serves as handle ID
+      }
+      // Add cases for other target types if necessary
+
+      // Create the React Flow edge if source and target were found
+      if (sourceId && targetId) {
+        // Basic validation for handles - you might need defaults
+        if (!sourceHandle) console.warn(`Edge ${conn.id}: Missing source handle for source ${sourceId}`);
+        if (!targetHandle) console.warn(`Edge ${conn.id}: Missing target handle for target ${targetId}`);
+
+        edges.push({
+          id: conn.id,
+          source: sourceId,
+          target: targetId,
+          // Provide default handles if null, or ensure portIds are always valid handle names
+          sourceHandle: sourceHandle ?? 'default_source_handle', // Adjust default if needed
+          targetHandle: targetHandle ?? 'default_target_handle', // Adjust default if needed
+          // type: 'floating', // Optional: Specify edge type
+          // animated: true, // Optional: Add animation
+        });
+      } else {
+        console.warn("Could not determine source/target node ID for connection:", conn);
+      }
     });
+    // this._children.forEach((children, parentId) => {
+    //   children.forEach((childId, index) => {
+    //     edges.push({ id: `${parentId}-${childId}`, source: parentId, target: childId, sourceHandle: inputHandleName(index) });
+    //   });
+    // });
 
     const nodeMap = new Map<string, ApplicationNode>();
 
@@ -340,19 +386,19 @@ export class LayoutTree {
     const allNodes = new Set(this._nodeLayouts.keys());
     const childrenNodes = new Set<string>();
     for (const children of layoutTree._children.values()) {
-        children.forEach(childId => childrenNodes.add(childId));
+      children.forEach(childId => childrenNodes.add(childId));
     }
 
     const hierarchyRoots: string[] = [];
     allNodes.forEach(nodeId => {
-        if (!childrenNodes.has(nodeId)) {
-            hierarchyRoots.push(nodeId);
-        }
+      if (!childrenNodes.has(nodeId)) {
+        hierarchyRoots.push(nodeId);
+      }
     });
     // Handle edge case: if graph is single node, it might be missed.
     if (hierarchyRoots.length === 0 && allNodes.size > 0) {
-        const firstNode = allNodes.values().next().value;
-        if (firstNode) return [firstNode];
+      const firstNode = allNodes.values().next().value;
+      if (firstNode) return [firstNode];
     }
     console.log("Determined Hierarchy Roots:", hierarchyRoots);
     return hierarchyRoots;

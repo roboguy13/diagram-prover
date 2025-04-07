@@ -4,10 +4,10 @@ import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
 import { ContainerSizeConstraint } from "./ContainerSizeConstraint";
 
-export class CenteringConstraint implements Constraint {
+export class LeftAlignConstraint implements Constraint {
   constructor(private _parentId: string, private childIds: string[]) {
     if (childIds.length === 0) {
-      throw new Error("CenteringConstraint requires at least one child ID.");
+      throw new Error("LeftAlignConstraint: requires at least one child ID.");
     }
   }
 
@@ -16,15 +16,22 @@ export class CenteringConstraint implements Constraint {
 
     const parentLayout = layoutTree.getNodeLayout(this._parentId);
     if (!parentLayout) {
-      console.warn(`CenteringConstraint: Parent layout for ID ${this._parentId} not found.`);
+      console.warn(`LeftAlignConstraint: Parent layout for ID ${this._parentId} not found.`);
       return;
     }
     const parentBox = parentLayout.intrinsicBox;
 
     const firstChildLayout = layoutTree.getNodeLayout(this.childIds[0]!);
     if (!firstChildLayout) {
-      console.warn(`CenteringConstraint: First child layout (${this.childIds[0]}) not found.`);
+      console.warn(`LeftAlignConstraint: First child layout (${this.childIds[0]}) not found.`);
     } else {
+
+      // Don't apply the constraint on a nested node
+      if (firstChildLayout.nestingParentId !== null) {
+        console.warn(`LeftAlignConstraint: First child (${this.childIds[0]}) is not a direct child of the parent (${this._parentId}).`);
+        return;
+      }
+
       const firstChildBox = firstChildLayout.intrinsicBox;
 
       const paddingLeftCell = net.newCell(
