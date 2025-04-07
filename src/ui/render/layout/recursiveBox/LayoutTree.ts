@@ -169,7 +169,7 @@ export class LayoutTree {
     const edges: Edge[] = [];
 
     this._nodeLayouts.forEach((layout) => {
-      nodes.push(this.nodeToAppNode(layout.nodeId));
+      nodes.push(this.nodeToApplicationNode(layout.nodeId));
     });
 
     this._children.forEach((children, parentId) => {
@@ -198,7 +198,7 @@ export class LayoutTree {
     });
   }
 
-  private nodeToAppNode(nodeId: string): ApplicationNode {
+  private nodeToApplicationNode(nodeId: string): ApplicationNode {
     const layout = this.getNodeLayout(nodeId);
 
     if (!layout) {
@@ -229,7 +229,7 @@ export class LayoutTree {
             width,
             height
           },
-          ...(layout.nestingParentId ? { parentNode: layout.nestingParentId } : {}),
+          ...(layout.nestingParentId ? { parentId: layout.nestingParentId } : {}),
           ...(layout.nestingParentId ? { extent: 'parent' } : {}),
           position,
         };
@@ -245,7 +245,7 @@ export class LayoutTree {
             outputCount: 1,
             inputCount: this._children.get(nodeId)?.length ?? 0,
           },
-          ...(layout.nestingParentId ? { parentNode: layout.nestingParentId } : {}),
+          ...(layout.nestingParentId ? { parentId: layout.nestingParentId } : {}),
           ...(layout.nestingParentId ? { extent: 'parent' } : {}),
           position,
         };
