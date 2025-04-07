@@ -5,12 +5,19 @@ import { LayoutTree } from "../LayoutTree";
 
 export class VerticalOrderingConstraint implements Constraint {
   constructor(private _parentNodeId: string, private _childNodeId: string) {
-    console.log(`VerticalOrderingConstraint created for parent: ${_parentNodeId}, child: ${_childNodeId}`);
   }
 
   apply(layoutTree: LayoutTree): void {
     const parentNodeLayout = layoutTree.getNodeLayout(this._parentNodeId)!;
     const childNodeLayout = layoutTree.getNodeLayout(this._childNodeId)!;
+
+    if (childNodeLayout.nestingParentId === this._parentNodeId) {
+      return;
+    }
+
+    console.log(`VerticalOrderingConstraint created for parent: ${this._parentNodeId}(${parentNodeLayout.label}), child: ${this._childNodeId}(${childNodeLayout.label})`,
+      `nestingParentId: ${childNodeLayout.nestingParentId}`
+    );
     const net = layoutTree.net;
 
     const verticalSpacing = layoutTree.standardVSpacing;

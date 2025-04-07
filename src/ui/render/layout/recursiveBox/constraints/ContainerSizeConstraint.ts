@@ -1,4 +1,5 @@
-import { addRangePropagator, atLeast, exactly, lessThan, lessThanEqualPropagator, maxRangeListPropagator, minRangeListPropagator, subtractRangePropagator } from "../../../../../constraint/propagator/NumericRange";
+import { layout } from "dagre";
+import { addRangePropagator, atLeast, exactly, lessThan, lessThanEqualPropagator, maxRangeListPropagator, minRangeListPropagator, subtractRangePropagator, writeAtLeastPropagator } from "../../../../../constraint/propagator/NumericRange";
 import { known, unknown } from "../../../../../constraint/propagator/Propagator";
 import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
@@ -49,18 +50,6 @@ export class ContainerSizeConstraint implements Constraint {
     const minChildTop = net.newCell(`minChildTop_${this._containerNodeId}`, unknown())
     const maxChildBottom = net.newCell(`maxChildBottom_${this._containerNodeId}`, unknown())
 
-    console.log(`--- Debugging maxChildBottom for ${this._containerNodeId} ---`);
-    const childBottomLayouts = childLayouts.map(l => ({ id: l.nodeId, cell: l.intrinsicBox.bottom }));
-    childBottomLayouts.forEach(cb => {
-      // Read cell content *carefully* - use readCell, not readKnownOrError yet
-      const content = net.readCell(cb.cell);
-      console.log(`Input Child Bottom (${cb.id}): Cell ${cb.cell}, Value Before Max: ${JSON.stringify(content)}`);
-      // Also add debug watch for this specific cell
-      net.addDebugCell(`Input ${cb.id}.bottom`, cb.cell);
-    });
-    console.log(`Calling maxRangeListPropagator for maxChildBottom (Cell ${maxChildBottom})...`);
-
-
     minRangeListPropagator(
       `minChildLeft_${this._containerNodeId}`,
       net,
@@ -89,147 +78,56 @@ export class ContainerSizeConstraint implements Constraint {
       maxChildBottom
     )
 
-    const maxBottomContent = net.readCell(maxChildBottom);
-    console.log(`Result maxChildBottom: Cell ${maxChildBottom}, Value After Max: ${JSON.stringify(maxBottomContent)}`);
-    // Add debug watch for the result
-    net.addDebugCell(`Result maxChildBottom_${this._containerNodeId}`, maxChildBottom);
-    console.log(`-------------------------------------------------------`);
-
-    const childrenWidth = net.newCell(`childrenWidth_${this._containerNodeId}`, unknown())
-    const childrenHeight = net.newCell(`childrenHeight_${this._containerNodeId}`, unknown())
-    const requiredWidth = net.newCell(`requiredWidth_${this._containerNodeId}`, unknown())
-    const requiredHeight = net.newCell(`requiredHeight_${this._containerNodeId}`, unknown())
-    const paddingXCell = net.newCell(`paddingX_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_X)))
-    const paddingYCell = net.newCell(`paddingY_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_Y)))
-
-    // childrenWidth = maxChildRight - minChildLeft
-    subtractRangePropagator(
-      `childrenWidth_${this._containerNodeId}`,
-      net,
-      maxChildRight,
-      minChildLeft,
-      childrenWidth
+    const maxChildBottomPlusPadding = net.newCell(
+      `maxChildBottomPlusPadding_${this._containerNodeId}`,
+      unknown()
     )
 
-    // childrenHeight = maxChildBottom - minChildTop
-    subtractRangePropagator(
-      `childrenHeight_${this._containerNodeId}`,
+    const paddingBottom = net.newCell(
+      `paddingBottom_${this._containerNodeId}`,
+      known(exactly(ContainerSizeConstraint._PADDING_BOTTOM))
+    )
+
+    // maxChildBottomPlusPadding = maxChildBottom + _PADDING_BOTTOM
+    addRangePropagator(
+      `calc_maxChildBottomPlusPadding_${this._containerNodeId}`,
       net,
       maxChildBottom,
-      minChildTop,
-      childrenHeight
+      paddingBottom,
+      maxChildBottomPlusPadding
     )
 
-    // requiredWidth = childrenWidth + paddingX
+    lessThanEqualPropagator(
+      `maxChildBottomPlusPadding <= containerBox.bottom`,
+      net,
+      maxChildBottomPlusPadding,
+      containerBox.bottom,
+    )
+
+    const paddingTop = net.newCell(
+      `paddingTop_${this._containerNodeId}`,
+      known(exactly(ContainerSizeConstraint._PADDING_TOP)) // Use your padding constant
+    );
+
+    const containerTopPlusPadding = net.newCell(
+      `containerTopPlusPadding_${this._containerNodeId}`,
+      unknown()
+    );
+
+    // containerTopPlusPadding = containerBox.top + paddingTop
     addRangePropagator(
-      `requiredWidth_${this._containerNodeId}`,
+      `calc_containerTopPlusPadding_${this._containerNodeId}`,
       net,
-      childrenWidth,
-      paddingXCell,
-      requiredWidth
+      containerBox.top, // containerLayout.intrinsicBox.top
+      paddingTop,
+      containerTopPlusPadding
     )
 
-    // requiredHeight = childrenHeight + paddingY
-    addRangePropagator(
-      `requiredHeight_${this._containerNodeId}`,
-      net,
-      childrenHeight,
-      paddingYCell,
-      requiredHeight
-    )
-
-    // requiredWidth <= containerBox.width
     lessThanEqualPropagator(
-      `requiredWidth_${this._containerNodeId}`,
+      `containerTopPlusPadding <= minChildTop_${this._containerNodeId}`,
       net,
-      requiredWidth,
-      containerBox.width
-    )
-
-    // requiredHeight <= containerBox.height
-    lessThanEqualPropagator(
-      `requiredHeight_${this._containerNodeId}`,
-      net,
-      requiredHeight,
-      containerBox.height
-    )
-
-    const containerInnerLeft = net.newCell(`containerInnerLeft_${this._containerNodeId}`, unknown())
-    const containerInnerTop = net.newCell(`containerInnerTop_${this._containerNodeId}`, unknown())
-    const paddingLeftCell = net.newCell(`paddingLeft_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_LEFT)))
-    const paddingTopCell = net.newCell(`paddingTop_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_TOP)))
-
-    // containerInnerLeft = containerBox.left + paddingLeft
-    addRangePropagator(
-      `calc_containerInnerLeft_${this._containerNodeId}`,
-      net,
-      containerLayout.intrinsicBox.left,
-      paddingLeftCell,
-      containerInnerLeft
-    )
-
-    // containerInnerTop = containerBox.top + paddingTop
-    addRangePropagator(
-      `calc_containerInnerTop_${this._containerNodeId}`,
-      net,
-      containerLayout.intrinsicBox.top,
-      paddingTopCell,
-      containerInnerTop
-    )
-
-    const paddingBottomCell = net.newCell(`paddingBottom_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_BOTTOM)))
-    const containerInnerBottom = net.newCell(`containerInnerBottom_${this._containerNodeId}`, unknown())
-
-    // containerInnerBottom = containerBox.bottom - paddingBottom
-    subtractRangePropagator(
-      `calc_containerInnerBottom_${this._containerNodeId}`,
-      net,
-      containerLayout.intrinsicBox.bottom,
-      paddingBottomCell,
-      containerInnerBottom
-    )
-
-    const containerInnerHeight = net.newCell(`containerInnerHeight_${this._containerNodeId}`, unknown())
-
-    // containerInnerHeight = containerBox.height - paddingY
-    subtractRangePropagator(
-      `calc_containerInnerHeight_${this._containerNodeId}`,
-      net,
-      containerLayout.intrinsicBox.height,
-      paddingYCell,
-      containerInnerHeight
-    )
-
-    // childrenHeight <= containerInnerHeight
-    lessThanEqualPropagator(
-      `childrenHeight_${this._containerNodeId}`,
-      net,
-      childrenHeight,
-      containerInnerHeight
-    )
-
-    // // maxChildBottom <= containerInnerBottom
-    // lessThanEqualPropagator(
-    //   `maxChildBottom_${this._containerNodeId}`,
-    //   net,
-    //   maxChildBottom,
-    //   containerInnerBottom
-    // )
-
-    // minChildLeft >= containerInnerLeft
-    lessThanEqualPropagator(
-      `minChildLeft_${this._containerNodeId}`,
-      net,
-      containerInnerLeft,
-      minChildLeft,
-    )
-
-    // minChildTop >= containerInnerTop
-    lessThanEqualPropagator(
-      `minChildTop_${this._containerNodeId}`,
-      net,
-      containerInnerTop,
-      minChildTop,
-    )
+      containerTopPlusPadding, // a
+      minChildTop            // b
+    );
   }
 }
