@@ -4,7 +4,7 @@ import euler from 'cytoscape-euler';
 import { getEdges, getImmediateEdges, getNodeIds, getNodeIdsAndLabels, SemanticNode } from "../../../../ir/SemanticGraph";
 import { LayoutEngine, NodesAndEdges } from "../LayoutEngine";
 import { node } from "webpack";
-import { AppNode } from "../../../components/Nodes/nodeTypes";
+import { ApplicationNode } from "../../../components/Nodes/nodeTypes";
 import { TermKind } from "../../../../engine/Term";
 import cytoscapeDagre from "cytoscape-dagre";
 import klay from 'cytoscape-klay';
@@ -148,7 +148,7 @@ export class CytoscapeEngine implements LayoutEngine<NodesAndEdges> {
 
       const layout = cy.layout(options).run()
 
-      let nodes: AppNode[] = cy.nodes().map((node): AppNode => {
+      let nodes: ApplicationNode[] = cy.nodes().map((node): ApplicationNode => {
         const data = node.data() as { id: string, label?: string, kind: 'Transpose' | TermKind };
 
         let type: any = 'default'
@@ -183,7 +183,7 @@ export class CytoscapeEngine implements LayoutEngine<NodesAndEdges> {
         // }
       })
 
-      let nodeMap = new Map<string, AppNode>();
+      let nodeMap = new Map<string, ApplicationNode>();
     console.log('node: ', nodes);
 
     for (const node of nodes) {

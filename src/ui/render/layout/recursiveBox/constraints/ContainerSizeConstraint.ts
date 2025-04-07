@@ -6,11 +6,11 @@ import { NodeLayout } from "../NodeLayout";
 
 export class ContainerSizeConstraint implements Constraint {
   // Total padding
-  private readonly _PADDING_X = 20
-  private readonly _PADDING_Y = 20
+  public static readonly _PADDING_X = 20
+  public static readonly _PADDING_Y = 20
 
-  private readonly _PADDING_LEFT = 10
-  private readonly _PADDING_TOP = 10
+  public static readonly _PADDING_LEFT = 10
+  public static readonly _PADDING_TOP = 10
 
   constructor(private _containerNodeId: string) {
   }
@@ -80,8 +80,8 @@ export class ContainerSizeConstraint implements Constraint {
     const childrenHeight = net.newCell(`childrenHeight_${this._containerNodeId}`, unknown())
     const requiredWidth = net.newCell(`requiredWidth_${this._containerNodeId}`, unknown())
     const requiredHeight = net.newCell(`requiredHeight_${this._containerNodeId}`, unknown())
-    const paddingXCell = net.newCell(`paddingX_${this._containerNodeId}`, known(exactly(this._PADDING_X)))
-    const paddingYCell = net.newCell(`paddingY_${this._containerNodeId}`, known(exactly(this._PADDING_Y)))
+    const paddingXCell = net.newCell(`paddingX_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_X)))
+    const paddingYCell = net.newCell(`paddingY_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_Y)))
 
     // childrenWidth = maxChildRight - minChildLeft
     subtractRangePropagator(
@@ -137,8 +137,8 @@ export class ContainerSizeConstraint implements Constraint {
 
     const containerInnerLeft = net.newCell(`containerInnerLeft_${this._containerNodeId}`, unknown())
     const containerInnerTop = net.newCell(`containerInnerTop_${this._containerNodeId}`, unknown())
-    const paddingLeftCell = net.newCell(`paddingLeft_${this._containerNodeId}`, known(exactly(this._PADDING_LEFT)))
-    const paddingTopCell = net.newCell(`paddingTop_${this._containerNodeId}`, known(exactly(this._PADDING_TOP)))
+    const paddingLeftCell = net.newCell(`paddingLeft_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_LEFT)))
+    const paddingTopCell = net.newCell(`paddingTop_${this._containerNodeId}`, known(exactly(ContainerSizeConstraint._PADDING_TOP)))
 
     // containerInnerLeft = containerBox.left + paddingLeft
     addRangePropagator(

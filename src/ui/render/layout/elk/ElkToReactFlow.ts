@@ -1,5 +1,5 @@
 import { ElkNode } from 'elkjs'
-import { AppNode, GroupedNode, PropagatorCellNode, PropagatorNode, TermNode } from '../../../components/Nodes/nodeTypes'
+import { ApplicationNode, GroupedNode, PropagatorCellNode, PropagatorNode, TermNode } from '../../../components/Nodes/nodeTypes'
 
 import { Edge } from '@xyflow/react'
 import { inputHandleName, outputHandleName } from '../../../NodeUtils'
@@ -35,15 +35,15 @@ export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
   return { nodes: nodeMap, edges: edges };
 }
 
-function buildNodeMap(nodes: AppNode[]): Map<string, AppNode> {
-  const nodeMap = new Map<string, AppNode>();
+function buildNodeMap(nodes: ApplicationNode[]): Map<string, ApplicationNode> {
+  const nodeMap = new Map<string, ApplicationNode>();
   for (const node of nodes) {
     nodeMap.set(node.id, node);
   }
   return nodeMap;
 }
 
-function flattenElkNodes(node: ElkNode, parentId?: string): AppNode[] {
+function flattenElkNodes(node: ElkNode, parentId?: string): ApplicationNode[] {
   const kindLabel = node.labels ? node.labels[0] : { text: '' };
   const theLabel = node.labels ? node.labels[1] : { text: '' };
 

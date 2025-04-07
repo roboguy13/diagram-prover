@@ -2,7 +2,7 @@ import { NumericRange, partialSemigroupNumericRange, printNumericRange } from ".
 import { ConflictHandler, PropagatorNetwork } from "../../../../constraint/propagator/Propagator";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
 import { StringDiagram } from "../../../../ir/StringDiagram";
-import { AppNode } from "../../../components/Nodes/nodeTypes";
+import { ApplicationNode } from "../../../components/Nodes/nodeTypes";
 import { ConstraintLayoutEngine, NodesAndEdges } from "../LayoutEngine";
 import { ConstraintApplicator } from "./ConstraintApplicator";
 import { LayoutTree } from "./LayoutTree";
@@ -53,7 +53,7 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
       console.error("Error applying constraints:", e);
       layoutTree.net.printDebugCells(printNumericRange);
       throw e
-      return Promise.resolve({ nodes: new Map<string, AppNode>(), edges: new Array() });
+      return Promise.resolve({ nodes: new Map<string, ApplicationNode>(), edges: new Array() });
     }
   }
 

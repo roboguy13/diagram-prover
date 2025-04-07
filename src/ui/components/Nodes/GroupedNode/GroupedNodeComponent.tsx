@@ -14,7 +14,7 @@ import {
   addEdge
 } from '@xyflow/react';
 
-import { type GroupedNode, AppNode } from '../nodeTypes';
+import { type GroupedNode, ApplicationNode } from '../nodeTypes';
 
 import { getNode, type Model } from '../../../architecture/Model';
 import { inputHandleName, outputHandleName } from '../../../NodeUtils';

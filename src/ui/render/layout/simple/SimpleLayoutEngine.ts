@@ -4,7 +4,7 @@ import { Edge, XYPosition } from "@xyflow/react";
 import { getEdges, getImmediateEdges, SemanticNode } from "../../../../ir/SemanticGraph";
 import { LayoutEngine, NodesAndEdges } from "../LayoutEngine";
 import { BreadthIndexMap, computeIndexedNodes, IndexedNode, LevelMap } from "../NodeLevels";
-import { AppNode } from "../../../components/Nodes/nodeTypes";
+import { ApplicationNode } from "../../../components/Nodes/nodeTypes";
 import { StringDiagram } from "../../../../ir/StringDiagram";
 
 type InternalRep = [SemanticNode<void>, [LevelMap, BreadthIndexMap, IndexedNode[]], Edge[]]
@@ -37,7 +37,7 @@ export class SimpleLayoutEngine implements LayoutEngine<InternalRep> {
     // TODO: Put all of the actual processing into fromSemanticNode
     let [semNode, [levelMap, breadthIndexMap, ixNodes], edges] = pair
 
-    let appNodes = new Map<string, AppNode>()
+    let appNodes = new Map<string, ApplicationNode>()
 
     let maxLevel = Math.max(...Array.from(levelMap.keys()))
     

@@ -6,7 +6,7 @@ import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../
 import { SemanticNode } from "../../../../ir/SemanticGraph";
 import { Dimensions, getNodeDimensions, getStringNodeDimensions, } from "../../../NodeDimensions";
 import { NodesAndEdges } from "../LayoutEngine";
-import { AppNode } from "../../../components/Nodes/nodeTypes";
+import { ApplicationNode } from "../../../components/Nodes/nodeTypes";
 import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/PropagatorToElk";
 import { elk } from "../elk/ElkEngine";
 import { elkToReactFlow } from "../elk/ElkToReactFlow";
@@ -165,7 +165,7 @@ export class LayoutTree {
 
   toNodesAndEdges(): NodesAndEdges {
     console.log("Converting layout tree to nodes and edges...");
-    const nodes: AppNode[] = [];
+    const nodes: ApplicationNode[] = [];
     const edges: Edge[] = [];
 
     this._nodeLayouts.forEach((layout) => {
@@ -178,7 +178,7 @@ export class LayoutTree {
       });
     });
 
-    const nodeMap = new Map<string, AppNode>();
+    const nodeMap = new Map<string, ApplicationNode>();
 
     nodes.forEach((node) => {
       nodeMap.set(node.id, node);
@@ -198,7 +198,7 @@ export class LayoutTree {
     });
   }
 
-  private nodeToAppNode(nodeId: string): AppNode {
+  private nodeToAppNode(nodeId: string): ApplicationNode {
     const layout = this.getNodeLayout(nodeId);
 
     if (!layout) {

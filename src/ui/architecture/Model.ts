@@ -1,4 +1,4 @@
-import { AppNode, PortBarNode } from "../components/Nodes/nodeTypes";
+import { ApplicationNode, PortBarNode } from "../components/Nodes/nodeTypes";
 import { Edge } from "@xyflow/react";
 import { NodesAndEdges } from "../render/layout/LayoutEngine";
 import { Term, annotateTermWithIds, exampleTerm } from "../../engine/Term";
@@ -121,11 +121,11 @@ export function applyModelUpdates<A>(model: Model, fn: (model: Model, a: A) => M
   return newModel;
 }
 
-export function getNode(model: Model, id: string): AppNode | undefined {
+export function getNode(model: Model, id: string): ApplicationNode | undefined {
   return model.graph?.nodes.get(id);
 }
 
-export function setNode(model: Model, node: AppNode): Model {
+export function setNode(model: Model, node: ApplicationNode): Model {
   const nodes = model.graph?.nodes ?? new Map();
   const edges = model.graph?.edges ?? [];
   nodes.set(node.id, node);

@@ -128,7 +128,9 @@ export class ConstraintApplicator {
       if (nodeLayout.nestingParentId !== null) {
         // Mark the parent
         const parentLayout = layoutTree.getNodeLayout(nodeLayout.nestingParentId);
+
         if (parentLayout && !potentialContainers.has(parentLayout.nodeId)) {
+          console.log(`Found potential container with label: ${parentLayout.nodeId}, ${parentLayout?.label}`);
           potentialContainers.set(parentLayout.nodeId, parentLayout);
         }
       }

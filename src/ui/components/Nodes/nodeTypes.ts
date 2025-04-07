@@ -32,4 +32,4 @@ export type PinnedPortBarNode = Node<{ label: string, portCount: number, isInput
 
 // export type GroupNode = Node<{ label: string }, 'group'>
 
-export type AppNode = BuiltInNode | TermNode | PositionLoggerNode | GroupedNode | PropagatorNode | PropagatorCellNode | PortBarNode | PinnedPortBarNode
+export type ApplicationNode = BuiltInNode | TermNode | PositionLoggerNode | GroupedNode | PropagatorNode | PropagatorCellNode | PortBarNode | PinnedPortBarNode

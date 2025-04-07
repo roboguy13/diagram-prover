@@ -1,11 +1,11 @@
-import { AppNode } from "../../components/Nodes/nodeTypes";
+import { ApplicationNode } from "../../components/Nodes/nodeTypes";
 import { SemanticNode } from "../../../ir/SemanticGraph";
 import { Edge } from "@xyflow/react";
 import { ConflictHandler } from "../../../constraint/propagator/Propagator";
 import { NumericRange } from "../../../constraint/propagator/NumericRange";
 import { StringDiagram } from "../../../ir/StringDiagram";
 
-export type NodeMap = Map<string, AppNode>;
+export type NodeMap = Map<string, ApplicationNode>;
 export type NodesAndEdges = { nodes: NodeMap, edges: Edge[] }
 
 export interface LayoutEngine<A> {

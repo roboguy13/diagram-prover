@@ -16,7 +16,7 @@ import '@xyflow/react/dist/style.css';
 
 import { nodeTypes } from './ui/components/Nodes';
 import { edgeTypes } from './edges';
-import { AppNode } from './ui/components/Nodes/nodeTypes';
+import { ApplicationNode } from './ui/components/Nodes/nodeTypes';
 import { update } from './ui/architecture/Msg';
 import { initialModel, Model } from './ui/architecture/Model';
 
@@ -39,7 +39,7 @@ export default function App() {
 
   const reactFlowInstance = useReactFlow();
 
-  let nodes = topSortNodes(state.graph?.nodes ?? new Map<string, AppNode>())
+  let nodes = topSortNodes(state.graph?.nodes ?? new Map<string, ApplicationNode>())
   let edges = state.graph?.edges ?? [];
 
   const inputBarId = state.inputBar?.id;
