@@ -63,7 +63,6 @@ export class ConstraintApplicator {
       });
 
       if (nonPortBarChildren.length > 0) {
-
         this.containerConstraints(layoutTree, layout.nodeId, nonPortBarChildren);
       }
     }

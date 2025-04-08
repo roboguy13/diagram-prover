@@ -6,7 +6,7 @@ import { LayoutTree } from "../../LayoutTree";
 
 // The body nodes should be vertically "contained" between the two port bars.
 export class PortBarContainedConstraint implements Constraint {
-  private readonly _PADDING_VERTICAL = 10;
+  private readonly _PADDING_VERTICAL = 50;
 
   constructor(
     private _nestedIds: string[],
@@ -54,18 +54,16 @@ export class PortBarContainedConstraint implements Constraint {
       unknown()
     );
 
-    // topWithPadding = resultPortBar.top - _PADDING_VERTICAL
     subtractRangePropagator(
-      `PortBarContainedConstraint: [top] ${this._parameterPortBarId} with padding`,
+      `PortBarContainedConstraint: [top] ${this._resultPortBarId} with padding`,
       layoutTree.net,
       resultPortBarLayout.intrinsicBox.top,
       verticalPaddingCell,
       topWithPadding
     );
 
-    // bottomWithPadding = parameterPortBar.bottom + _PADDING_VERTICAL
     addRangePropagator(
-      `PortBarContainedConstraint: [bottom] ${this._resultPortBarId} with padding`,
+      `PortBarContainedConstraint: [bottom] ${this._parameterPortBarId} with padding`,
       layoutTree.net,
       parameterPortBarLayout.intrinsicBox.bottom,
       verticalPaddingCell,

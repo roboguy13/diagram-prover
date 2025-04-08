@@ -93,6 +93,18 @@ export class ContainerSizeConstraint implements Constraint {
     //   collectiveBoundingBox.top,
     // );
 
+    const verticalPaddingCell = layoutTree.net.newCell(
+      `ContainerSizeConstraint: [vertical padding] ${this._containerId}`,
+      known(exactly(this._PADDING_VERTICAL))
+    );
+
+
+    // Add Debug Cells
+    layoutTree.net.addDebugCell(`ContainerConstraint Debug ${this._containerId}: Parent Top`, containerLayout.intrinsicBox.top);
+    layoutTree.net.addDebugCell(`ContainerConstraint Debug ${this._containerId}: Parent Bottom`, containerLayout.intrinsicBox.bottom);
+    layoutTree.net.addDebugCell(`ContainerConstraint Debug ${this._containerId}: Collective Top`, collectiveBoundingBox.top);
+    layoutTree.net.addDebugCell(`ContainerConstraint Debug ${this._containerId}: Collective Bottom`, collectiveBoundingBox.bottom);
+
     console.log(`ContainerSizeConstraint: [minY] ${this._containerId}: ${JSON.stringify(this._nestedIds)}`)
     console.log(`ContainerSizeConstraint: [minY] portBarType=${containerLayout.portBarType}`)
 

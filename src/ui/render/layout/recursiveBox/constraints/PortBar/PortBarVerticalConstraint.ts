@@ -1,4 +1,4 @@
-import { addRangePropagator, exactly, lessThanEqualPropagator } from "../../../../../../constraint/propagator/NumericRange";
+import { addRangePropagator, exactly, lessThanEqualPropagator, subtractRangePropagator } from "../../../../../../constraint/propagator/NumericRange";
 import { known, unknown } from "../../../../../../constraint/propagator/Propagator";
 import { PortBarType } from "../../../../../components/Nodes/nodeTypes";
 import { Constraint } from "../../Constraint";
@@ -40,8 +40,7 @@ export class PortBarVerticalConstraint implements Constraint {
       unknown()
     );
 
-    // topWithPadding = nodeLayout.top - _PADDING_VERTICAL
-    addRangePropagator(
+    subtractRangePropagator(
       `PortBarVerticalConstraint: [top] ${this._nodeId} with padding`,
       layoutTree.net,
       nodeLayout.intrinsicBox.top,
@@ -49,7 +48,6 @@ export class PortBarVerticalConstraint implements Constraint {
       topWithPadding
     );
 
-    // bottomWithPadding = nodeLayout.bottom + _PADDING_VERTICAL
     addRangePropagator(
       `PortBarVerticalConstraint: [bottom] ${this._nodeId} with padding`,
       layoutTree.net,
@@ -65,15 +63,20 @@ export class PortBarVerticalConstraint implements Constraint {
 
     if (this._portBarType === 'parameter-bar') {
       lessThanEqualPropagator(
-        `PortBarVerticalConstraint: [top] ${this._nodeId}`,
+        `PortBarVerticalConstraint: [top positioning] ${this._nodeId}`,
         layoutTree.net,
-        topWithPadding,
         parentLayout.intrinsicBox.top,
+        topWithPadding
       );
+      // layoutTree.net.equalPropagator(
+      //   `PortBarVerticalConstraint: [top] ${this._nodeId}`,
+      //   topWithPadding,
+      //   parentLayout.intrinsicBox.top,
+      // );
     } else if (this._portBarType === 'result-bar') {
-      layoutTree.net.equalPropagator(
+      lessThanEqualPropagator(
         `PortBarVerticalConstraint: [bottom] ${this._nodeId}`,
-        // layoutTree.net,
+        layoutTree.net,
         bottomWithPadding,
         parentLayout.intrinsicBox.bottom,
       );
