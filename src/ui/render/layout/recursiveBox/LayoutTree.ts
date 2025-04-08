@@ -1,6 +1,6 @@
 import { Edge, XYPosition } from "@xyflow/react";
 import { NodeLayout } from "./NodeLayout";
-import { BoundingBox } from "./BoundingBox";
+import { SimpleBoundingBox } from "./BoundingBox";
 import { addRangeListPropagator, between, exactly, getMin, NumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
@@ -17,10 +17,20 @@ import { Connection, isNodePortLocation, PortBarNode, StringDiagram } from "../.
 import { Graph, spanningForest } from "../../../../utils/SpanningForest";
 import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedHierarchy";
 
+// class PortBarLayouts {
+//   constructor(
+//     public parameterPortBarLayout: NodeLayout | null,
+//     public resultPortBarLayout: NodeLayout | null,
+//   ) { }
+// }
+
 export class LayoutTree {
   private _nodeLayouts: Map<string, NodeLayout> = new Map();
   private _children: Map<string, string[]> = new Map();
   private _nestingChildren: Map<string, string[]> = new Map();
+
+  private _nestingNodeParameterPortBar: Map<string, string> = new Map()
+  private _nestingNodeResultPortBar: Map<string, string> = new Map()
 
   private _rootNodeId: string;
 
@@ -61,7 +71,7 @@ export class LayoutTree {
     this._nodeLayouts.set(rootNodeId, {
       nodeId: rootNodeId,
       nestingParentId: null,
-      intrinsicBox: new BoundingBox(
+      intrinsicBox: SimpleBoundingBox.create(
         net,
         'intrinsic',
         rootNodeId,
@@ -70,7 +80,7 @@ export class LayoutTree {
         net.newCell(`intrinsic width [node ${rootNodeId}]`, known(rootDims.width)),
         net.newCell(`intrinsic height [node ${rootNodeId}]`, known(rootDims.height))
       ),
-      subtreeExtentBox: new BoundingBox(
+      subtreeExtentBox: SimpleBoundingBox.create(
         net,
         'subtree extent',
         rootNodeId,
@@ -171,9 +181,14 @@ export class LayoutTree {
     const nodes: ApplicationNode[] = [];
     const edges: Edge[] = [];
 
-    this._nodeLayouts.forEach((layout) => {
-      nodes.push(this.nodeToApplicationNode(layout.nodeId));
-    });
+    try {
+      this._nodeLayouts.forEach((layout) => {
+        nodes.push(this.nodeToApplicationNode(layout.nodeId));
+      });
+    } catch (e) {
+      console.error("Error converting node layouts to ApplicationNode:", e);
+      return { nodes: new Map<string, ApplicationNode>(), edges: [] };
+    }
 
     console.log(`originalConnections: ${JSON.stringify(this._originalConnections)}`);
 
@@ -329,6 +344,14 @@ export class LayoutTree {
     console.log(jsonText)
   }
 
+  public getParameterPortBar(nodeId: string): string | null {
+    return this._nestingNodeParameterPortBar.get(nodeId) ?? null;
+  }
+
+  public getResultPortBar(nodeId: string): string | null {
+    return this._nestingNodeResultPortBar.get(nodeId) ?? null;
+  }
+
   static buildFromStringDiagram(net: PropagatorNetwork<NumericRange>, diagram: StringDiagram): LayoutTree {
     console.log("Building layout tree from string diagram...")
     console.log("Diagram:", diagram);
@@ -353,8 +376,8 @@ export class LayoutTree {
     for (const nodeId of nodeIds) {
       const node = diagram.nodes.get(nodeId)!;
 
-      const intrinsicBox = BoundingBox.createNewWithDims(net, 'intrinsic', nodeId, getStringNodeDimensions(node));
-      const subtreeExtentBox = BoundingBox.createNew(net, 'subtree extent', nodeId);
+      const intrinsicBox = SimpleBoundingBox.createNewWithDims(net, 'intrinsic', nodeId, getStringNodeDimensions(node));
+      const subtreeExtentBox = SimpleBoundingBox.createNew(net, 'subtree extent', nodeId);
 
       const nestingParentId = diagram.nestingParents.get(nodeId) ?? null;
 
@@ -373,6 +396,24 @@ export class LayoutTree {
 
       if (nodeId !== firstNodeId) {
         layoutTree.addNodeLayout(nodeLayout);
+      }
+
+      if (nestingParentId) {
+        layoutTree.addNestingChild(nestingParentId, nodeId);
+      }
+
+      if (portBarType === 'parameter-bar') {
+        if (!nestingParentId) {
+          console.warn(`LayoutTree.buildFromStringDiagram: parameter port bar ${nodeId} doesn't have nesting parent`)
+        } else {
+          layoutTree._nestingNodeParameterPortBar.set(nestingParentId, nodeId)
+        }
+      } else if (portBarType === 'result-bar') {
+        if (!nestingParentId) {
+          console.warn(`LayoutTree.buildFromStringDiagram: result port bar ${nodeId} doesn't have nesting parent`)
+        } else {
+          layoutTree._nestingNodeResultPortBar.set(nestingParentId, nodeId)
+        }
       }
     }
 
@@ -430,13 +471,13 @@ export class LayoutTree {
     const layoutTree = new LayoutTree(net, [], [rootNode.id], rootNode.id, getNodeDimensions(rootNode), rootNode.label ?? '', rootNode.kind);
 
     function traverse(node: SemanticNode<A>, parentId: string | null, nestingParentId: string | null): void {
-      let intrinsicBox: BoundingBox | null = null;
+      let intrinsicBox: SimpleBoundingBox | null = null;
 
       if (node.kind === 'Transpose') {
-        intrinsicBox = BoundingBox.createNewWithUnknowns(net, 'intrinsic', node.id);
+        intrinsicBox = SimpleBoundingBox.createNewWithUnknowns(net, 'intrinsic', node.id);
       } else {
         let initialNodeDims = getNodeDimensions(node);
-        intrinsicBox = BoundingBox.createNewWithDims(net, 'intrinsic', node.id, initialNodeDims)
+        intrinsicBox = SimpleBoundingBox.createNewWithDims(net, 'intrinsic', node.id, initialNodeDims)
       }
 
       if (node.id !== rootNode.id) {
@@ -444,7 +485,7 @@ export class LayoutTree {
           nodeId: node.id,
           nestingParentId: nestingParentId,
           intrinsicBox: intrinsicBox,
-          subtreeExtentBox: BoundingBox.createNew(net, 'subtree extent', node.id),
+          subtreeExtentBox: SimpleBoundingBox.createNew(net, 'subtree extent', node.id),
           position: null,
           kind: node.kind,
           label: node.label ?? '',

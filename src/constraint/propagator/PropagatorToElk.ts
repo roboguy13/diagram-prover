@@ -7,6 +7,7 @@ import { Edge } from "reactflow";
 import { elk } from "../../ui/render/layout/elk/ElkEngine";
 import { ElkColorLabel, ElkNoHandlesLabel } from "../../ui/render/layout/elk/ElkData";
 import { last } from "lodash";
+import { second } from "fp-ts/lib/Reader";
 
 const elkOptions = {
   'elk.algorithm': 'layered',
@@ -36,23 +37,36 @@ export function conflictToElkNode<A>(aPrinter: (a: A) => string, net: Propagator
       labels: (lastEdge0.labels || []).concat([new ElkColorLabel('red')])
     }
 
-  let secondToLastNode0 = propagatorDescriptionToElkNode(net)(conflict.propagator1)
-  let secondToLastNode = { ...secondToLastNode0, edges: [] }
-  let secondToLastEdge0 = createEdge(aPrinter, cellNode, [secondToLastNode.id, conflict.oldContent])
-  let secondToLastEdge: ElkExtendedEdge =
-    { ... secondToLastEdge0,
-      labels: (secondToLastEdge0.labels || []).concat([new ElkColorLabel('cornflowerblue')])
-    }
+  console.log(`secondToLastNode: ${JSON.stringify(conflict.propagator1)}`)
 
-  return {
-    id: 'root-node',
-    children: nodes.concat([secondToLastNode, lastNode]),
-    layoutOptions: elkOptions,
-    edges: contentIds.map((pair) => {
+  let edges = 
+    contentIds.map((pair) => {
       let [id, content] = pair
       let theEdge = createEdge(aPrinter, cellNode, [id, content])
       return theEdge
-    }).concat([secondToLastEdge, lastEdge])
+    })
+
+  let children = nodes
+
+  if (conflict.propagator1) {
+    let secondToLastNode0 = propagatorDescriptionToElkNode(net)(conflict.propagator1)
+    let secondToLastNode = { ...secondToLastNode0, edges: [] }
+    let secondToLastEdge0 = createEdge(aPrinter, cellNode, [secondToLastNode.id, conflict.oldContent])
+    let secondToLastEdge: ElkExtendedEdge =
+    {
+      ...secondToLastEdge0,
+      labels: (secondToLastEdge0.labels || []).concat([new ElkColorLabel('cornflowerblue')])
+    }
+
+    edges = edges.concat([secondToLastEdge])
+    children = children.concat([secondToLastNode])
+  }
+
+  return {
+    id: 'root-node',
+    children: children.concat([lastNode]),
+    layoutOptions: elkOptions,
+    edges: edges.concat([lastEdge])
     // edges:
     //   [ { id: 'edge-1', labels: [ { text: printContent(aPrinter)(conflict.oldContent) } ], sources: [elkList[0]!.id], targets: [elkList[1]!.id] },
     //     { id: 'edge-2', labels: [ { text: printContent(aPrinter)(conflict.newContent) } ], sources: [elkList[2]!.id], targets: [elkList[0]!.id] }

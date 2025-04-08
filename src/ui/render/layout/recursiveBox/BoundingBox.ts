@@ -2,22 +2,21 @@ import { NumericRange, addRangePropagator, atLeast, divNumericRangeNumberPropaga
 import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 import { Dimensions } from "../../../NodeDimensions";
 
-export class BoundingBox {
-  private _minX: CellRef;
-  private _minY: CellRef;
-  private _width: CellRef;
-  private _height: CellRef;
+export interface BoundingBox {
+  get left(): CellRef
+  get top(): CellRef
+  get right(): CellRef
+  get bottom(): CellRef
+  get width(): CellRef
+  get height(): CellRef
+  get centerX(): CellRef
 
-  private _maxX: CellRef;
-  private _maxY: CellRef;
+  // getDebugInfo(net: PropagatorNetwork<NumericRange>): string
+}
 
-  private _centerX: CellRef;
-
-  private _typePrefix: string;
-  private _nodeId: string;
-
-  public static createNew(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string): BoundingBox {
-    return new BoundingBox(
+export class SimpleBoundingBox implements BoundingBox {
+  public static createNew(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string): SimpleBoundingBox {
+    return SimpleBoundingBox.create(
       net,
       typePrefix,
       nodeId,
@@ -28,8 +27,8 @@ export class BoundingBox {
     );
   }
 
-  public static createNewWithDims(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string, dims: Dimensions): BoundingBox {
-    return new BoundingBox(
+  public static createNewWithDims(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string, dims: Dimensions): SimpleBoundingBox {
+    return SimpleBoundingBox.create(
       net,
       typePrefix,
       nodeId,
@@ -40,70 +39,159 @@ export class BoundingBox {
     );
   }
 
-  public static createNewWithUnknowns(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string): BoundingBox {
-    return new BoundingBox(
+  public static createNewWithUnknowns(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string): SimpleBoundingBox {
+    return SimpleBoundingBox.create(
       net,
       typePrefix,
       nodeId,
       net.newCell(`${typePrefix} minX for ${nodeId}`, unknown()),
       net.newCell(`${typePrefix} minY for ${nodeId}`, unknown()),
-      net.newCell(`${typePrefix} width for ${nodeId}`, unknown()),
-      net.newCell(`${typePrefix} height for ${nodeId}`, unknown())
+      net.newCell(`${typePrefix} width for ${nodeId}`, known(atLeast(0))),
+      net.newCell(`${typePrefix} height for ${nodeId}`, known(atLeast(0)))
     );
   }
 
-  constructor(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
-    this._minX = minX;
-    this._minY = minY;
-    this._width = width;
-    this._height = height;
+  public static createFromMinMax (
+    net: PropagatorNetwork<NumericRange>,
+    typePrefix: string,
+    nodeId: string,
+    minX: CellRef,
+    minY: CellRef,
+    maxX: CellRef,
+    maxY: CellRef
+  ) {
+    return SimpleBoundingBox._internalCreate(
+      net,
+      typePrefix,
+      nodeId,
+      minX,
+      minY,
+      maxX,
+      maxY,
+      net.newCell(`${typePrefix} width for ${nodeId}`, known(atLeast(0))),
+      net.newCell(`${typePrefix} height for ${nodeId}`, known(atLeast(0))),
+    )
+  }
 
-    this._typePrefix = typePrefix;
+  public static create(
+    net: PropagatorNetwork<NumericRange>,
+    typePrefix: string,
+    nodeId: string,
+    minX: CellRef,
+    minY: CellRef,
+    width: CellRef,
+    height: CellRef
+  ) {
+    return SimpleBoundingBox._internalCreate(
+      net,
+      typePrefix,
+      nodeId,
+      minX,
+      minY,
+      net.newCell(`${typePrefix} maxX for ${nodeId}`, unknown()),
+      net.newCell(`${typePrefix} maxY for ${nodeId}`, unknown()),
+      width,
+      height
+    );
+  }
 
-    this._nodeId = nodeId;
-
-    this._maxX = net.newCell(`maxX [node ${nodeId}]`, unknown());
-    this._maxY = net.newCell(`maxY [node ${nodeId}]`, unknown());
+  /**
+   * @internal
+   */
+  private static _internalCreate(
+    net: PropagatorNetwork<NumericRange>,
+    typePrefix: string,
+    nodeId: string,
+    minX: CellRef,
+    minY: CellRef,
+    maxX: CellRef,
+    maxY: CellRef,
+    width: CellRef,
+    height: CellRef
+  ): SimpleBoundingBox {
+    // For debug purposes:
+    net.writeCell(
+      { description: `${typePrefix} width [node ${nodeId}]`, inputs: [], outputs: [width] },
+      width,
+      known(atLeast(0))
+    );
+    net.writeCell(
+      { description: `${typePrefix} height [node ${nodeId}]`, inputs: [], outputs: [height] },
+      height,
+      known(atLeast(0))
+    );
 
     // maxX = minX + width
     addRangePropagator(
-      `${this._typePrefix} maxX calculation [node ${this._nodeId}]`,
+      `${typePrefix} maxX calculation [node ${nodeId}]`,
       net,
-      this._minX,
-      this._width,
-      this._maxX
+      minX,
+      width,
+      maxX
     );
 
     // maxY = minY + height
     addRangePropagator(
-      `${this._typePrefix} maxY calculation [node ${this._nodeId}]`,
+      `${typePrefix} maxY calculation [node ${nodeId}]`,
       net,
-      this._minY,
-      this._height,
-      this._maxY
+      minY,
+      height,
+      maxY
     );
 
     const halfWidth = net.newCell(`halfWidth [node ${nodeId}]`, unknown());
-    this._centerX = net.newCell(`centerX [node ${nodeId}]`, unknown());
+    const centerX = net.newCell(`centerX [node ${nodeId}]`, unknown());
 
     // halfWidth = width / 2
     divNumericRangeNumberPropagator(
-      `${this._typePrefix} halfWidth calculation [node ${this._nodeId}]`,
+      `${typePrefix} halfWidth calculation [node ${nodeId}]`,
       net,
-      this._width,
+      width,
       2,
       halfWidth
     );
 
     // centerX = minX + halfWidth
     addRangePropagator(
-      `${this._typePrefix} centerX calculation [node ${this._nodeId}]`,
+      `${typePrefix} centerX calculation [node ${nodeId}]`,
       net,
-      this._minX,
+      minX,
       halfWidth,
-      this._centerX
+      centerX
+    );
+
+    return new SimpleBoundingBox(
+      typePrefix,
+      nodeId,
+      minX,
+      minY,
+      width,
+      height,
+      maxX,
+      maxY,
+      centerX
     );
   }
+
+  private constructor(
+    private _typePrefix: string,
+    private _nodeId: string,
+
+    private _minX: CellRef,
+    private _minY: CellRef,
+    private _width: CellRef,
+    private _height: CellRef,
+
+    private _maxX: CellRef,
+    private _maxY: CellRef,
+
+    private _centerX: CellRef,
+  ) {
+  }
+
+  // constructor(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
+  //   // this._maxY = net.newCell(`maxY [node ${nodeId}]`, unknown());
+  // }
 
   public get left(): CellRef {
     return this._minX;
