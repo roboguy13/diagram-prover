@@ -37,10 +37,12 @@ export function mkTermNode(
         />
     ));
 
+    const portBarType = data.portBarType
+
     return (
         <div
             className={`term-node ${selected ? 'selected' : ''} ${data.isActiveRedex ? 'redex' : ''}`}
-            style={{ width: data.width, height: data.height }}
+            style={{ width: data.width, height: data.height, ...(portBarType === 'parameter-bar' ? { background: 'red' } : {}) }}
         >
             {data.label}
             {/* Render the handles */}

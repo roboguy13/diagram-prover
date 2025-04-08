@@ -6,14 +6,14 @@ import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../
 import { SemanticNode } from "../../../../ir/SemanticGraph";
 import { Dimensions, getNodeDimensions, getStringNodeDimensions, } from "../../../NodeDimensions";
 import { NodesAndEdges } from "../LayoutEngine";
-import { ApplicationNode } from "../../../components/Nodes/nodeTypes";
+import { ApplicationNode, PortBarType } from "../../../components/Nodes/nodeTypes";
 import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/PropagatorToElk";
 import { elk } from "../elk/ElkEngine";
 import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { PropagatorNetworkToJson } from "../../../../constraint/propagator/PropagatorToJson";
 import { inputHandleName, outputHandleName } from "../../../NodeUtils";
 import { layout } from "dagre";
-import { Connection, isNodePortLocation, StringDiagram } from "../../../../ir/StringDiagram";
+import { Connection, isNodePortLocation, PortBarNode, StringDiagram } from "../../../../ir/StringDiagram";
 import { Graph, spanningForest } from "../../../../utils/SpanningForest";
 import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedHierarchy";
 
@@ -83,6 +83,7 @@ export class LayoutTree {
       position: null,
       kind: rootKind,
       label: rootLabel ?? '',
+      portBarType: null,
     });
 
     // this._net.writeCell(
@@ -276,6 +277,12 @@ export class LayoutTree {
     const diagramNode = this._stringDiagram!.getNode(nodeId);
     const nodeInterface = diagramNode?.externalInterface ?? { inputPorts: [], outputPorts: [] };
 
+    let portBarType: PortBarType | null = null
+
+    if (diagramNode instanceof PortBarNode) {
+      portBarType = diagramNode.isParameterBar ? 'parameter-bar' : 'result-bar';
+    }
+
     const nodeData: any = {
       label: layout.label,
       width,
@@ -285,6 +292,7 @@ export class LayoutTree {
       outputPortIds: nodeInterface.outputPorts,
       outputCount: nodeInterface.outputPorts.length,
       inputCount: nodeInterface.inputPorts.length,
+      portBarType: portBarType,
     }
 
     const commonProps = {
@@ -350,6 +358,8 @@ export class LayoutTree {
 
       const nestingParentId = diagram.nestingParents.get(nodeId) ?? null;
 
+      const portBarType: PortBarType | null = node instanceof PortBarNode ? (node.isParameterBar ? 'parameter-bar' : 'result-bar') : null;
+
       const nodeLayout: NodeLayout = {
         nodeId: nodeId,
         nestingParentId: nestingParentId,
@@ -358,6 +368,7 @@ export class LayoutTree {
         position: null,
         kind: node.kind,
         label: node.label ?? '',
+        portBarType: portBarType ?? null,
       }
 
       if (nodeId !== firstNodeId) {
@@ -437,6 +448,7 @@ export class LayoutTree {
           position: null,
           kind: node.kind,
           label: node.label ?? '',
+          portBarType: null,
         }
 
         layoutTree.addNodeLayout(nodeLayout);

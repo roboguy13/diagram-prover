@@ -36,7 +36,8 @@ export class LeftAlignConstraint implements Constraint {
 
       const paddingLeftCell = net.newCell(
         `paddingLeft_${this.childIds[0]}_to_parent_${this._parentId}`,
-        known(exactly(ContainerSizeConstraint._PADDING_LEFT))
+        // known(exactly(ContainerSizeConstraint._PADDING_LEFT))
+        known(exactly(10)) // TODO
       );
 
       addRangePropagator(

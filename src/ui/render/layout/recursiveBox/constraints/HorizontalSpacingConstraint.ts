@@ -17,6 +17,11 @@ export class HorizontalSpacingConstraint implements Constraint {
     const node1IntrinsicBox = nodeLayout1.intrinsicBox;
     const node2IntrinsicBox = nodeLayout2.intrinsicBox;
 
+    if (nodeLayout1.portBarType || nodeLayout2.portBarType) {
+      console.warn(`HorizontalSpacingConstraint: Cannot apply constraint with port bars involved.`);
+      return;
+    }
+
     // node1.right + horizontalSpacing
     const node1RightPlusSpacing = net.newCell(
       `temp_${this._nodeId1}.right+${net.cellDescription(horizontalSpacing)}`,

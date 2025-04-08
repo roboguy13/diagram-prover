@@ -1,5 +1,6 @@
 import { XYPosition } from "@xyflow/react"
 import { BoundingBox } from "./BoundingBox"
+import { PortBarType } from "../../../components/Nodes/nodeTypes"
 
 export type NodeLayout = {
   nodeId: string
@@ -9,4 +10,5 @@ export type NodeLayout = {
   position: XYPosition | null
   label: string
   kind: string
+  portBarType: PortBarType | null
 }

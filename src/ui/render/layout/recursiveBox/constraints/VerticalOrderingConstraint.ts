@@ -15,6 +15,11 @@ export class VerticalOrderingConstraint implements Constraint {
       return;
     }
 
+    if (childNodeLayout.portBarType) {
+      console.warn(`VerticalOrderingConstraint: Cannot apply constraint with port bars involved.`);
+      return;
+    }
+
     console.log(`VerticalOrderingConstraint created for parent: ${this._parentNodeId}(${parentNodeLayout.label}), child: ${this._childNodeId}(${childNodeLayout.label})`,
       `nestingParentId: ${childNodeLayout.nestingParentId}`
     );

@@ -294,7 +294,6 @@ function termToLamBuilder(
   currentNestingParentId: NodeId | null // The LamNode containing *this* LamNode (if any)
 ): StringDiagramBuilder {
   // 1. Create the LamNode and its internal PortBarNodes
-  // const lamNode: LamNode = new LamNode('λ'); // The main container node
   const lamNode: LamNode = new LamNode(''); // The main container node
   const paramBarNode: PortBarNode = new PortBarNode('param', true);
   const resultBarNode: PortBarNode = new PortBarNode('result', false);

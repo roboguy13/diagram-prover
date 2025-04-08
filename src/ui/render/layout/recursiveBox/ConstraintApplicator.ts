@@ -17,6 +17,7 @@ import { NodeLayout } from "./NodeLayout";
 import { NodeId } from "../../../../engine/Term";
 import { ContainerSizeConstraint } from "./constraints/ContainerSizeConstraint";
 import { HorizontalCenteringConstraint } from "./constraints/HorizontalCenteringConstraint";
+import { PortBarVerticalConstraint } from "./constraints/PortBarVerticalConstraint";
 
 export class ConstraintApplicator {
   private static debugLeaves(layoutTree: LayoutTree, nodeId: string): void {
@@ -113,9 +114,16 @@ export class ConstraintApplicator {
         continue; // Skip applying the constraint for this edge
       }
 
-      // Apply constraint for non-root-to-root or root-to-non-root edges
-      const constraint = new VerticalOrderingConstraint(nodeId, childId);
-      constraint.apply(layoutTree);
+
+      const childLayout = layoutTree.getNodeLayout(childId);
+      if (childLayout?.portBarType) {
+        const portBarConstraint = new PortBarVerticalConstraint(nodeId, childLayout.portBarType);
+        portBarConstraint.apply(layoutTree);
+      } else {
+        // Apply constraint for non-root-to-root or root-to-non-root edges
+        const constraint = new VerticalOrderingConstraint(nodeId, childId);
+        constraint.apply(layoutTree);
+      }
 
       // Recurse down the tree
       this.applyVerticalConstraintsRecursive(childId, layoutTree, visited);

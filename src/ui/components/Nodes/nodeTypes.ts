@@ -10,6 +10,7 @@ export type TermNode = Node<
     outputPortIds: string[],
     width?: number,
     height?: number,
+    portBarType?: PortBarType
   },
   'term'>
 export type GroupedNode = Node<
@@ -24,6 +25,8 @@ export type GroupedNode = Node<
     // onSubdiagramChange?: (updatedDiagram: { nodes: Node[]; edges: Edge[] }) => void
   },
   'grouped'>
+
+export type PortBarType = 'parameter-bar' | 'result-bar'
 
 export type PropagatorNode = Node<{ label: string }, 'propagator'>
 export type PropagatorCellNode = Node<{ label: string }, 'propagator-cell'>
