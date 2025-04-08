@@ -88,27 +88,29 @@ export class LamNode implements StringNode {
   }
 }
 
+// NOTE: Parameter bars have *output* ports, while result bars have *input* ports
 export class PortBarNode implements StringNode {
   kind: 'PortBarNode' = 'PortBarNode';
   id: NodeId;
   label: string;
   private _externalInterface: PortInterface;
-  private _isInputBar: boolean;
+  private _isParameterBar: boolean;
 
-  constructor(label: string, isInputBar: boolean) {
+  constructor(label: string, isParameterBar: boolean) {
     this.id = StringDiagram.createNodeId();
     this.label = '';
-    this._isInputBar = isInputBar;
+    this._isParameterBar = isParameterBar;
 
-    this._externalInterface = StringDiagram.createPortInterface(isInputBar ? 1 : 0, isInputBar ? 0 : 1);
+    this._externalInterface = StringDiagram.createPortInterface(isParameterBar ? 0 : 1, isParameterBar ? 1 : 0);
+    console.log("PortBarNode interface:", JSON.stringify(this._externalInterface));
   }
 
   get externalInterface(): PortInterface {
     return this._externalInterface;
   }
 
-  get isInputBar(): boolean {
-    return this._isInputBar
+  get isParameterBar(): boolean {
+    return this._isParameterBar
   }
 }
 
@@ -182,6 +184,10 @@ export class StringDiagram {
   
     // 2. Defer to the low-level connect/composeInSeries
     return this.connect(otherDiagram, crossConnections);
+  }
+
+  public getNode(nodeId: NodeId): StringNode | undefined {
+    return this._nodes.get(nodeId);
   }
 
   private merge(otherDiagram: StringDiagram): StringDiagram {
@@ -286,6 +292,7 @@ export class StringDiagram {
   public static createPortInterface(inputCount: number, outputCount: number): PortInterface {
     let inputPorts = Array.from({ length: inputCount }, (_, i) => StringDiagram.createInputId());
     let outputPorts = Array.from({ length: outputCount }, (_, i) => StringDiagram.createOutputId());
+    console.log("Created port interface with input ports:", inputPorts, "and output ports:", outputPorts);
     return { inputPorts, outputPorts };
   }
 

@@ -6,6 +6,8 @@ export type TermNode = Node<
     isActiveRedex: boolean,
     outputCount: number,
     inputCount: number,
+    inputPortIds: string[],
+    outputPortIds: string[],
     width?: number,
     height?: number,
   },

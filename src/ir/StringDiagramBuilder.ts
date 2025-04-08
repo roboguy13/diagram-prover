@@ -44,11 +44,13 @@ class StringDiagramBuilder {
         // Decide how to handle: throw error or return unchanged builder?
         return this; // Returning unchanged for now
     }
+    const id = StringDiagram.createConnectionId();
     const newConnections = [...this.connections, {
-      id: StringDiagram.createConnectionId(),
+      id: id,
       source,
       target
     }];
+    console.log("Adding connection", { id, source, target });
     return new StringDiagramBuilder(this.nodes, newConnections, this.outputPortLocation, this.freeVarInputTargets, this.nestingParents);
   }
 
@@ -207,7 +209,11 @@ function termToStringDiagramBuilder(
     case 'unit':
        // Create a UnitNode
        const unitNode: UnitNode = new UnitNode('()');
-       const outputLoc: PortLocation = { type: 'NodeOutput', id: unitNode.id, portId: unitNode.externalInterface.outputPorts[0]! };
+       const portId = unitNode.externalInterface.outputPorts[0]
+       if (!portId) {
+         throw new Error("UnitNode has no output port defined.");
+       }
+       const outputLoc: PortLocation = { type: 'NodeOutput', id: unitNode.id, portId };
 
        let stringDiagramBuilder = StringDiagramBuilder.empty()
                 .addNode(unitNode)
@@ -288,9 +294,10 @@ function termToLamBuilder(
   currentNestingParentId: NodeId | null // The LamNode containing *this* LamNode (if any)
 ): StringDiagramBuilder {
   // 1. Create the LamNode and its internal PortBarNodes
-  const lamNode: LamNode = new LamNode('λ'); // The main container node
-  const paramBarNode: PortBarNode = new PortBarNode('param', false); // isInputBar = false
-  const resultBarNode: PortBarNode = new PortBarNode('result', true); // isInputBar = true
+  // const lamNode: LamNode = new LamNode('λ'); // The main container node
+  const lamNode: LamNode = new LamNode(''); // The main container node
+  const paramBarNode: PortBarNode = new PortBarNode('param', true);
+  const resultBarNode: PortBarNode = new PortBarNode('result', false);
 
   // Optional: Link IDs if you added properties to LamNode
   lamNode.parameterBarId = paramBarNode.id;
@@ -298,10 +305,14 @@ function termToLamBuilder(
 
   // 2. Define the source for the bound variable within the body
   // It now comes from the output of the parameter bar
+  const portId = paramBarNode.externalInterface.outputPorts[0];
+  if (!portId) {
+      throw new Error("Parameter bar node has no output port defined.");
+  }
   const paramSourceLocationForBody: PortLocation = {
       type: 'NodeOutput',
       id: paramBarNode.id,
-      portId: paramBarNode.externalInterface.outputPorts[0]!
+      portId
   };
   console.log("paramSourceLocationForBody (from paramBar):", paramSourceLocationForBody);
 
@@ -345,16 +356,24 @@ function termToLamBuilder(
   }
 
   // 8. Connect Result Bar Output to LamNode's Conceptual Output Target
+  const outPortId = lamNode.externalInterface.outputPorts[0];
+  if (!outPortId) {
+      throw new Error("LamNode has no output port defined.");
+  }
   const resultBarOutputSource: PortLocation = {
       type: 'NodeOutput',
       id: resultBarNode.id,
-      portId: resultBarNode.externalInterface.outputPorts[0]!
+      portId: outPortId
   };
   // This target represents the *input side* of the LamNode's *external* output port boundary
+  const externalOutPortId = lamNode.externalInterface.outputPorts[0];
+  if (!externalOutPortId) {
+      throw new Error("LamNode has no external output port defined.");
+  }
   const lamExternalOutputTarget: PortLocation = {
       type: 'NodeInput', // Connection *into* the LamNode boundary
       id: lamNode.id,
-      portId: lamNode.externalInterface.outputPorts[0]! // The ID of the external output port
+      portId: externalOutPortId
   };
   resultBuilder = resultBuilder.addConnection(resultBarOutputSource, lamExternalOutputTarget);
 
@@ -362,10 +381,14 @@ function termToLamBuilder(
   // 9. Set the Overall Output Location
   // The final output location for the *entire* lambda expression construct
   // is the *output side* of the LamNode's external boundary.
+  const finalOutputPortId = lamNode.externalInterface.outputPorts[0]
+  if (!finalOutputPortId) {
+      throw new Error("LamNode has no external output port defined.");
+  }
   const finalOutputLocation: PortLocation = {
       type: 'NodeOutput', // Connection *out of* the LamNode boundary
       id: lamNode.id,
-      portId: lamNode.externalInterface.outputPorts[0]!
+      portId: finalOutputPortId
   };
   resultBuilder = resultBuilder.withOutputLocation(finalOutputLocation);
 
@@ -491,7 +514,11 @@ function termToAppBuilder(
     }
 
     // 6. Set the final output location to the AppNode's output port
-    resultBuilder = resultBuilder.withOutputLocation({ type: 'NodeOutput', id: appNode.id, portId: appNode.externalInterface.outputPorts[0]! });
+    const outPortId = appNode.externalInterface.outputPorts[0];
+    if (!outPortId) {
+        throw new Error("AppNode has no output port defined.");
+    }
+    resultBuilder = resultBuilder.withOutputLocation({ type: 'NodeOutput', id: appNode.id, portId: outPortId });
 
     resultBuilder = new StringDiagramBuilder(
         resultBuilder.nodes,

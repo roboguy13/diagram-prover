@@ -24,6 +24,8 @@ export class LayoutTree {
 
   private _rootNodeId: string;
 
+  private _stringDiagram: StringDiagram | null = null;
+
   private _net: PropagatorNetwork<NumericRange>;
 
   private static _STANDARD_V_SPACING = 80;
@@ -172,6 +174,8 @@ export class LayoutTree {
       nodes.push(this.nodeToApplicationNode(layout.nodeId));
     });
 
+    console.log(`originalConnections: ${JSON.stringify(this._originalConnections)}`);
+
     this._originalConnections.forEach((conn: Connection) => {
       let sourceId: string | null = null;
       let targetId: string | null = null;
@@ -265,35 +269,41 @@ export class LayoutTree {
 
     const position: XYPosition = { x, y }
 
+    const nodeLayout = this.getNodeLayout(nodeId);
+    if (!nodeLayout) {
+      throw new Error(`Node layout not found for node ID: ${nodeId}`);
+    }
+    const diagramNode = this._stringDiagram!.getNode(nodeId);
+    const nodeInterface = diagramNode?.externalInterface ?? { inputPorts: [], outputPorts: [] };
+
+    const nodeData: any = {
+      label: layout.label,
+      width,
+      height,
+      isActiveRedex: false, // TODO
+      inputPortIds: nodeInterface.inputPorts,
+      outputPortIds: nodeInterface.outputPorts,
+      outputCount: nodeInterface.outputPorts.length,
+      inputCount: nodeInterface.inputPorts.length,
+    }
+
+    const commonProps = {
+      id: nodeId,
+      data: nodeData,
+      position,
+      ...(layout.nestingParentId ? { parentId: layout.nestingParentId, extent: 'parent' as const } : {}),
+    };
+
     switch (layout.kind) {
       case 'Transpose':
         return {
-          id: nodeId,
           type: 'grouped',
-          data: {
-            label: layout.label,
-            width,
-            height
-          },
-          ...(layout.nestingParentId ? { parentId: layout.nestingParentId } : {}),
-          ...(layout.nestingParentId ? { extent: 'parent' } : {}),
-          position,
+          ...commonProps,
         };
       default:
         return {
-          id: nodeId,
           type: 'term',
-          data: {
-            label: layout.label,
-            width,
-            height,
-            isActiveRedex: false,
-            outputCount: 1,
-            inputCount: this._children.get(nodeId)?.length ?? 0,
-          },
-          ...(layout.nestingParentId ? { parentId: layout.nestingParentId } : {}),
-          ...(layout.nestingParentId ? { extent: 'parent' } : {}),
-          position,
+          ...commonProps,
         };
     }
   }
@@ -374,6 +384,7 @@ export class LayoutTree {
 
     console.log("All roots found:", layoutTree.allRoots);
 
+    layoutTree._stringDiagram = diagram;
     return layoutTree;
   }
 
