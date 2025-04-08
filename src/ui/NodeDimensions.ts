@@ -22,7 +22,7 @@ export function getStringNodeDimensions(node: StringNode): Dimensions {
   if (node.kind === 'LamNode') {
     return { width: between(80, 800), height: between(80, 800) }
   } else if (node.kind === 'PortBarNode') {
-    return { width: exactly(60), height: exactly(1) }
+    return { width: exactly(60), height: exactly(10) }
   }
   return { width: exactly(30), height: exactly(30) }
 }
