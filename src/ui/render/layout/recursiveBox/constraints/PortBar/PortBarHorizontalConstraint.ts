@@ -1,3 +1,4 @@
+import { CellRef } from "../../../../../../constraint/propagator/Propagator";
 import { Constraint } from "../../Constraint";
 import { LayoutTree } from "../../LayoutTree";
 
@@ -27,5 +28,9 @@ export class PortBarHorizontalConstraint implements Constraint {
       nodeLayout.intrinsicBox.centerX,
       parentLayout.intrinsicBox.centerX,
     );
+  }
+
+  cellsToMinimize(): CellRef[] {
+    return []
   }
 }

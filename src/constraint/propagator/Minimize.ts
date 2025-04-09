@@ -16,7 +16,7 @@ const LOG_MIN_STEPS = true
 export class Minimizer {
   private _net: PropagatorNetwork<NumericRange>
   private _minimizingCells: CellRef[]
-  private readonly MIN_RANGE_SIZE = 125
+  private readonly MIN_RANGE_SIZE = 5
   private _minSteps = 0
 
   constructor(net: PropagatorNetwork<NumericRange>, minimizingCells: CellRef[]) {

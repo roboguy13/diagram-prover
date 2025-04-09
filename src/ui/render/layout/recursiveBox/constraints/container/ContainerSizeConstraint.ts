@@ -1,14 +1,15 @@
 import { layout } from "dagre";
 import { addRangePropagator, atLeast, exactly, lessThan, lessThanEqualPropagator, subtractRangePropagator } from "../../../../../../constraint/propagator/NumericRange";
-import { known, unknown } from "../../../../../../constraint/propagator/Propagator";
+import { CellRef, known, unknown } from "../../../../../../constraint/propagator/Propagator";
 import { CollectiveBoundingBox } from "../../CollectiveBoundingBox";
 import { Constraint } from "../../Constraint";
 import { LayoutTree } from "../../LayoutTree";
 import { add } from "lodash";
 
 export class ContainerSizeConstraint implements Constraint {
-  private readonly _PADDING_HORIZONTAL = 30;
-  private readonly _PADDING_VERTICAL = 30;
+  private readonly _PADDING_HORIZONTAL = 10;
+  private leftSpacingCell: CellRef | null = null
+  private rightSpacingCell: CellRef | null = null
 
   constructor(
     private _containerId: string,
@@ -95,14 +96,14 @@ export class ContainerSizeConstraint implements Constraint {
     //   collectiveBoundingBox.top,
     // );
 
-    const leftSpacingCell = layoutTree.net.newCell(
+    this.leftSpacingCell = layoutTree.net.newCell(
       `ContainerSizeConstraint: [left spacing] ${this._containerId}`,
-      known(exactly(this._PADDING_HORIZONTAL))
+      known(atLeast(this._PADDING_HORIZONTAL))
     )
 
-    const rightSpacingCell = layoutTree.net.newCell(
+    this.rightSpacingCell = layoutTree.net.newCell(
       `ContainerSizeConstraint: [right spacing] ${this._containerId}`,
-      known(exactly(this._PADDING_HORIZONTAL))
+      known(atLeast(this._PADDING_HORIZONTAL))
     )
 
     const firstNestedLayout = nestedLayouts[0];
@@ -112,7 +113,7 @@ export class ContainerSizeConstraint implements Constraint {
       layoutTree.net,
       collectiveBoundingBox.left,
       containerLayout.intrinsicBox.left,
-      leftSpacingCell
+      this.leftSpacingCell
     );
 
     subtractRangePropagator(
@@ -120,23 +121,23 @@ export class ContainerSizeConstraint implements Constraint {
       layoutTree.net,
       containerLayout.intrinsicBox.right,
       collectiveBoundingBox.right,
-      rightSpacingCell
+      this.rightSpacingCell
     );
 
     layoutTree.net.equalPropagator(
       `ContainerSizeConstraint: [equal spacing] ${this._containerId}`,
-      leftSpacingCell,
-      rightSpacingCell
+      this.leftSpacingCell,
+      this.rightSpacingCell
     );
 
     layoutTree.net.addDebugCell(
       `debug: leftSpacingCell`,
-      leftSpacingCell
+      this.leftSpacingCell
     );
 
     layoutTree.net.addDebugCell(
       `debug: rightSpacingCell`,
-      rightSpacingCell
+      this.rightSpacingCell
     );
 
 
@@ -158,5 +159,11 @@ export class ContainerSizeConstraint implements Constraint {
       `ContainerSizeConstraint: [minY] ${this._containerId}`,
       collectiveBoundingBox.top
     );
+  }
+
+  cellsToMinimize(): CellRef[] {
+    return this.leftSpacingCell
+      ? [this.leftSpacingCell]
+      : [];
   }
 }

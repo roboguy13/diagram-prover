@@ -2,21 +2,24 @@
 
 import { layout } from "dagre";
 import { LayoutTree } from "../recursiveBox/LayoutTree";
-import { exactly } from "../../../../constraint/propagator/NumericRange";
+import { exactly, getMin } from "../../../../constraint/propagator/NumericRange";
 import { known } from "../../../../constraint/propagator/Propagator";
 // Import isNodePortLocation
 import { Connection, isNodePortLocation } from "../../../../ir/StringDiagram";
 import { isNode } from "reactflow";
 import { determineLayers } from "../../../../utils/LevelOrder";
-import { Constraint } from "@lume/kiwi";
 import { NodeId } from "../../../../engine/Term";
 import { PortBarType } from "../../../components/Nodes/nodeTypes";
 import { PortBarVerticalConstraint } from "./constraints/PortBar/PortBarVerticalConstraint";
 import { PortBarHorizontalConstraint } from "./constraints/PortBar/PortBarHorizontalConstraint";
 import { ContainerSizeConstraint } from "./constraints/container/ContainerSizeConstraint";
 import { PortBarContainedConstraint } from "./constraints/container/PortBarContainedConstraint";
+import { Constraint } from "./Constraint";
+import { Minimizer } from "../../../../constraint/propagator/Minimize";
 
 export class ConstraintApplicator {
+  private _constraints: Constraint[] = [];
+
   private static debugLeaves(layoutTree: LayoutTree, nodeId: string): void {
     if (layoutTree.getChildren(nodeId).length === 0) {
       ConstraintApplicator.debugNode('leaf', layoutTree, nodeId);
@@ -66,14 +69,24 @@ export class ConstraintApplicator {
         this.containerConstraints(layoutTree, layout.nodeId, nonPortBarChildren);
       }
     }
+
+    this.performMinimization(layoutTree);
+  }
+
+  private performMinimization(layoutTree: LayoutTree): void {
+    const cellsToMinimize = this._constraints
+      .flatMap(constraint => constraint.cellsToMinimize())
+
+    const minimizer = new Minimizer(layoutTree.net, cellsToMinimize);
+    minimizer.minimize();
   }
 
   private portBarConstraints(layoutTree: LayoutTree, nodeId: string, nestingParentId: string, portBarType: PortBarType): void {
     const portBarVerticalConstraint = new PortBarVerticalConstraint(nodeId, nestingParentId, portBarType);
-    portBarVerticalConstraint.apply(layoutTree);
+    this.applyConstraint(portBarVerticalConstraint, layoutTree);
 
     const portBarHorizontalConstraint = new PortBarHorizontalConstraint(nodeId, nestingParentId);
-    portBarHorizontalConstraint.apply(layoutTree);
+    this.applyConstraint(portBarHorizontalConstraint, layoutTree);
   }
 
   private containerConstraints(layoutTree: LayoutTree, containerId: string, nestedIds: string[]): void {
@@ -81,7 +94,7 @@ export class ConstraintApplicator {
       containerId,
       nestedIds
     );
-    containerSizeConstraint.apply(layoutTree);
+    this.applyConstraint(containerSizeConstraint, layoutTree);
 
     const parameterPortBarId = layoutTree.getParameterPortBar(containerId);
     const resultPortBarId = layoutTree.getResultPortBar(containerId);
@@ -91,6 +104,11 @@ export class ConstraintApplicator {
       parameterPortBarId!,
       resultPortBarId!
     )
-    portBarContainedConstraint.apply(layoutTree)
+    this.applyConstraint(portBarContainedConstraint, layoutTree)
+  }
+
+  private applyConstraint(constraint: Constraint, layoutTree: LayoutTree): void {
+    constraint.apply(layoutTree);
+    this._constraints.push(constraint);
   }
 }

@@ -1,5 +1,5 @@
 import { addRangePropagator, exactly, lessThanEqualPropagator, subtractRangePropagator } from "../../../../../../constraint/propagator/NumericRange";
-import { known, unknown } from "../../../../../../constraint/propagator/Propagator";
+import { CellRef, known, unknown } from "../../../../../../constraint/propagator/Propagator";
 import { PortBarType } from "../../../../../components/Nodes/nodeTypes";
 import { Constraint } from "../../Constraint";
 import { LayoutTree } from "../../LayoutTree";
@@ -81,5 +81,9 @@ export class PortBarVerticalConstraint implements Constraint {
         parentLayout.intrinsicBox.bottom,
       );
     }
+  }
+
+  cellsToMinimize(): CellRef[] {
+    return []
   }
 }

@@ -1,5 +1,5 @@
 import { addRangePropagator, exactly, lessThanEqualPropagator, subtractRangePropagator } from "../../../../../../constraint/propagator/NumericRange";
-import { known, unknown } from "../../../../../../constraint/propagator/Propagator";
+import { CellRef, known, unknown } from "../../../../../../constraint/propagator/Propagator";
 import { CollectiveBoundingBox } from "../../CollectiveBoundingBox";
 import { Constraint } from "../../Constraint";
 import { LayoutTree } from "../../LayoutTree";
@@ -83,5 +83,9 @@ export class PortBarContainedConstraint implements Constraint {
       bottomWithPadding,
       collectiveBoundingBox.top,
     );
+  }
+
+  cellsToMinimize(): CellRef[] {
+    return []
   }
 }
