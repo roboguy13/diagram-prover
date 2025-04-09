@@ -42,7 +42,7 @@ export function mkTermNode(
     return (
         <div
             className={`term-node ${selected ? 'selected' : ''} ${data.isActiveRedex ? 'redex' : ''}`}
-            style={{ width: data.width, height: data.height, ...(portBarType === 'parameter-bar' ? { background: 'red' } : {}) }}
+            style={{ width: data.width, height: data.height, }}
         >
             {data.label}
             {/* Render the handles */}

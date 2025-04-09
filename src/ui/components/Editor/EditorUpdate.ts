@@ -82,6 +82,10 @@ function nodePositionChange(model: Model, change: NodePositionChange): Model {
     node = model.outputBar
   }
 
+  if (node?.data && 'portBarType' in node.data && node.data.portBarType) {
+    return model
+  }
+
   if (node && change.position
       && change.position.x === change.position.x && change.position.y === change.position.y) { // To avoid NaNs
     const updatedNode = { ...node, position: change.position };
@@ -95,6 +99,10 @@ function nodeSelectionChange(model: Model, change: NodeSelectionChange): Model {
   const node = model.graph?.nodes.get(change.id);
 
   if (node) {
+    if (node?.data && 'portBarType' in node.data && node.data.portBarType) {
+      return model
+    }
+
     const updatedNode = { ...node, selected: change.selected };
     return setNode(model, updatedNode);
   }

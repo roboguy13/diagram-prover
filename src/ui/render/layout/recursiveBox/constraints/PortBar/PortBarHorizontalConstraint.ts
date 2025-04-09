@@ -24,8 +24,8 @@ export class PortBarHorizontalConstraint implements Constraint {
 
     layoutTree.net.equalPropagator(
       `PortBarHorizontalConstraint: [left] ${this._nodeId}`,
-      nodeLayout.intrinsicBox.left,
-      parentLayout.intrinsicBox.left,
+      nodeLayout.intrinsicBox.centerX,
+      parentLayout.intrinsicBox.centerX,
     );
   }
 }

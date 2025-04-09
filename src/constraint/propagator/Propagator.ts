@@ -420,6 +420,7 @@ export class PropagatorNetwork<A> {
 
   foldLeftPropagator(writer: string, opName: string, inputs: CellRef[], output: CellRef, f: (a: CellRef, b: CellRef, result: CellRef) => void): void {
     if (inputs.length === 1) {
+      console.log(`foldLeftPropagator: single input case: (${this._cells[output]!.description}) = (${this._cells[inputs[0]!]!.description})`)
       equalPropagator(
         `${writer}-single-input`,
         this._cells[inputs[0]!]!, // input cell
