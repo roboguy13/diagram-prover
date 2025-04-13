@@ -152,6 +152,13 @@ export function hasAllIds(t: Term): boolean {
   }
 }
 
+export class FreshNameGenerator {
+  private static _counter = 0;
+  public static freshName(): string {
+    return `fv-${FreshNameGenerator._counter++}`;
+  }
+}
+
 // A simple example term
 export let idTerm = (ty: Type): Term =>
   lamTerm(ty, boundVarTerm(0));

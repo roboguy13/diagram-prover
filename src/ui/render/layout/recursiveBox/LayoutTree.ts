@@ -13,7 +13,7 @@ import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { PropagatorNetworkToJson } from "../../../../constraint/propagator/PropagatorToJson";
 import { inputHandleName, outputHandleName } from "../../../NodeUtils";
 import { layout } from "dagre";
-import { Connection, isNodePortLocation, PortBarNode, StringDiagram } from "../../../../ir/StringDiagram";
+import { Connection, StringDiagram } from "../../../../ir/StringDiagram";
 import { Graph, spanningForest } from "../../../../utils/SpanningForest";
 import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedHierarchy";
 

@@ -5,7 +5,7 @@ import { LayoutTree } from "../recursiveBox/LayoutTree";
 import { exactly, getMin } from "../../../../constraint/propagator/NumericRange";
 import { known } from "../../../../constraint/propagator/Propagator";
 // Import isNodePortLocation
-import { Connection, isNodePortLocation } from "../../../../ir/StringDiagram";
+import { Connection } from "../../../../ir/StringDiagram";
 import { isNode } from "reactflow";
 import { determineLayers } from "../../../../utils/LevelOrder";
 import { NodeId } from "../../../../engine/Term";

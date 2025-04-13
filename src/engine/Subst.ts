@@ -1,9 +1,19 @@
-import { boundVarTerm, Term, VarTerm } from './Term'
+import { boundVarTerm, freeVarTerm, FreshNameGenerator, Term, VarTerm } from './Term'
 
 type IndexRenaming = (x: number) => number
 type Subst = (x: number) => Term
 
 type Renamer = (v: VarTerm) => VarTerm
+
+export function open(term: Term): { newName: string, term: Term } {
+  const newName = FreshNameGenerator.freshName()
+  const v = freeVarTerm(newName)
+
+  return {
+    newName,
+    term: subst1(term, v)
+  }
+}
 
 export function subst1(term: Term, u: Term): Term {
   return subst(function(x: number): Term {
