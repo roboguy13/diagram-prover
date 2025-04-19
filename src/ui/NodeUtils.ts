@@ -10,3 +10,7 @@ export function inputHandleName(i: number): string {
 export function outputHandleName(i: number): string {
   return `bottom-${i}`;
 }
+
+export function boundVarHandleName(i: number): string {
+  return `bound-var-${i}`;
+}

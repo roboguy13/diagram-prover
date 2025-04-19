@@ -3,7 +3,7 @@ import { Conflict, PropagatorNetwork } from "../../../constraint/propagator/Prop
 import { conflictToElkNode } from "../../../constraint/propagator/PropagatorToElk";
 import { Term } from "../../../engine/Term";
 import { termToSemanticNode } from "../../../ir/SemanticGraph";
-import { termToStringDiagram } from "../../../ir/StringDiagramBuilder";
+import { termToStringDiagram } from "../../../ir/TermToDiagram";
 import { getNextChangedId, Model } from "../../architecture/Model";
 import { elk } from "./elk/ElkEngine";
 import { elkToReactFlow } from "./elk/ElkToReactFlow";

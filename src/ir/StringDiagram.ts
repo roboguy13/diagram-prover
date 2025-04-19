@@ -1,382 +1,241 @@
 import { inputHandleName, outputHandleName } from "../ui/NodeUtils";
 
 export type PortId = string;
+export type WireId = string;
 export type NodeId = string;
 
-export type PortLocation =
-| { type: 'PortLocation', id: NodeId, portId: PortId }
-
-export type PortInterface = {
-  inputPorts: PortId[];
-  outputPorts: PortId[];
-}
-
-export type LocatedPortInterface = {
-  inputPorts: PortLocation[];
-  outputPorts: PortLocation[];
-}
-
-export type Connection = {
-  id: string;
-  source: PortLocation;
-  target: PortLocation;
-}
-
-export abstract class StringNode {
-  abstract get portInterface(): PortInterface;
-  abstract get nodeId(): NodeId;
-  abstract get label(): string;
-
-  protected abstract get diagram(): StringDiagram;
-
-  nestInNode(nestingParentId: string): void {
-    this.diagram.setNestedParentId({ childId: this.nodeId, parentId: nestingParentId });
-  }
-
-  connectToInput(otherOutputPort: PortLocation, whichInput: number): void {
-    if (whichInput < 0 || whichInput >= this.portInterface.inputPorts.length) {
-      throw new Error(`Invalid input port index: ${whichInput}`);
-    }
-
-    const inputPort: PortLocation = { type: 'PortLocation', id: this.nodeId, portId: this.portInterface.inputPorts[whichInput]! };
-
-    this.diagram.addConnection({
-      source: otherOutputPort,
-      target: inputPort
-    });
-  }
-}
-
-export class UnitNode extends StringNode {
-  portInterface: PortInterface;
+export type PortRef = {
   nodeId: NodeId;
-  diagram: StringDiagram;
-  readonly label: string = '()'
-
-  constructor(diagram: StringDiagram, nodeId: NodeId) {
-    super()
-    this.portInterface = StringDiagram.makePortInterface({ inputCount: 0, outputCount: 1 });
-    this.diagram = diagram;
-
-    this.nodeId = nodeId;
-  }
+  portId: PortId;
 }
 
-export class AppNode extends StringNode {
-  portInterface: PortInterface;
+export type Wire = {
+  id: WireId;
+  from: PortRef;
+  to: PortRef;
+}
+
+export type NodeKind = 'app' | 'lam' | 'pi' | 'unit' | 'portBar';
+
+export interface DiagramNode {
+  kind: 'SimpleNode' | 'NestedNode';
   nodeId: NodeId;
-  diagram: StringDiagram;
-  readonly label: string = '@';
-
-  constructor(diagram: StringDiagram, nodeId: NodeId) {
-    super()
-    this.portInterface = StringDiagram.makePortInterface({ inputCount: 2, outputCount: 1 });
-    this.diagram = diagram;
-
-    this.nodeId = nodeId
-  }
+  nodeKind: NodeKind;
+  ports: PortSpec[];
 }
 
-export class BindingNode extends StringNode {
-  portInterface: PortInterface
+export interface SimpleNode extends DiagramNode {
+  kind: 'SimpleNode';
+  nodeKind: NodeKind;
+  ports: PortSpec[];
+}
+
+export interface NestedNode extends DiagramNode {
+  kind: 'NestedNode';
   nodeId: NodeId;
-  diagram: StringDiagram;
-  nestedDiagram: StringDiagram;
-  boundVars: PortLocation[];
-  readonly label: string = '';
+  ports: PortSpec[];
 
-  constructor(diagram: StringDiagram, nodeId: NodeId, nestedDiagram: StringDiagram, boundVars: PortLocation[]) {
-    super()
-
-    this.portInterface = StringDiagram.makePortInterface({
-      inputCount: boundVars.length,
-      outputCount: 1
-    });
-
-    this.boundVars = boundVars;
-
-    this.diagram = diagram;
-    this.nestedDiagram = nestedDiagram;
-
-    this.nodeId = nodeId;
-  }
-
-  get freeVars(): PortLocation[] {
-    return this.nestedDiagram.externalInterface.inputPorts.filter(portLoc => (
-      !this.boundVars.some(boundVar => boundVar.id === portLoc.id && boundVar.portId === portLoc.portId)
-    ));
-
-  }
+  inner: Diagram
 }
 
-export class LamNode extends StringNode {
-  portInterface: PortInterface;
-  nodeId: NodeId;
-  diagram: StringDiagram;
-  bindingNode: BindingNode;
-  readonly label: string = '';
+export type PortDirection = 'input' | 'output' | 'bidirectional';
 
-  constructor(diagram: StringDiagram, nodeId: NodeId, bindingNode: BindingNode, boundVars: PortLocation[]) {
-    super()
-
-    this.bindingNode = bindingNode;
-
-    const freeVars = bindingNode.freeVars;
-
-    this.portInterface = StringDiagram.makePortInterface({
-      inputCount: freeVars.length,
-      outputCount: 1
-    });
-
-    this.nodeId = nodeId
-    this.diagram = diagram;
-  }
+export type PortSpec = {
+  id: PortId;
+  direction: PortDirection;
+  /** If this port is merely exposing a deeper port, point to it */
+  inner?: { node: NodeId; port: PortId };
 }
 
-/**
- * This class maps free variables to port locations
- */
-export class InputUsageMap {
-  private _map: Map<string, PortLocation[]> = new Map();
-
-  addUsage(varId: string, portLocation: PortLocation): void {
-    if (!this._map.has(varId)) {
-      this._map.set(varId, []);
-    }
-    this._map.get(varId)!.push(portLocation);
-  }
-
-  getUsages(varId: string): PortLocation[] {
-    const locs = this._map.get(varId);
-
-    if (!locs) {
-      return []
-    }
-
-    return locs
-  }
-
-  getFreeVars(): string[] {
-    return Array.from(this._map.keys());
-  }
+export interface Diagram {
+  kind: 'Diagram';
+  nodes: DiagramNode[];
+  wires: Wire[];
 }
 
-export class StringDiagram {
-  private _connections: Connection[] = [];
-  private _nodes: Map<NodeId, StringNode> = new Map();
-  private _nestedParentIds: Map<NodeId, NodeId> = new Map();
-  private _inputUsageMap: InputUsageMap = new InputUsageMap();
+export type Box = {
+  diagram: Diagram;
+  output: PortRef;
+}
 
-  private static _uniqueId = 0;
+export class DiagramBuilder {
+  private static uniqueId = 0;
+  private _nodes: Map<NodeId, DiagramNode> = new Map();
+  private _wires: Map<WireId, Wire> = new Map();
 
-  addNode(nodeId: NodeId, node: StringNode): void {
-    this._nodes.set(nodeId, node);
-  }
-
-  addConnection(rec: { source: PortLocation, target: PortLocation }): string {
-    const connection: Connection = {
-      id: StringDiagram.newConnectionId(),
-      source: rec.source,
-      target: rec.target
-    };
-    this._connections.push(connection);
-    return connection.id;
-  }
-
-  addDiagram(diagram: StringDiagram): void {
-    for (const [nodeId, node] of diagram.nodes.entries()) {
-      this.addNode(nodeId, node);
-    }
-
-    for (const connection of diagram.connections) {
-      this.addConnection(connection);
-    }
-
-    for (const [nodeId, parentId] of diagram._nestedParentIds.entries()) {
-      this.setNestedParentId({ childId: nodeId, parentId });
-    }
-  }
-
-  get nodes(): Map<NodeId, StringNode> {
+  protected get nodes(): Map<NodeId, DiagramNode> {
     return this._nodes;
   }
 
-  get connections(): Connection[] {
-    return this._connections;
+  protected static generateId(prefix: string): string {
+    return `${prefix}-${this.uniqueId++}`;
   }
 
-  lookupNode(nodeId: NodeId): StringNode {
-    const node = this._nodes.get(nodeId);
-    if (!node) {
-      throw new Error(`Node with id ${nodeId} not found`);
-    }
-    return node;
+  constructor(builder: DiagramBuilder | null = null) {
+    this._nodes = builder?._nodes || new Map();
+    this._wires = builder?._wires || new Map();
   }
 
-  getNestedParentId(nodeId: NodeId): NodeId | undefined {
-    return this._nestedParentIds.get(nodeId);
+  app(f: PortRef, arg: PortRef): PortRef {
+    const appId = DiagramBuilder.generateId('app');
+
+    const inPortF = { nodeId: appId, portId: inputHandleName(0) };
+    const inPortArg = { nodeId: appId, portId: inputHandleName(1) };
+    const outPort = { nodeId: appId, portId: outputHandleName(0) };
+
+    const appNode: SimpleNode = {
+      kind: 'SimpleNode',
+      nodeId: appId,
+      nodeKind: 'app',
+      ports: [
+        { id: inPortF.portId, direction: 'input' },
+        { id: inPortArg.portId, direction: 'input' },
+        { id: outPort.portId, direction: 'output' }
+      ]
+    };
+
+    this._nodes.set(appId, appNode);
+    this.wire(f, inPortF);
+    this.wire(arg, inPortArg);
+
+    return outPort;
   }
 
-  setNestedParentId(rec: { childId: NodeId, parentId: NodeId }): void {
-    this._nestedParentIds.set(rec.childId, rec.parentId);
+  unit(): PortRef {
+    const unitId = DiagramBuilder.generateId('unit');
+
+    const outPort = { nodeId: unitId, portId: outputHandleName(0) };
+
+    const unitNode: SimpleNode = {
+      kind: 'SimpleNode',
+      nodeId: unitId,
+      nodeKind: 'unit',
+      ports: [
+        { id: outPort.portId, direction: 'output' }
+      ]
+    };
+
+    this._nodes.set(unitId, unitNode);
+
+    return outPort;
   }
 
-  connectToFreeVar(nodeId: NodeId, varId: string, whichInput: number): void {
-    const node = this.lookupNode(nodeId) as StringNode;
+  lam(paramCount: number,
+    body: (inner: DiagramBuilder, params: PortRef[]) => PortRef
+  ): PortRef {
+    const lamId = DiagramBuilder.generateId('lam');
 
-    const usages: PortLocation[] = this._inputUsageMap.getUsages(varId);
+    /* create parameter *bridge* ports on the λ‑node itself */
+    const paramPorts = Array.from({ length: paramCount }, (_, i) => ({
+      nodeId: lamId,
+      portId: inputHandleName(i)
+    }));
 
-    if (usages.length === 0) {
-      throw new Error(`No usages found for variable ${varId}`);
-    }
+    /* build the nested body diagram */
+    const inner = new DiagramBuilder();
+    const bodyRef = body(inner, paramPorts);
+    const bodyDia = inner.finish();
 
-    if (whichInput < 0 || whichInput >= node.portInterface.inputPorts.length) {
-      throw new Error(`Invalid input port index: ${whichInput}`);
-    }
+    const resultPort = { nodeId: lamId, portId: outputHandleName(0) };
 
-    for (const usage of usages) {
-      node.connectToInput(usage, whichInput);
-    }
+    const lamNode: NestedNode = {
+      kind: 'NestedNode',
+      nodeId: lamId,
+      nodeKind: 'lam',
+      ports: [
+        // bound‑variable ports
+        ...paramPorts.map((p, i) => ({
+          id: p.portId,
+          direction: 'input' as const,
+          inner: { node: bodyRef.nodeId, port: bodyRef.portId }, // bridge
+        })),
+        // result port
+        { id: resultPort.portId, direction: 'output' }
+      ],
+      inner: bodyDia
+    };
+
+    this._nodes.set(lamId, lamNode);
+
+    return resultPort;
   }
 
-  get externalInterface(): LocatedPortInterface {
-    const inputPorts: PortLocation[] = [];
-    const outputPorts: PortLocation[] = [];
-
-    // TODO: Get this to be the correct order?
-    for (const node of this._nodes.values()) {
-      const interfaceRec = node.portInterface;
-
-      const inputPortLocations = this._inputUsageMap.getFreeVars().map(varId => {
-        const portId = interfaceRec.inputPorts[0]!;
-        return {
-          type: 'PortLocation' as const,
-          id: node.nodeId,
-          portId
-        };
-      });
-
-      const outputPortLocations = interfaceRec.outputPorts.map(portId => ({
-        type: 'PortLocation' as const,
-        id: node.nodeId,
-        portId
-      }));
-
-      inputPorts.push(...inputPortLocations);
-      outputPorts.push(...outputPortLocations);
-    }
-
+  finish(): Diagram {
     return {
-      inputPorts,
-      outputPorts,
+      kind: 'Diagram',
+      nodes: Array.from(this._nodes.values()),
+      wires: Array.from(this._wires.values())
     };
   }
 
-  static makePortInterface(rec: { inputCount: number, outputCount: number }): PortInterface {
-    return {
-      inputPorts: Array.from({ length: rec.inputCount }, (_, i) => `${inputHandleName(i)}`),
-      outputPorts: Array.from({ length: rec.outputCount }, (_, i) => `${outputHandleName(i)}`)
-    }
-  }
+  private wire(from: PortRef, to: PortRef): void {
+    const wireId = `${from.nodeId}-${from.portId}-${to.nodeId}-${to.portId}`;
+    const wire: Wire = {
+      id: wireId,
+      from,
+      to
+    };
 
-  private static newConnectionId(): string {
-    return `conn-${StringDiagram._uniqueId++}`;
-  }
-
-  static newNodeId(): string {
-    return `node-${StringDiagram._uniqueId++}`;
+    this._wires.set(wireId, wire);
   }
 }
 
-export class StringDiagramBuilder {
-  private _diagram: StringDiagram;
+export class OpenDiagram implements Diagram {
+  kind: 'Diagram' = 'Diagram';
+  nodes: DiagramNode[];
+  wires: Wire[];
 
-  constructor() {
-    this._diagram = new StringDiagram();
+  private _freeVars: Map<string, PortRef>;
+
+  constructor(diagram: Diagram, freeVars: Map<string, PortRef>) {
+    this.nodes = diagram.nodes;
+    this.wires = diagram.wires;
+    this._freeVars = freeVars;
   }
 
-  addUnitNode(): NodeId {
-    const nodeId = StringDiagram.newNodeId();
-    const node = new UnitNode(this._diagram, nodeId);
-    this._diagram.addNode(nodeId, node);
-    return nodeId
+  public get freeVars(): Map<string, PortRef> {
+    return this._freeVars;
+  }
+}
+
+export class OpenDiagramBuilder extends DiagramBuilder {
+  private _freeVars: Map<string, PortRef>;
+  private readonly _portBarId: NodeId;
+
+  constructor(builder: DiagramBuilder = new DiagramBuilder(), freeVars: Map<string, PortRef> = new Map(), portBarId: NodeId = DiagramBuilder.generateId('portBar')) {
+    super(builder);
+    this._freeVars = freeVars;
+    this._portBarId = portBarId;
   }
 
-  addAppNode(): NodeId {
-    const nodeId = StringDiagram.newNodeId();
-    const node = new AppNode(this._diagram, nodeId);
-    this._diagram.addNode(nodeId, node);
-    return nodeId;
-  }
-
-  addLamNode(nestedDiagram: StringDiagram, boundVars: PortLocation[]): NodeId {
-    const nodeId = StringDiagram.newNodeId();
-    const bindingNodeId = this.addBindingNode(nestedDiagram, boundVars);
-    const bindingNode = this._diagram.lookupNode(bindingNodeId) as BindingNode;
-    const node = new LamNode(this._diagram, nodeId, bindingNode, boundVars);
-
-    this._diagram.addNode(nodeId, node);
-    this._diagram.setNestedParentId({ parentId: nodeId, childId: bindingNode.nodeId });
-
-    return nodeId;
-  }
-
-  private addBindingNode(nestedDiagram: StringDiagram, boundVars: PortLocation[]): NodeId {
-    const nodeId = StringDiagram.newNodeId();
-    const node = new BindingNode(this._diagram, nodeId, nestedDiagram, boundVars);
-
-    this._diagram.addNode(nodeId, node);
-
-    this._diagram.addDiagram(nestedDiagram);
-
-    for (const [_nestedNodeId, nestedNode] of nestedDiagram.nodes.entries()) {
-      nestedNode.nestInNode(nodeId);
+  freeVar(name: string): PortRef {
+    const cached = this.freeVars.get(name);
+    if (cached) {
+      return cached;
     }
 
-    for (let i = 0; i < boundVars.length; i++) {
-      const boundVar = boundVars[i]!;
+    const barNode = this.nodes.get(this['portBarId']) as SimpleNode;
+    const portId = outputHandleName(barNode.ports.length);
 
-      this._diagram.addConnection({
-        source: { type: 'PortLocation', id: nodeId, portId: node.portInterface.outputPorts[i]! },
-        target: boundVar,
-      });
-    }
-
-    this._diagram.addConnection({
-      source: { type: 'PortLocation', id: nodeId, portId: node.portInterface.outputPorts[0]! },
-      target: { type: 'PortLocation', id: nestedDiagram.externalInterface.inputPorts[0]!.id, portId: nestedDiagram.externalInterface.inputPorts[0]!.portId }
+    barNode.ports.push({
+      id: portId,
+      direction: 'output',
     });
 
-    return nodeId;
+    const ref = { nodeId: barNode.nodeId, portId };
+    this.freeVars.set(name, ref);
+    return ref;
   }
 
-  get diagram(): StringDiagram {
-    return this.diagram;
-  }
-}
-
-export class ExprDiagramBuilder {
-  private _builder: StringDiagramBuilder;
-
-  constructor() {
-    this._builder = new StringDiagramBuilder()
+  public get freeVars(): Map<string, PortRef> {
+    return this._freeVars;
   }
 
-  get diagram(): StringDiagram {
-    return this._builder.diagram;
+  public override finish(): OpenDiagram {
+    return new OpenDiagram(super.finish(), this._freeVars);
   }
 
-  public unit(): LocatedPortInterface {
-    this._builder.addUnitNode();
-    return this._builder.diagram.externalInterface;
-  }
-
-  public app(f: LocatedPortInterface, arg: LocatedPortInterface): LocatedPortInterface {
-  }
-
-  public lam(body: LocatedPortInterface, boundVars: LocatedPortLocation[]): LocatedPortInterface {
-  }
-
-  public var(varId: string): LocatedPortInterface {
+  public get portBarId(): NodeId {
+    return this._portBarId;
   }
 }
