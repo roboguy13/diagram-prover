@@ -50,12 +50,12 @@ class TermDiagramBuilder {
     return this._builder.unit();
   }
 
-  private buildLam(term: Term, env: PortRef[]): PortRef {
+  private buildLam(term: Term): PortRef {
     const { paramCount, body } = TermDiagramBuilder.collectLamParameters(term);
 
     return this._builder.lam(paramCount, (builder: DiagramBuilder, params: PortRef[]): PortRef => {
       const innerBuilder = new OpenDiagramBuilder(builder, this._builder.freeVars, this._builder.portBarId);
-      const newBuilder = new TermDiagramBuilder(innerBuilder, [...params, ...env]);
+      const newBuilder = new TermDiagramBuilder(innerBuilder, [...params, ...this._env]);
       return newBuilder.build(body);
     })
   }
