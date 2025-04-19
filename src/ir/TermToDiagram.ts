@@ -2,27 +2,29 @@ import { Term, VarTerm, LamTerm, AppTerm, Type, Context as TermContext } from ".
 import { Diagram, DiagramBuilder, OpenDiagram, OpenDiagramBuilder, PortRef } from "./StringDiagram";
 
 export function termToStringDiagram(term: Term): OpenDiagram {
-  const builder = new TermDiagramBuilder();
-  builder.build(term, []);
+  const builder = new TermDiagramBuilder(new OpenDiagramBuilder(), []);
+  builder.build(term);
   return builder.finish()
 }
 
 class TermDiagramBuilder {
   private _builder: OpenDiagramBuilder;
+  private _env: PortRef[];
 
-  constructor(builder: OpenDiagramBuilder = new OpenDiagramBuilder()) {
+  constructor(builder: OpenDiagramBuilder, env: PortRef[]) {
     this._builder = builder;
+    this._env = env
   }
 
-  public build(term: Term, env: PortRef[]): PortRef {
+  public build(term: Term): PortRef {
     switch (term.type) {
       case 'Var':
-        return this.buildVar(term, env);
+        return this.buildVar(term);
       case 'Lam':
         return this.buildLam(term.body);
       case 'App':
-        const func = this.build(term.func, env);
-        const arg = this.build(term.arg, env);
+        const func = this.build(term.func);
+        const arg = this.build(term.arg);
         return this.buildApp(func, arg);
       case 'unit':
         return this.buildUnit();
@@ -31,9 +33,9 @@ class TermDiagramBuilder {
     }
   }
 
-  private buildVar(term: VarTerm, env: PortRef[]): PortRef {
+  private buildVar(term: VarTerm): PortRef {
     if (term.kind === 'BoundVar') {
-      const ref = env[term.index]
+      const ref = this._env[term.index]
       if (!ref) {
         throw new Error(`No variable found at index ${term.index}`);
       }
@@ -48,12 +50,13 @@ class TermDiagramBuilder {
     return this._builder.unit();
   }
 
-  private buildLam(term: Term): PortRef {
+  private buildLam(term: Term, env: PortRef[]): PortRef {
     const { paramCount, body } = TermDiagramBuilder.collectLamParameters(term);
 
     return this._builder.lam(paramCount, (builder: DiagramBuilder, params: PortRef[]): PortRef => {
-      const newBuilder = new TermDiagramBuilder(new OpenDiagramBuilder(builder, this._builder.freeVars, this._builder.portBarId));
-      return newBuilder.build(body, params);
+      const innerBuilder = new OpenDiagramBuilder(builder, this._builder.freeVars, this._builder.portBarId);
+      const newBuilder = new TermDiagramBuilder(innerBuilder, [...params, ...env]);
+      return newBuilder.build(body);
     })
   }
 
