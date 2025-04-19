@@ -15,7 +15,7 @@ import { inputHandleName, outputHandleName } from "../../../NodeUtils";
 import { layout } from "dagre";
 import { Graph, GraphEdge, spanningForest } from "../../../../utils/SpanningForest";
 import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedHierarchy";
-import { DiagramNodeKind, NodeKind, OpenDiagram, Wire } from "../../../../ir/StringDiagram";
+import { DiagramNodeKind, NodeId, NodeKind, OpenDiagram, Wire } from "../../../../ir/StringDiagram";
 
 // class PortBarLayouts {
 //   constructor(
@@ -31,8 +31,6 @@ export class LayoutTree {
 
   private _nestingNodeParameterPortBar: Map<string, string> = new Map()
   private _nestingNodeResultPortBar: Map<string, string> = new Map()
-
-  private _rootNodeId: string;
 
   private _stringDiagram: OpenDiagram | null = null;
 
@@ -51,9 +49,9 @@ export class LayoutTree {
   private _standardVNestingSpacing: CellRef;
 
   private _originalConnections: Wire[];
-  private _allRoots: string[] | null = null;
+  private _pinnedNodeId: NodeId | null = null;
 
-  constructor(net: PropagatorNetwork<NumericRange>, originalConnections: Wire[], allRoots: string[], rootNodeId: string, rootDims: Dimensions, rootLabel: string, rootKind: DiagramNodeKind) {
+  constructor(net: PropagatorNetwork<NumericRange>, originalConnections: Wire[]) {
     this._net = net;
 
     // this._allRoots = allRoots;
@@ -66,36 +64,6 @@ export class LayoutTree {
     this._standardHNestingSpacing = net.newCell(`standardHNestingSpacing`, known(exactly(LayoutTree._STANDARD_H_NESTING_SPACING)));
     this._standardVNestingSpacing = net.newCell(`standardVNestingSpacing`, known(exactly(LayoutTree._STANDARD_V_NESTING_SPACING)));
 
-    this._rootNodeId = rootNodeId
-
-    this._nodeLayouts.set(rootNodeId, {
-      nodeId: rootNodeId,
-      nestingParentId: null,
-      intrinsicBox: SimpleBoundingBox.create(
-        net,
-        'intrinsic',
-        rootNodeId,
-        net.newCell(`intrinsic minX [node ${rootNodeId}]`, known(exactly(0))),
-        net.newCell(`intrinsic minY [node ${rootNodeId}]`, known(exactly(0))),
-        net.newCell(`intrinsic width [node ${rootNodeId}]`, known(rootDims.width)),
-        net.newCell(`intrinsic height [node ${rootNodeId}]`, known(rootDims.height))
-      ),
-      subtreeExtentBox: SimpleBoundingBox.create(
-        net,
-        'subtree extent',
-        rootNodeId,
-        net.newCell(`subtree extent minX [node ${rootNodeId}]`, unknown()),
-        net.newCell(`subtree extent minY [node ${rootNodeId}]`, unknown()),
-        net.newCell(`subtree extent width [node ${rootNodeId}]`, unknown()),
-        net.newCell(`subtree extent height [node ${rootNodeId}]`, unknown())
-      ),
-      // subtreeExtentBox: BoundingBox.createNew(net, 'subtree extent', root.id),
-      position: null,
-      kind: rootKind,
-      label: rootLabel ?? '',
-      portBarType: null,
-    });
-
     // this._net.writeCell(
     //   { description: `intrinsicBox.minY [node ${rootNodeId}]`, inputs: [], outputs: [this._nodeLayouts.get(rootNodeId)!.intrinsicBox.bottom] },
     //   this._nodeLayouts.get(rootNodeId)!.intrinsicBox.bottom,
@@ -103,9 +71,9 @@ export class LayoutTree {
     // )
   }
 
-  get rootNodeId(): string {
-    return this._rootNodeId;
-  }
+  // get rootNodeId(): string {
+  //   return this._rootNodeId;
+  // }
 
   get net(): PropagatorNetwork<NumericRange> {
     return this._net;
@@ -132,10 +100,6 @@ export class LayoutTree {
   }
 
   addNodeLayout(layout: NodeLayout): void {
-    if (layout.nodeId === this._rootNodeId) {
-      throw new Error("Cannot add layout for root node");
-    }
-
     this._nodeLayouts.set(layout.nodeId, layout);
   }
 
@@ -206,16 +170,6 @@ export class LayoutTree {
         processNode(childId);
       }
     };
-
-    const roots = this.allRoots;
-    console.log("Processing nodes starting from roots:", roots);
-    if (!roots || roots.length === 0) {
-        console.error("No roots found in layout hierarchy! Cannot guarantee correct node order.");
-    } else {
-        for (const rootId of roots) {
-          processNode(rootId);
-        }
-    }
 
     this._nodeLayouts.forEach((layout) => {
         if (!visited.has(layout.nodeId)) {
@@ -418,6 +372,34 @@ export class LayoutTree {
     return this._nestingNodeResultPortBar.get(nodeId) ?? null;
   }
 
+  private pinNode(nodeId: string, portBarType: PortBarType): void {
+    const layout = this.getNodeLayout(nodeId);
+    if (layout) {
+      this.net.writeCell(
+        { description: `pinNode [node ${nodeId}]`, inputs: [], outputs: [layout.intrinsicBox.left] },
+        layout.intrinsicBox.left,
+        known(exactly(0))
+      );
+
+      this.net.writeCell(
+        { description: `pinNode [node ${nodeId}]`, inputs: [], outputs: [layout.intrinsicBox.top] },
+        layout.intrinsicBox.top,
+        known(exactly(0))
+      );
+    } else {
+      console.warn(`LayoutTree.pinNode: Layout not found for node ${nodeId}`);
+    }
+  }
+
+  private pinFirstUnnested(): void {
+    for (const [nodeId, layout] of this._nodeLayouts.entries()) {
+      if (layout.nestingParentId === null) {
+        this.pinNode(nodeId, layout.portBarType!);
+        return
+      }
+    }
+  }
+
   static buildFromStringDiagram(net: PropagatorNetwork<NumericRange>, diagram: OpenDiagram): LayoutTree {
     console.log("Building layout tree from string diagram...")
     console.log("Diagram:", diagram);
@@ -425,17 +407,8 @@ export class LayoutTree {
     const allNodeIds = Array.from(diagram.nodes.keys());
     if (allNodeIds.length === 0) { throw new Error("No nodes in diagram"); }
     allNodeIds.sort(); // Sort alphabetically
-    let firstNodeId = allNodeIds[0]!; // Pick the first one
 
-    if (!firstNodeId) {
-      throw new Error("No nodes in diagram"); // TODO: Handle this case
-    }
-
-    console.log("First node ID:", firstNodeId);
-
-    let firstNode = diagram.nodes.get(firstNodeId)!
-
-    const layoutTree = new LayoutTree(net, Array.from(diagram.wires.values()), [], firstNodeId, getStringNodeDimensions(firstNode), firstNode.label ?? '', firstNode.kind);
+    const layoutTree = new LayoutTree(net, Array.from(diagram.wires.values()))
 
     const nodeIds = Array.from(diagram.nodes.keys()); // TODO: Do I want to skip the first node here?
 
@@ -467,16 +440,16 @@ export class LayoutTree {
         portBarType: portBarType ?? null,
       }
 
-      if (nodeId !== firstNodeId) {
+      // if (nodeId !== layout._pinnedNodeId) {
         layoutTree.addNodeLayout(nodeLayout);
-      } else if (nestingParentId) {
+      // } else if (nestingParentId) {
+      // }
+
+      if (nestingParentId) {
         const layout = layoutTree.getNodeLayout(nodeId);
         if (layout) {
           layout.nestingParentId = nestingParentId
         }
-      }
-
-      if (nestingParentId) {
         layoutTree.addNestingChild(nestingParentId, nodeId);
       }
 
@@ -514,11 +487,9 @@ export class LayoutTree {
 
     console.log("All roots found:", allRoots);
 
-    return layoutTree;
-  }
+    layoutTree.pinFirstUnnested();
 
-  get allRoots(): string[] {
-    return this._allRoots ?? [];
+    return layoutTree;
   }
 
   // Roots are nodes without parents
@@ -533,8 +504,6 @@ export class LayoutTree {
         rootIds.push(nodeId);
       }
     }
-
-    this._allRoots = rootIds;
 
     return rootIds
   }
@@ -563,7 +532,7 @@ export class LayoutTree {
 
   static buildFromSemanticNode<A>(net: PropagatorNetwork<NumericRange>, rootNode: SemanticNode<A>): LayoutTree {
     const kind: DiagramNodeKind = rootNode.kind === 'Transpose' ? 'NestedNode' : 'SimpleNode';
-    const layoutTree = new LayoutTree(net, [], [rootNode.id], rootNode.id, getNodeDimensions(rootNode), rootNode.label ?? '', kind);
+    const layoutTree = new LayoutTree(net, [])
 
     function traverse(node: SemanticNode<A>, parentId: string | null, nestingParentId: string | null): void {
       let intrinsicBox: SimpleBoundingBox | null = null;

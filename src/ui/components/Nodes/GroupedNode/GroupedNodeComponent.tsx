@@ -20,8 +20,6 @@ import { type Model } from '../../../architecture/Model';
 import { inputHandleName, outputHandleName } from '../../../NodeUtils';
 import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config';
 
-const GROUPED_NODE_PADDING = 30;
-
 export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>) => {
   return (
     <div
