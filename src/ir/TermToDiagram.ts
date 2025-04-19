@@ -21,7 +21,7 @@ class TermDiagramBuilder {
       case 'Var':
         return this.buildVar(term);
       case 'Lam':
-        return this.buildLam(term.body);
+        return this.buildLam(term);
       case 'App':
         const func = this.build(term.func);
         const arg = this.build(term.arg);

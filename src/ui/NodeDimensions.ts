@@ -1,6 +1,6 @@
 import { atLeast, between, exactly, NumericRange } from "../constraint/propagator/NumericRange"
 import { SemanticNode } from "../ir/SemanticGraph"
-import { StringNode } from "../ir/StringDiagram"
+import { DiagramNode } from "../ir/StringDiagram"
 
 export type Dimensions = {
   width: NumericRange,
@@ -18,10 +18,10 @@ export function getNodeDimensions<A>(n: SemanticNode<A>): Dimensions {
   }
 }
 
-export function getStringNodeDimensions(node: StringNode): Dimensions {
-  if (node.kind === 'LamNode') {
+export function getStringNodeDimensions(node: DiagramNode): Dimensions {
+  if (node.nodeKind === 'lam') {
     return { width: between(80, 800), height: between(80, 800) }
-  } else if (node.kind === 'PortBarNode') {
+  } else if (node.nodeKind === 'portBar') {
     return { width: exactly(60), height: exactly(10) }
   }
   return { width: exactly(30), height: exactly(30) }

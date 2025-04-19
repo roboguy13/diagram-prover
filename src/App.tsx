@@ -22,7 +22,7 @@ import { initialModel, Model } from './ui/architecture/Model';
 
 import { topSortNodes } from './ui/render/layout/TopSort';
 import { useElmish } from './ui/architecture/Elmish';
-import { ConstraintLayoutEngine, NodesAndEdges } from './ui/render/layout/LayoutEngine';
+import { ConstraintLayoutEngine, NodeListAndEdges, NodesAndEdges } from './ui/render/layout/LayoutEngine';
 import { theLayoutEngine } from './ui/render/layout/LayoutEngineConfig';
 import { debugConfictHandler } from './ui/render/layout/recursiveBox/DebugConflictHandler';
 import { PortBarComponent } from './ui/components/Nodes/PortBar/PortBarComponent';
@@ -39,7 +39,8 @@ export default function App() {
 
   const reactFlowInstance = useReactFlow();
 
-  let nodes = topSortNodes(state.graph?.nodes ?? new Map<string, ApplicationNode>())
+  // let nodes = topSortNodes(state.graph?.nodes ?? new Map<string, ApplicationNode>())
+  let nodes: ApplicationNode[] = state.graph?.nodes ?? [];
   let edges = state.graph?.edges ?? [];
 
   const inputBarId = state.inputBar?.id;

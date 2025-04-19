@@ -1,6 +1,6 @@
 import { ApplicationNode, PortBarNode } from "../components/Nodes/nodeTypes";
 import { Edge } from "@xyflow/react";
-import { NodesAndEdges } from "../render/layout/LayoutEngine";
+import { NodeListAndEdges, NodesAndEdges } from "../render/layout/LayoutEngine";
 import { Term, annotateTermWithIds, exampleTerm } from "../../engine/Term";
 import { toFlow } from '../render/layout/LayoutEngine';
 import { oneStep, StepChange } from "../../engine/Normalize";
@@ -18,7 +18,7 @@ export type Mode =
 
 export type Model = {
   semanticGraph?: SemanticNode<void>
-  graph?: NodesAndEdges // The laid-out graph
+  graph?: NodeListAndEdges // The laid-out graph
   mode: Mode
   propagatorNetwork?: PropagatorNetwork<NumericRange>
   inputBar: PortBarNode
@@ -122,12 +122,23 @@ export function applyModelUpdates<A>(model: Model, fn: (model: Model, a: A) => M
 }
 
 export function getNode(model: Model, id: string): ApplicationNode | undefined {
-  return model.graph?.nodes.get(id);
+  if (!model.graph) {
+    return undefined;
+  }
+
+  const node = model.graph.nodes.find((node) => node.id === id);
+  return node
 }
 
 export function setNode(model: Model, node: ApplicationNode): Model {
-  const nodes = model.graph?.nodes ?? new Map();
-  const edges = model.graph?.edges ?? [];
-  nodes.set(node.id, node);
-  return { ...model, graph: { nodes, edges } };
+  if (!model.graph) {
+    return model;
+  }
+
+  const newGraph = {
+    ...model.graph,
+    nodes: model.graph.nodes.map((n) => (n.id === node.id ? node : n)),
+  };
+
+  return { ...model, graph: newGraph };
 }

@@ -1,9 +1,9 @@
 import { NumericRange, partialSemigroupNumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { ConflictHandler, PropagatorNetwork } from "../../../../constraint/propagator/Propagator";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
-import { StringDiagram } from "../../../../ir/StringDiagram";
+import { OpenDiagram } from "../../../../ir/StringDiagram";
 import { ApplicationNode } from "../../../components/Nodes/nodeTypes";
-import { ConstraintLayoutEngine, NodesAndEdges } from "../LayoutEngine";
+import { ConstraintLayoutEngine, NodeListAndEdges, NodesAndEdges } from "../LayoutEngine";
 import { ConstraintApplicator } from "./ConstraintApplicator";
 import { LayoutTree } from "./LayoutTree";
 
@@ -25,12 +25,12 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
     return Promise.resolve(LayoutTree.buildFromSemanticNode(net, n));
   }
 
-  fromStringDiagram(diagram: StringDiagram, activeRedexId: string | null): Promise<LayoutTree> {
+  fromStringDiagram(diagram: OpenDiagram, activeRedexId: string | null): Promise<LayoutTree> {
     const net = new PropagatorNetwork<NumericRange>(printNumericRange, partialSemigroupNumericRange(), this._conflictHandlers)
     return Promise.resolve(LayoutTree.buildFromStringDiagram(net, diagram));
   }
 
-  toReactFlow(layoutTree: LayoutTree): Promise<NodesAndEdges> {
+  toReactFlow(layoutTree: LayoutTree): Promise<NodeListAndEdges> {
     console.log("Layout tree:", layoutTree);
     const constraintApplicator = new ConstraintApplicator();
 
@@ -53,12 +53,12 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
       console.error("Error applying constraints:", e);
       layoutTree.net.printDebugCells(printNumericRange);
       throw e
-      return Promise.resolve({ nodes: new Map<string, ApplicationNode>(), edges: new Array() });
+      return Promise.resolve({ nodes: [], edges: new Array() });
     }
   }
 
   // TODO: Implement this method
-  renderDebugInfo(layoutTree: LayoutTree): Promise<NodesAndEdges> {
+  renderDebugInfo(layoutTree: LayoutTree): Promise<NodeListAndEdges> {
     return layoutTree.renderDebugInfo();
   }
 }

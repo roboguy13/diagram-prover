@@ -1,4 +1,4 @@
-import { rollbackChange, advanceChange, applyModelUpdates, Model, setNode, updateCurrentTerm, getCurrentTerm } from '../../architecture/Model';
+import { rollbackChange, advanceChange, applyModelUpdates, Model, setNode, updateCurrentTerm, getCurrentTerm, getNode } from '../../architecture/Model';
 import { EditorMsg } from './EditorMsg';
 import { NodeChange, NodePositionChange, NodeSelectionChange, EdgeChange } from '@xyflow/react';
 import { Cmd } from '../../architecture/Cmd';
@@ -72,7 +72,7 @@ function nodeChange(model: Model, change: NodeChange): Model {
 }
 
 function nodePositionChange(model: Model, change: NodePositionChange): Model {
-  let node = model.graph?.nodes.get(change.id);
+  let node = getNode(model, change.id)
 
   if (!node && model.inputBar.id === change.id) {
     node = model.inputBar
@@ -96,7 +96,7 @@ function nodePositionChange(model: Model, change: NodePositionChange): Model {
 }
 
 function nodeSelectionChange(model: Model, change: NodeSelectionChange): Model {
-  const node = model.graph?.nodes.get(change.id);
+  const node = getNode(model, change.id);
 
   if (node) {
     if (node?.data && 'portBarType' in node.data && node.data.portBarType) {

@@ -1,16 +1,16 @@
-export type Edge<V> = {
+export type GraphEdge<V> = {
   source: V;
   target: V;
 }
 
 export type Graph<V> = {
   vertices: V[];
-  edges: Edge<V>[];
+  edges: GraphEdge<V>[];
 }
 
-export function spanningForest<V>(graph: Graph<V>): Set<Edge<V>> {
+export function spanningForest<V>(graph: Graph<V>): Set<GraphEdge<V>> {
   const visited = new Set<V>();
-  const forestEdges = new Set<Edge<V>>();
+  const forestEdges = new Set<GraphEdge<V>>();
 
   for (const vertex of graph.vertices) {
     if (!visited.has(vertex)) {
@@ -21,7 +21,7 @@ export function spanningForest<V>(graph: Graph<V>): Set<Edge<V>> {
   return forestEdges
 }
 
-function dfsVisit<V>(graph: Graph<V>, vertex: V, visited: Set<V>, forestEdges: Set<Edge<V>>) {
+function dfsVisit<V>(graph: Graph<V>, vertex: V, visited: Set<V>, forestEdges: Set<GraphEdge<V>>) {
   visited.add(vertex);
 
   const neighbors = getNeighbors(graph.edges, vertex);
@@ -35,8 +35,8 @@ function dfsVisit<V>(graph: Graph<V>, vertex: V, visited: Set<V>, forestEdges: S
   }
 }
 
-export function getNeighbors<V>(edges: Edge<V>[], vertex: V): [V, Edge<V>][] {
-  const neighbors = new Set<[V, Edge<V>]>();
+export function getNeighbors<V>(edges: GraphEdge<V>[], vertex: V): [V, GraphEdge<V>][] {
+  const neighbors = new Set<[V, GraphEdge<V>]>();
 
   for (const edge of edges) {
     if (edge.source === vertex) {

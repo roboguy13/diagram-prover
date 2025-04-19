@@ -5,17 +5,17 @@ import { addRangeListPropagator, between, exactly, getMin, NumericRange, printNu
 import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
 import { Dimensions, getNodeDimensions, getStringNodeDimensions, } from "../../../NodeDimensions";
-import { NodesAndEdges } from "../LayoutEngine";
-import { ApplicationNode, PortBarType } from "../../../components/Nodes/nodeTypes";
+import { NodeListAndEdges, NodesAndEdges } from "../LayoutEngine";
+import { ApplicationNode, PortBarType, TermNodeData } from "../../../components/Nodes/nodeTypes";
 import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/PropagatorToElk";
 import { elk } from "../elk/ElkEngine";
 import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { PropagatorNetworkToJson } from "../../../../constraint/propagator/PropagatorToJson";
 import { inputHandleName, outputHandleName } from "../../../NodeUtils";
 import { layout } from "dagre";
-import { Connection, StringDiagram } from "../../../../ir/StringDiagram";
-import { Graph, spanningForest } from "../../../../utils/SpanningForest";
+import { Graph, GraphEdge, spanningForest } from "../../../../utils/SpanningForest";
 import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedHierarchy";
+import { DiagramNodeKind, NodeKind, OpenDiagram, Wire } from "../../../../ir/StringDiagram";
 
 // class PortBarLayouts {
 //   constructor(
@@ -34,7 +34,7 @@ export class LayoutTree {
 
   private _rootNodeId: string;
 
-  private _stringDiagram: StringDiagram | null = null;
+  private _stringDiagram: OpenDiagram | null = null;
 
   private _net: PropagatorNetwork<NumericRange>;
 
@@ -50,10 +50,10 @@ export class LayoutTree {
   private _standardHNestingSpacing: CellRef;
   private _standardVNestingSpacing: CellRef;
 
-  private _originalConnections: Connection[];
-  // private _allRoots: string[] = [];
+  private _originalConnections: Wire[];
+  private _allRoots: string[] | null = null;
 
-  constructor(net: PropagatorNetwork<NumericRange>, originalConnections: Connection[], allRoots: string[], rootNodeId: string, rootDims: Dimensions, rootLabel: string, rootKind: string) {
+  constructor(net: PropagatorNetwork<NumericRange>, originalConnections: Wire[], allRoots: string[], rootNodeId: string, rootDims: Dimensions, rootLabel: string, rootKind: DiagramNodeKind) {
     this._net = net;
 
     // this._allRoots = allRoots;
@@ -127,7 +127,7 @@ export class LayoutTree {
     return this._standardVNestingSpacing;
   }
 
-  public get originalConnections(): Connection[] {
+  public get originalConnections(): Wire[] {
     return this._originalConnections;
   }
 
@@ -176,82 +176,140 @@ export class LayoutTree {
     return this._nestingChildren.get(parentId) ?? [];
   }
 
-  toNodesAndEdges(): NodesAndEdges {
-    console.log("Converting layout tree to nodes and edges...");
+  // TODO: Refactor?
+  toNodesAndEdges(): NodeListAndEdges {
+    console.log("Converting layout tree to nodes and edges using recursive traversal...");
     const nodes: ApplicationNode[] = [];
     const edges: Edge[] = [];
+    const visited = new Set<string>();
 
-    try {
-      this._nodeLayouts.forEach((layout) => {
-        nodes.push(this.nodeToApplicationNode(layout.nodeId));
-      });
-    } catch (e) {
-      console.error("Error converting node layouts to ApplicationNode:", e);
-      return { nodes: new Map<string, ApplicationNode>(), edges: [] };
+    const processNode = (nodeId: string) => {
+      const layout = this.getNodeLayout(nodeId);
+      if (visited.has(nodeId) || !layout) {
+        if (!layout) console.warn(`processNode: Layout not found for ${nodeId}, skipping.`);
+        return;
+      }
+      visited.add(nodeId);
+
+      try {
+        const appNode = this.nodeToApplicationNode(nodeId);
+        nodes.push(appNode);
+        console.log(`  Added node: ${nodeId} (Parent: ${appNode.parentId ?? 'none'})`);
+      } catch (e) {
+        console.error(`Error converting node layout ${nodeId} to ApplicationNode:`, e, layout);
+        return;
+      }
+
+      const children = this.getChildren(nodeId);
+      console.log(`  Processing children of ${nodeId}:`, children);
+      for (const childId of children) {
+        processNode(childId);
+      }
+    };
+
+    const roots = this.allRoots;
+    console.log("Processing nodes starting from roots:", roots);
+    if (!roots || roots.length === 0) {
+        console.error("No roots found in layout hierarchy! Cannot guarantee correct node order.");
+    } else {
+        for (const rootId of roots) {
+          processNode(rootId);
+        }
     }
 
+    this._nodeLayouts.forEach((layout) => {
+        if (!visited.has(layout.nodeId)) {
+            console.warn(`Node ${layout.nodeId} was not visited during root traversal. Processing now (may indicate disconnected graph or hierarchy issue).`);
+            processNode(layout.nodeId);
+        }
+    });
+
     console.log(`originalConnections: ${JSON.stringify(this._originalConnections)}`);
+    this._originalConnections.forEach((conn: Wire) => {
+       let sourceId: string | null = conn.from.nodeId;
+       let targetId: string | null = conn.to.nodeId;
+       let sourceHandle: string | null = conn.from.portId;
+       let targetHandle: string | null = conn.to.portId;
 
-    this._originalConnections.forEach((conn: Connection) => {
-      let sourceId: string | null = null;
-      let targetId: string | null = null;
-      let sourceHandle: string | null = null;
-      let targetHandle: string | null = null;
+       if (sourceId && targetId) {
+         if (!sourceHandle) console.warn(`Edge ${conn.id}: Missing source handle for source ${sourceId}`);
+         if (!targetHandle) console.warn(`Edge ${conn.id}: Missing target handle for target ${targetId}`);
 
-      // Determine React Flow source node ID and source handle ID
-      if (conn.source.type === 'NodeOutput') {
-        sourceId = conn.source.id;
-        sourceHandle = conn.source.portId; // Use the specific portId from the connection
-      } else if (conn.source.type === 'DiagramInput') {
-        sourceId = 'input-bar'; // Use the actual ID of your input bar node
-        sourceHandle = conn.source.id; // Diagram port ID often serves as handle ID
-      }
-      // Add cases for other source types if necessary (e.g., internal ports)
-
-      // Determine React Flow target node ID and target handle ID
-      if (conn.target.type === 'NodeInput') {
-        targetId = conn.target.id;
-        targetHandle = conn.target.portId; // Use the specific portId from the connection
-      } else if (conn.target.type === 'DiagramOutput') {
-        targetId = 'output-bar'; // Use the actual ID of your output bar node
-        targetHandle = conn.target.id; // Diagram port ID often serves as handle ID
-      }
-      // Add cases for other target types if necessary
-
-      // Create the React Flow edge if source and target were found
-      if (sourceId && targetId) {
-        // Basic validation for handles - you might need defaults
-        if (!sourceHandle) console.warn(`Edge ${conn.id}: Missing source handle for source ${sourceId}`);
-        if (!targetHandle) console.warn(`Edge ${conn.id}: Missing target handle for target ${targetId}`);
-
-        edges.push({
-          id: conn.id,
-          source: sourceId,
-          target: targetId,
-          // Provide default handles if null, or ensure portIds are always valid handle names
-          sourceHandle: sourceHandle ?? 'default_source_handle', // Adjust default if needed
-          targetHandle: targetHandle ?? 'default_target_handle', // Adjust default if needed
-          // type: 'floating', // Optional: Specify edge type
-          // animated: true, // Optional: Add animation
-        });
-      } else {
-        console.warn("Could not determine source/target node ID for connection:", conn);
-      }
-    });
-    // this._children.forEach((children, parentId) => {
-    //   children.forEach((childId, index) => {
-    //     edges.push({ id: `${parentId}-${childId}`, source: parentId, target: childId, sourceHandle: inputHandleName(index) });
-    //   });
-    // });
-
-    const nodeMap = new Map<string, ApplicationNode>();
-
-    nodes.forEach((node) => {
-      nodeMap.set(node.id, node);
+         edges.push({
+           id: conn.id,
+           source: sourceId,
+           target: targetId,
+           sourceHandle: sourceHandle ?? 'default_source_handle',
+           targetHandle: targetHandle ?? 'default_target_handle',
+         });
+       } else {
+         console.warn("Could not determine source/target node ID for connection:", conn);
+       }
     });
 
-    return { nodes: nodeMap, edges };
+    console.log("Final nodes array order:", nodes.map(n => ({ id: n.id, parentId: n.parentId })));
+    return { nodes: nodes, edges: edges };
   }
+
+  // toNodesAndEdges(): NodeListAndEdges {
+  //   console.log("Converting layout tree to nodes and edges...");
+  //   const nodes: ApplicationNode[] = [];
+  //   const edges: Edge[] = [];
+
+  //   this._nodeLayouts.forEach((layout) => {
+  //     try {
+  //       nodes.push(this.nodeToApplicationNode(layout.nodeId));
+  //     } catch (e) {
+  //       console.error("Error converting node layouts to ApplicationNode:", e, layout);
+  //       // return { nodes: new Map<string, ApplicationNode>(), edges: [] };
+  //     }
+  //     });
+
+  //   console.log(`originalConnections: ${JSON.stringify(this._originalConnections)}`);
+
+  //   this._originalConnections.forEach((conn: Wire) => {
+  //     let sourceId: string | null = null;
+  //     let targetId: string | null = null;
+  //     let sourceHandle: string | null = null;
+  //     let targetHandle: string | null = null;
+
+  //     sourceId = conn.from.nodeId
+  //     targetId = conn.to.nodeId
+  //     sourceHandle = conn.from.portId
+  //     targetHandle = conn.to.portId
+
+  //     // Create the React Flow edge if source and target were found
+  //     if (sourceId && targetId) {
+  //       // Basic validation for handles - you might need defaults
+  //       if (!sourceHandle) console.warn(`Edge ${conn.id}: Missing source handle for source ${sourceId}`);
+  //       if (!targetHandle) console.warn(`Edge ${conn.id}: Missing target handle for target ${targetId}`);
+
+  //       edges.push({
+  //         id: conn.id,
+  //         source: sourceId,
+  //         target: targetId,
+  //         // Provide default handles if null, or ensure portIds are always valid handle names
+  //         sourceHandle: sourceHandle ?? 'default_source_handle', // Adjust default if needed
+  //         targetHandle: targetHandle ?? 'default_target_handle', // Adjust default if needed
+  //         // type: 'floating', // Optional: Specify edge type
+  //         // animated: true, // Optional: Add animation
+  //       });
+  //     } else {
+  //       console.warn("Could not determine source/target node ID for connection:", conn);
+  //     }
+  //   });
+  //   // this._children.forEach((children, parentId) => {
+  //   //   children.forEach((childId, index) => {
+  //   //     edges.push({ id: `${parentId}-${childId}`, source: parentId, target: childId, sourceHandle: inputHandleName(index) });
+  //   //   });
+  //   // });
+
+  //   // nodes.forEach((node) => {
+  //   //   nodeMap.set(node.id, node);
+  //   // });
+
+  //   return { nodes, edges };
+  // }
 
   public logDebugInfo(): void {
     this._nodeLayouts.forEach((layout) => {
@@ -289,26 +347,34 @@ export class LayoutTree {
     if (!nodeLayout) {
       throw new Error(`Node layout not found for node ID: ${nodeId}`);
     }
-    const diagramNode = this._stringDiagram!.getNode(nodeId);
-    const nodeInterface = diagramNode?.externalInterface ?? { inputPorts: [], outputPorts: [] };
+    const diagramNode = this._stringDiagram!.nodes.get(nodeId);
+    if (!diagramNode) {
+      throw new Error(`Diagram node not found for node ID: ${nodeId}`);
+    }
+    // const nodeInterface = diagramNode?.externalInterface ?? { inputPorts: [], outputPorts: [] };
 
     let portBarType: PortBarType | null = null
 
-    if (diagramNode instanceof PortBarNode) {
-      portBarType = diagramNode.isParameterBar ? 'parameter-bar' : 'result-bar';
+    if (diagramNode.nodeKind === 'portBar') {
+      portBarType = 'parameter-bar' //diagramNode.isParameterBar ? 'parameter-bar' : 'result-bar';
     }
 
-    const nodeData: any = {
+    const inputPorts = diagramNode.inputs
+    const outputPorts = diagramNode.outputs
+
+    const nodeData: TermNodeData = {
       label: layout.label,
       width,
       height,
       isActiveRedex: false, // TODO
-      inputPortIds: nodeInterface.inputPorts,
-      outputPortIds: nodeInterface.outputPorts,
-      outputCount: nodeInterface.outputPorts.length,
-      inputCount: nodeInterface.inputPorts.length,
-      portBarType: portBarType,
+      inputPortIds: inputPorts.map(port => port.portId),
+      outputPortIds: outputPorts.map(port => port.portId),
+      outputCount: outputPorts.length,
+      inputCount: inputPorts.length,
+      ...(portBarType ? { portBarType: portBarType } : {}),
     }
+
+    console.log(`node: ${layout.nodeId}, nesting parentId: ${layout.nestingParentId}, portBarType: ${portBarType}`);
 
     const commonProps = {
       id: nodeId,
@@ -318,7 +384,7 @@ export class LayoutTree {
     };
 
     switch (layout.kind) {
-      case 'Transpose':
+      case 'NestedNode':
         return {
           type: 'grouped',
           ...commonProps,
@@ -331,7 +397,7 @@ export class LayoutTree {
     }
   }
 
-  public async renderDebugInfo(): Promise<NodesAndEdges> {
+  public async renderDebugInfo(): Promise<NodeListAndEdges> {
     let elkNode = propagatorNetworkToElkNode(this._net);
     let positioned = await elk.layout(elkNode);
 
@@ -352,7 +418,7 @@ export class LayoutTree {
     return this._nestingNodeResultPortBar.get(nodeId) ?? null;
   }
 
-  static buildFromStringDiagram(net: PropagatorNetwork<NumericRange>, diagram: StringDiagram): LayoutTree {
+  static buildFromStringDiagram(net: PropagatorNetwork<NumericRange>, diagram: OpenDiagram): LayoutTree {
     console.log("Building layout tree from string diagram...")
     console.log("Diagram:", diagram);
 
@@ -369,7 +435,7 @@ export class LayoutTree {
 
     let firstNode = diagram.nodes.get(firstNodeId)!
 
-    const layoutTree = new LayoutTree(net, diagram.connections, [], firstNodeId, getStringNodeDimensions(firstNode), firstNode.label ?? '', firstNode.kind);
+    const layoutTree = new LayoutTree(net, Array.from(diagram.wires.values()), [], firstNodeId, getStringNodeDimensions(firstNode), firstNode.label ?? '', firstNode.kind);
 
     const nodeIds = Array.from(diagram.nodes.keys()); // TODO: Do I want to skip the first node here?
 
@@ -381,7 +447,14 @@ export class LayoutTree {
 
       const nestingParentId = diagram.nestingParents.get(nodeId) ?? null;
 
-      const portBarType: PortBarType | null = node instanceof PortBarNode ? (node.isParameterBar ? 'parameter-bar' : 'result-bar') : null;
+      // const portBarType: PortBarType | null = node instanceof PortBarNode ? (node.isParameterBar ? 'parameter-bar' : 'result-bar') : null;
+      const portBarType: PortBarType | null =
+        node.nodeKind === 'portBar'
+          ? 'parameter-bar'
+          : null;
+
+      console.log(`node kind: ${node.kind}, nodeId: ${nodeId}, portBarType: ${portBarType}`);
+      console.log(`--- node id: ${nodeId}, nesting parentId: ${nestingParentId}`);
 
       const nodeLayout: NodeLayout = {
         nodeId: nodeId,
@@ -396,6 +469,11 @@ export class LayoutTree {
 
       if (nodeId !== firstNodeId) {
         layoutTree.addNodeLayout(nodeLayout);
+      } else if (nestingParentId) {
+        const layout = layoutTree.getNodeLayout(nodeId);
+        if (layout) {
+          layout.nestingParentId = nestingParentId
+        }
       }
 
       if (nestingParentId) {
@@ -417,14 +495,14 @@ export class LayoutTree {
       }
     }
 
-    const nodeToNodeConnections = diagram.connections.filter(conn =>
-      isNodePortLocation(conn.source) && isNodePortLocation(conn.target)
-    );
+    const nodeToNodeConnections = Array.from(diagram.wires.values())
 
-    let graph: Graph<string> = { vertices: nodeIds, edges: nodeToNodeConnections.map((e) => ({ source: e.source.id, target: e.target.id })) };
+    layoutTree._stringDiagram = diagram;
+
+    let graph: Graph<string> = { vertices: nodeIds, edges: nodeToNodeConnections.map(conn => ({ source: conn.from.nodeId, target: conn.to.nodeId })) };
     const forestEdges = spanningForest(graph);
     // layoutTree.allRoots = findForestRoots(nodeIds, layoutTree._children);
-    const allRoots = layoutTree.getHierarchyRoots(layoutTree);
+    const allRoots = layoutTree.getHierarchyRoots(Array.from(forestEdges));
     const rootedHierarchy = buildRootedHierarchy<string>(allRoots, [...forestEdges]);
 
     for (const edge of rootedHierarchy.edges) {
@@ -434,41 +512,58 @@ export class LayoutTree {
     }
     console.log("Final _children map after processing hierarchy edges:", layoutTree._children);
 
-    console.log("All roots found:", layoutTree.allRoots);
+    console.log("All roots found:", allRoots);
 
-    layoutTree._stringDiagram = diagram;
     return layoutTree;
   }
 
-  public get allRoots(): string[] {
-    return this.getHierarchyRoots(this);
+  get allRoots(): string[] {
+    return this._allRoots ?? [];
   }
 
-  // Helper function perhaps in ConstraintApplicator or a utility file
-  getHierarchyRoots(layoutTree: LayoutTree): string[] {
-    const allNodes = new Set(this._nodeLayouts.keys());
-    const childrenNodes = new Set<string>();
-    for (const children of layoutTree._children.values()) {
-      children.forEach(childId => childrenNodes.add(childId));
-    }
+  // Roots are nodes without parents
+  getHierarchyRoots(edges: GraphEdge<string>[]): string[] {
+    const nodeIds = Array.from(this._stringDiagram!.nodes.keys());
 
-    const hierarchyRoots: string[] = [];
-    allNodes.forEach(nodeId => {
-      if (!childrenNodes.has(nodeId)) {
-        hierarchyRoots.push(nodeId);
+    const rootIds: string[] = []
+
+    for (const nodeId of nodeIds) {
+      const isChild = edges.some(edge => edge.target === nodeId);
+      if (!isChild) {
+        rootIds.push(nodeId);
       }
-    });
-    // Handle edge case: if graph is single node, it might be missed.
-    if (hierarchyRoots.length === 0 && allNodes.size > 0) {
-      const firstNode = allNodes.values().next().value;
-      if (firstNode) return [firstNode];
     }
-    console.log("Determined Hierarchy Roots:", hierarchyRoots);
-    return hierarchyRoots;
+
+    this._allRoots = rootIds;
+
+    return rootIds
   }
+
+  // getHierarchyRoots(layoutTree: LayoutTree): string[] {
+  //   const allNodes = new Set(this._nodeLayouts.keys());
+  //   const childrenNodes = new Set<string>();
+  //   for (const children of layoutTree._children.values()) {
+  //     children.forEach(childId => childrenNodes.add(childId));
+  //   }
+
+  //   const hierarchyRoots: string[] = [];
+  //   allNodes.forEach(nodeId => {
+  //     if (!childrenNodes.has(nodeId)) {
+  //       hierarchyRoots.push(nodeId);
+  //     }
+  //   });
+  //   // Handle edge case: if graph is single node, it might be missed.
+  //   if (hierarchyRoots.length === 0 && allNodes.size > 0) {
+  //     const firstNode = allNodes.values().next().value;
+  //     if (firstNode) return [firstNode];
+  //   }
+  //   console.log("Determined Hierarchy Roots:", hierarchyRoots);
+  //   return hierarchyRoots;
+  // }
 
   static buildFromSemanticNode<A>(net: PropagatorNetwork<NumericRange>, rootNode: SemanticNode<A>): LayoutTree {
-    const layoutTree = new LayoutTree(net, [], [rootNode.id], rootNode.id, getNodeDimensions(rootNode), rootNode.label ?? '', rootNode.kind);
+    const kind: DiagramNodeKind = rootNode.kind === 'Transpose' ? 'NestedNode' : 'SimpleNode';
+    const layoutTree = new LayoutTree(net, [], [rootNode.id], rootNode.id, getNodeDimensions(rootNode), rootNode.label ?? '', kind);
 
     function traverse(node: SemanticNode<A>, parentId: string | null, nestingParentId: string | null): void {
       let intrinsicBox: SimpleBoundingBox | null = null;
@@ -481,13 +576,14 @@ export class LayoutTree {
       }
 
       if (node.id !== rootNode.id) {
+        const kind = node.kind === 'Transpose' ? 'NestedNode' : 'SimpleNode';
         const nodeLayout: NodeLayout = {
           nodeId: node.id,
           nestingParentId: nestingParentId,
           intrinsicBox: intrinsicBox,
           subtreeExtentBox: SimpleBoundingBox.createNew(net, 'subtree extent', node.id),
           position: null,
-          kind: node.kind,
+          kind,
           label: node.label ?? '',
           portBarType: null,
         }

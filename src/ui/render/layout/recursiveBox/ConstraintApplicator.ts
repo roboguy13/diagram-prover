@@ -5,7 +5,6 @@ import { LayoutTree } from "../recursiveBox/LayoutTree";
 import { exactly, getMin } from "../../../../constraint/propagator/NumericRange";
 import { known } from "../../../../constraint/propagator/Propagator";
 // Import isNodePortLocation
-import { Connection } from "../../../../ir/StringDiagram";
 import { isNode } from "reactflow";
 import { determineLayers } from "../../../../utils/LevelOrder";
 import { NodeId } from "../../../../engine/Term";
@@ -44,29 +43,35 @@ export class ConstraintApplicator {
 
   public processLayout(layoutTree: LayoutTree): void {
     const layouts = layoutTree.nodeLayouts.values()
+    const rootIds = new Set(layoutTree.allRoots);
+
     for (const layout of layouts) {
       ConstraintApplicator.debugLeaves(layoutTree, layout.nodeId);
 
-      if (layout.portBarType) {
-        if (!layout.nestingParentId) {
-          console.warn(`Port bar layout with nodeId ${layout.nodeId} has no nestingParentId`);
-          continue
-        }
+      // if (layout.portBarType) {
+      //   if (!layout.nestingParentId) {
+      //     console.warn(`Port bar layout with nodeId ${layout.nodeId} has no nestingParentId`);
+      //     continue
+      //   }
 
-        this.portBarConstraints(layoutTree, layout.nodeId, layout.nestingParentId, layout.portBarType);
+      //   this.portBarConstraints(layoutTree, layout.nodeId, layout.nestingParentId, layout.portBarType);
+      // }
+
+      if (rootIds.has(layout.nodeId)) {
+        const topCell = layout.intrinsicBox.top;
+        console.log(`Attempting to pin root node ${layout.nodeId} top (Cell ID: ${layoutTree.net.cellDescription(topCell)}) to 0`);
+        layoutTree.net.writeCell(
+            {description: `Top cell for ${layout.nodeId}`, inputs: [topCell], outputs: []},
+            topCell,
+            known(exactly(0))
+        );
       }
-
+      
       const nestingChildren = layoutTree.getNestingChildren(layout.nodeId);
       console.log(`Nesting children for ${layout.nodeId}:`, nestingChildren);
 
-      // Filter out port bars from nesting children
-      const nonPortBarChildren = nestingChildren.filter(childId => {
-        const childLayout = layoutTree.getNodeLayout(childId);
-        return !childLayout?.portBarType;
-      });
-
-      if (nonPortBarChildren.length > 0) {
-        this.containerConstraints(layoutTree, layout.nodeId, nonPortBarChildren);
+      if (nestingChildren.length > 0) {
+        this.containerConstraints(layoutTree, layout.nodeId, nestingChildren);
       }
     }
 

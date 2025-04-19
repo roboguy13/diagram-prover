@@ -7,11 +7,11 @@ import { termToStringDiagram } from "../../../ir/TermToDiagram";
 import { getNextChangedId, Model } from "../../architecture/Model";
 import { elk } from "./elk/ElkEngine";
 import { elkToReactFlow } from "./elk/ElkToReactFlow";
-import { NodesAndEdges } from "./LayoutEngine";
+import { NodeListAndEdges, NodesAndEdges } from "./LayoutEngine";
 import { toFlow } from './LayoutEngine';
 import { theLayoutEngine } from "./LayoutEngineConfig";
 
-export function updateGraphLayout(model: Model, term: Term): Promise<NodesAndEdges> {
+export function updateGraphLayout(model: Model, term: Term): Promise<NodeListAndEdges> {
   if (model.mode === 'debug-propagators-mode') {
     throw new Error('Cannot update graph layout in debug mode');
   }
@@ -22,17 +22,17 @@ export function updateGraphLayout(model: Model, term: Term): Promise<NodesAndEdg
 
   return toFlow(theLayoutEngine, diagram, activeRedexId).catch(err => {
     console.error('Error updating graph layout:', err);
-    return { nodes: new Map(), edges: [] };
+    return { nodes: [], edges: [] };
   })
 }
 
-export async function renderLayoutConflictInfo(net: PropagatorNetwork<NumericRange>, conflict: Conflict<NumericRange>): Promise<NodesAndEdges> {
+export async function renderLayoutConflictInfo(net: PropagatorNetwork<NumericRange>, conflict: Conflict<NumericRange>): Promise<NodeListAndEdges> {
   let elkNode = conflictToElkNode(printNumericRange, net, conflict)
 
   return elkToReactFlow(await elk.layout(elkNode))
 }
 
-export async function renderLayoutDebugInfo(model: Model, term: Term): Promise<NodesAndEdges> {
+export async function renderLayoutDebugInfo(model: Model, term: Term): Promise<NodeListAndEdges> {
   let semanticGraph = termToSemanticNode(term);
 
   const [_, activeRedexId] = getNextChangedId(model)

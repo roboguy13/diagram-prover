@@ -1,4 +1,4 @@
-import { Edge, getNeighbors } from "./SpanningForest";
+import { GraphEdge, getNeighbors } from "./SpanningForest";
 
 /**
  * Finds the root nodes in a potentially disconnected forest represented
@@ -56,9 +56,9 @@ export function findForestRoots<V>(
 }
 
 // Take a forest with edges going in arbitrary directions and convert it to a forest with edges going away from the root
-export function buildRootedHierarchy<V>(roots: V[], adjacencyList: Edge<V>[]): { visited: Set<V>, edges: Edge<V>[] } {
+export function buildRootedHierarchy<V>(roots: V[], adjacencyList: GraphEdge<V>[]): { visited: Set<V>, edges: GraphEdge<V>[] } {
   const visited = new Set<V>();
-  const hierarchyEdges: Edge<V>[] = [];
+  const hierarchyEdges: GraphEdge<V>[] = [];
 
   function dfs(vertex: V) {
     visited.add(vertex);

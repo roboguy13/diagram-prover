@@ -17,25 +17,73 @@ export type Wire = {
 
 export type NodeKind = 'app' | 'lam' | 'pi' | 'unit' | 'portBar';
 
-export interface DiagramNode {
+export type DiagramNodeKind = 'SimpleNode' | 'NestedNode';
+
+export interface DiagramNodeData {
   kind: 'SimpleNode' | 'NestedNode';
   nodeId: NodeId;
   nodeKind: NodeKind;
   ports: PortSpec[];
 }
 
-export interface SimpleNode extends DiagramNode {
-  kind: 'SimpleNode';
-  nodeKind: NodeKind;
-  ports: PortSpec[];
+export abstract class DiagramNode implements DiagramNodeData {
+  abstract kind: 'SimpleNode' | 'NestedNode';
+  abstract nodeId: NodeId;
+  abstract nodeKind: NodeKind;
+  abstract ports: PortSpec[];
+
+  get label(): string {
+    return this.nodeKind;
+  }
+
+  get inputs(): PortRef[] {
+    return this.ports
+      .filter(p => p.direction === 'input')
+      .map(p => ({ nodeId: this.nodeId, portId: p.id }))
+  }
+
+  get outputs(): PortRef[] {
+    return this.ports
+      .filter(p => p.direction === 'output')
+      .map(p => ({ nodeId: this.nodeId, portId: p.id }))
+  }
+
+  bidirectional(): PortRef[] {
+    return this.ports
+      .filter(p => p.direction === 'bidirectional')
+      .map(p => ({ nodeId: this.nodeId, portId: p.id }))
+  }
 }
 
-export interface NestedNode extends DiagramNode {
-  kind: 'NestedNode';
+export class SimpleNode extends DiagramNode {
+  kind: 'SimpleNode' = 'SimpleNode';
+  nodeId: string;
+  nodeKind: NodeKind;
+  ports: PortSpec[];
+
+  constructor(data: DiagramNodeData) {
+    super()
+    this.nodeId = data.nodeId;
+    this.nodeKind = data.nodeKind;
+    this.ports = data.ports;
+  }
+}
+
+export class NestedNode extends DiagramNode {
+  kind: 'NestedNode' = 'NestedNode';
   nodeId: NodeId;
+  nodeKind: NodeKind;
   ports: PortSpec[];
 
   inner: Diagram
+
+  constructor(inner: Diagram, data: DiagramNodeData) {
+    super()
+    this.nodeId = data.nodeId;
+    this.nodeKind = data.nodeKind;
+    this.ports = data.ports;
+    this.inner = inner;
+  }
 }
 
 export type PortDirection = 'input' | 'output' | 'bidirectional';
@@ -44,13 +92,45 @@ export type PortSpec = {
   id: PortId;
   direction: PortDirection;
   /** If this port is merely exposing a deeper port, point to it */
-  inner?: { node: NodeId; port: PortId };
+  inner?: { nodeId: NodeId; portId: PortId };
 }
 
-export interface Diagram {
-  kind: 'Diagram';
-  nodes: DiagramNode[];
-  wires: Wire[];
+export class Diagram {
+  kind: 'Diagram' = 'Diagram';
+  private _nestingParents: Map<NodeId, NodeId> = new Map()
+
+  constructor(
+    public nodes: Map<NodeId, DiagramNode>,
+    public wires: Map<WireId, Wire>,
+  ) {
+    for (const [nodeId, node] of nodes) {
+      for (const port of node.ports) {
+        if (port.inner) {
+          this._nestingParents.set(port.inner.nodeId, nodeId);
+        }
+      }
+    }
+  }
+
+  get nestingParents(): Map<NodeId, NodeId> {
+    return this._nestingParents;
+  }
+
+  getNode(nodeId: NodeId): DiagramNode {
+    const node = this.nodes.get(nodeId);
+    if (!node) {
+      throw new Error(`Node with ID ${nodeId} not found`);
+    }
+    return node;
+  }
+
+  getWire(wireId: WireId): Wire {
+    const wire = this.wires.get(wireId);
+    if (!wire) {
+      throw new Error(`Wire with ID ${wireId} not found`);
+    }
+    return wire;
+  }
 }
 
 export type Box = {
@@ -83,7 +163,7 @@ export class DiagramBuilder {
     const inPortArg = { nodeId: appId, portId: inputHandleName(1) };
     const outPort = { nodeId: appId, portId: outputHandleName(0) };
 
-    const appNode: SimpleNode = {
+    const appNode: SimpleNode = new SimpleNode({
       kind: 'SimpleNode',
       nodeId: appId,
       nodeKind: 'app',
@@ -92,7 +172,7 @@ export class DiagramBuilder {
         { id: inPortArg.portId, direction: 'input' },
         { id: outPort.portId, direction: 'output' }
       ]
-    };
+    });
 
     this._nodes.set(appId, appNode);
     this.wire(f, inPortF);
@@ -106,14 +186,14 @@ export class DiagramBuilder {
 
     const outPort = { nodeId: unitId, portId: outputHandleName(0) };
 
-    const unitNode: SimpleNode = {
+    const unitNode: SimpleNode = new SimpleNode({
       kind: 'SimpleNode',
       nodeId: unitId,
       nodeKind: 'unit',
       ports: [
         { id: outPort.portId, direction: 'output' }
       ]
-    };
+    });
 
     this._nodes.set(unitId, unitNode);
 
@@ -138,7 +218,7 @@ export class DiagramBuilder {
 
     const resultPort = { nodeId: lamId, portId: outputHandleName(0) };
 
-    const lamNode: NestedNode = {
+    const lamNode: NestedNode = new NestedNode(bodyDia, {
       kind: 'NestedNode',
       nodeId: lamId,
       nodeKind: 'lam',
@@ -147,25 +227,31 @@ export class DiagramBuilder {
         ...paramPorts.map((p, i) => ({
           id: p.portId,
           direction: 'input' as const,
-          inner: { node: bodyRef.nodeId, port: bodyRef.portId }, // bridge
+          inner: { nodeId: bodyRef.nodeId, portId: bodyRef.portId }, // bridge
         })),
         // result port
         { id: resultPort.portId, direction: 'output' }
       ],
-      inner: bodyDia
-    };
+    });
 
     this._nodes.set(lamId, lamNode);
+
+    for (const node of bodyDia.nodes.values()) {
+      this._nodes.set(node.nodeId, node);
+    }
+
+    for (const wire of bodyDia.wires.values()) {
+      this._wires.set(wire.id, wire);
+    }
 
     return resultPort;
   }
 
   finish(): Diagram {
-    return {
-      kind: 'Diagram',
-      nodes: Array.from(this._nodes.values()),
-      wires: Array.from(this._wires.values())
-    };
+    return new Diagram(
+      this._nodes,
+      this._wires
+    )
   }
 
   private wire(from: PortRef, to: PortRef): void {
@@ -180,16 +266,11 @@ export class DiagramBuilder {
   }
 }
 
-export class OpenDiagram implements Diagram {
-  kind: 'Diagram' = 'Diagram';
-  nodes: DiagramNode[];
-  wires: Wire[];
-
+export class OpenDiagram extends Diagram {
   private _freeVars: Map<string, PortRef>;
 
   constructor(diagram: Diagram, freeVars: Map<string, PortRef>) {
-    this.nodes = diagram.nodes;
-    this.wires = diagram.wires;
+    super(diagram.nodes, diagram.wires);
     this._freeVars = freeVars;
   }
 

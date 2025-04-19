@@ -5,11 +5,11 @@ import { Edge } from '@xyflow/react'
 import { inputHandleName, outputHandleName } from '../../../NodeUtils'
 import { calculateGroupBounds } from '../../../components/Nodes/GroupedNode/GroupedNodeComponent'
 import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config'
-import { NodesAndEdges } from '../LayoutEngine'
+import { NodeListAndEdges, NodesAndEdges } from '../LayoutEngine'
 import { ElkColorLabel, ElkNoHandlesLabel } from './ElkData'
 import { FloatingEdge } from '../../../components/Edges/FloatingEdge'
 
-export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
+export function elkToReactFlow(elkRoot: ElkNode): NodeListAndEdges {
   const nodes = (elkRoot.children || []).flatMap(child => flattenElkNodes(child));
   
   // Deduplicate edges using a Map with edge ID as key
@@ -32,7 +32,7 @@ export function elkToReactFlow(elkRoot: ElkNode): NodesAndEdges {
   
   const edges = Array.from(edgeMap.values());
   const nodeMap = buildNodeMap(nodes);
-  return { nodes: nodeMap, edges: edges };
+  return { nodes: nodes, edges: edges };
 }
 
 function buildNodeMap(nodes: ApplicationNode[]): Map<string, ApplicationNode> {
@@ -99,7 +99,14 @@ function flattenElkNodes(node: ElkNode, parentId?: string): ApplicationNode[] {
         id: node.id,
         type: 'term',
         // data: { label, inputCount: 1, outputCount: (node.edges?.length || 0), isActiveRedex: false },
-        data: { label, outputCount: 1, inputCount: (node.edges?.length || 0), isActiveRedex: false },
+        data: { 
+          label, 
+          outputCount: 1, 
+          inputCount: (node.edges?.length || 0), 
+          isActiveRedex: false,
+          inputPortIds: [], // TODO
+          outputPortIds: []
+        },
         position: { x: node.x || 0, y: node.y || 0 },
         ...parentId && { parentId: parentId, extent: 'parent' },
       }

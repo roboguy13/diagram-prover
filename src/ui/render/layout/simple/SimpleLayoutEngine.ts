@@ -2,10 +2,10 @@
 
 import { Edge, XYPosition } from "@xyflow/react";
 import { getEdges, getImmediateEdges, SemanticNode } from "../../../../ir/SemanticGraph";
-import { LayoutEngine, NodesAndEdges } from "../LayoutEngine";
+import { LayoutEngine, NodeListAndEdges, NodesAndEdges } from "../LayoutEngine";
 import { BreadthIndexMap, computeIndexedNodes, IndexedNode, LevelMap } from "../NodeLevels";
 import { ApplicationNode } from "../../../components/Nodes/nodeTypes";
-import { StringDiagram } from "../../../../ir/StringDiagram";
+import { OpenDiagram } from "../../../../ir/StringDiagram";
 
 type InternalRep = [SemanticNode<void>, [LevelMap, BreadthIndexMap, IndexedNode[]], Edge[]]
 
@@ -25,15 +25,15 @@ export class SimpleLayoutEngine implements LayoutEngine<InternalRep> {
     })
   }
 
-  fromStringDiagram(diagram: StringDiagram, activeRedexId: string | null): Promise<InternalRep> {
+  fromStringDiagram(diagram: OpenDiagram, activeRedexId: string | null): Promise<InternalRep> {
     throw new Error("Method not implemented.");
   }
 
-  renderDebugInfo(g: InternalRep): Promise<NodesAndEdges> {
+  renderDebugInfo(g: InternalRep): Promise<NodeListAndEdges> {
     throw new Error("Method not implemented.");
   }
 
-  toReactFlow(pair: InternalRep): Promise<NodesAndEdges> {
+  toReactFlow(pair: InternalRep): Promise<NodeListAndEdges> {
     // TODO: Put all of the actual processing into fromSemanticNode
     let [semNode, [levelMap, breadthIndexMap, ixNodes], edges] = pair
 
@@ -44,7 +44,7 @@ export class SimpleLayoutEngine implements LayoutEngine<InternalRep> {
     // this.computeAppNodes(semNode, { x: 0, y: SimpleLayoutEngine.MAX_HEIGHT }, maxLevel, levelMap, breadthIndexMap, appNodes)
 
     return Promise.resolve({
-      nodes: appNodes,
+      nodes: Array.from(appNodes.values()),
       edges
     })
   }

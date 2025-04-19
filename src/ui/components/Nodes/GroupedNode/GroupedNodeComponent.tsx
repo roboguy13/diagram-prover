@@ -16,7 +16,7 @@ import {
 
 import { type GroupedNode, ApplicationNode } from '../nodeTypes';
 
-import { getNode, type Model } from '../../../architecture/Model';
+import { type Model } from '../../../architecture/Model';
 import { inputHandleName, outputHandleName } from '../../../NodeUtils';
 import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config';
 
