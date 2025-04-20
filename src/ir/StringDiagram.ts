@@ -144,7 +144,7 @@ export type Box = {
 
 export class DiagramBuilder {
   private static uniqueId = 0;
-  private _nodes: Map<NodeId, DiagramNode> = new Map();
+  protected _nodes: Map<NodeId, DiagramNode> = new Map();
   private _wires: Map<WireId, Wire> = new Map();
 
   protected get nodes(): Map<NodeId, DiagramNode> {
@@ -205,12 +205,12 @@ export class DiagramBuilder {
   }
 
   lam(paramCount: number,
-    body: (inner: DiagramBuilder, params: PortRef[]) => PortRef
+    body: (inner: OpenDiagramBuilder, params: PortRef[]) => PortRef
   ): PortRef {
     const lamId = DiagramBuilder.generateId('lam');
 
     // --- Build the inner diagram ---
-    const innerBuilder = new DiagramBuilder();
+    const innerBuilder = new OpenDiagramBuilder();
 
     // Create the inner parameter bar and get references to its ports
     const { paramBarNodeId, innerParamRefs } = this.createInnerParamBar(innerBuilder, paramCount);
@@ -276,22 +276,12 @@ export class DiagramBuilder {
   }
 
   private createInnerParamBar(
-    innerBuilder: DiagramBuilder,
+    innerBuilder: OpenDiagramBuilder,
     paramCount: number
   ): { paramBarNodeId: NodeId, innerParamRefs: PortRef[] } {
-    const paramBarNodeId = DiagramBuilder.generateId('portBar');
-
-    const innerParamPortsSpecs = Array.from({ length: paramCount }, (_, i) => ({
-      id: outputHandleName(i),
-      direction: 'output' as const,
-    }));
-
-    const innerParamNode = new SimpleNode({
-      kind: 'SimpleNode',
-      nodeId: paramBarNodeId,
-      nodeKind: 'portBar',
-      ports: innerParamPortsSpecs,
-    });
+    const rec = innerBuilder.getParamBar(paramCount);
+    const paramBarNodeId = rec.paramBarId;
+    const innerParamPortsSpecs = rec.paramPortSpecs;
 
     const innerParamRefs = innerParamPortsSpecs.map((spec, i) => ({
       nodeId: paramBarNodeId,
@@ -334,6 +324,38 @@ export class OpenDiagramBuilder extends DiagramBuilder {
     super(builder);
     this._freeVars = freeVars;
     this._portBarId = portBarId;
+    if (!this._nodes.has(this._portBarId)) {
+      const freeVarPortBarNode = new SimpleNode({
+        kind: 'SimpleNode',
+        nodeId: this._portBarId,
+        nodeKind: 'portBar',
+        ports: [], // Start with no ports
+      });
+      this._nodes.set(this._portBarId, freeVarPortBarNode);
+    }
+  }
+
+  getParamBar(paramCount: number): { paramBarId: NodeId, paramPortSpecs: PortSpec[] } {
+    const paramPortSpecs = Array.from({ length: paramCount }, (_, i) => ({
+      id: outputHandleName(i),
+      direction: 'output' as const,
+    }));
+
+    let paramBarNode = this._nodes.get(this._portBarId) as SimpleNode;
+    if (!paramBarNode) {
+      paramBarNode = new SimpleNode({
+        kind: 'SimpleNode',
+        nodeId: this._portBarId,
+        nodeKind: 'portBar',
+        ports: paramPortSpecs,
+      });
+      this._nodes.set(this._portBarId, paramBarNode);
+    } else {
+      paramBarNode.ports.push(...paramPortSpecs);
+      this._nodes.set(this._portBarId, paramBarNode);
+    }
+
+    return { paramBarId: this._portBarId, paramPortSpecs };
   }
 
   freeVar(name: string): PortRef {

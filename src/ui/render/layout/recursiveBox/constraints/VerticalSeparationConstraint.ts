@@ -41,7 +41,7 @@ export class VerticalSeparationConstraint  implements Constraint {
       `VerticalSeparationConstraint`,
       net,
       requiredBottomBoxTop,
-      bottomBox.top
+      bottomBox.top,
     );
   }
 

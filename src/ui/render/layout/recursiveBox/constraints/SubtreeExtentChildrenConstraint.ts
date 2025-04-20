@@ -4,6 +4,7 @@ import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
 import { BoundingBox } from "../BoundingBox"; // Ensure imported
 import { NodeId } from "../../../../../ir/StringDiagram"; // Assuming NodeId type exists
+import { CollectiveBoundingBox } from "../CollectiveBoundingBox";
 
 export class SubtreeExtentChildrenConstraint implements Constraint {
   constructor(private _parentId: NodeId) {} // Use NodeId type
@@ -28,6 +29,7 @@ export class SubtreeExtentChildrenConstraint implements Constraint {
       // Node is a leaf in the layout hierarchy.
       // Its subtree extent is just its intrinsic extent.
       console.log(`${writer}: Node ${parentId} has no layout children. Setting subtree extent = intrinsic extent.`);
+      // This equality constraint is also added by SubtreeIntrinsicConstraint for leaves.
       parentIntrinsicBox.equalConstraints(net, parentSubtreeBox);
       return;
     }
@@ -42,46 +44,48 @@ export class SubtreeExtentChildrenConstraint implements Constraint {
 
     const childSubtreeBoxes = childLayouts.map(layout => layout.subtreeExtentBox);
 
-    // Combine the parent's intrinsic box and children's subtree boxes
-    const allBoxes: BoundingBox[] = [parentIntrinsicBox, ...childSubtreeBoxes];
+    // Define the collective box of children's subtrees
+    const collectiveChildrenBox = new CollectiveBoundingBox(net, `${writer} Children Collective`, childrenIds, childSubtreeBoxes);
 
-    // Get lists of corresponding edges
-    const lefts = allBoxes.map(b => b.left);
-    const tops = allBoxes.map(b => b.top);
-    const rights = allBoxes.map(b => b.right);
-    const bottoms = allBoxes.map(b => b.bottom);
+    // The parent's subtree extent must contain BOTH its own intrinsic box
+    // AND the collective extent of its children's subtrees.
+    // We achieve this by finding the min/max across the relevant edges.
 
-    // --- Calculate required collective bounds using temporary cells ---
-    const collectiveMinLeft = net.newCell(`${writer} collectiveMinLeft`, unknown());
-    const collectiveMinTop = net.newCell(`${writer} collectiveMinTop`, unknown());
-    const collectiveMaxRight = net.newCell(`${writer} collectiveMaxRight`, unknown());
-    const collectiveMaxBottom = net.newCell(`${writer} collectiveMaxBottom`, unknown());
+    // parentSubtree.left = min(parentIntrinsic.left, collectiveChildren.left)
+    minRangeListPropagator(`${writer} Subtree Left`, net,
+      [parentIntrinsicBox.left, collectiveChildrenBox.left],
+      parentSubtreeBox.left
+    );
 
-    minRangeListPropagator(`${writer}: min(lefts)`, net, lefts, collectiveMinLeft);
-    minRangeListPropagator(`${writer}: min(tops)`, net, tops, collectiveMinTop);
-    maxRangeListPropagator(`${writer}: max(rights)`, net, rights, collectiveMaxRight);
-    maxRangeListPropagator(`${writer}: max(bottoms)`, net, bottoms, collectiveMaxBottom);
+    // parentSubtree.right = max(parentIntrinsic.right, collectiveChildren.right)
+    maxRangeListPropagator(`${writer} Subtree Right`,net, 
+      [parentIntrinsicBox.right, collectiveChildrenBox.right],
+      parentSubtreeBox.right
+    );
 
-    // --- Apply inequality constraints ---
-    // parentSubtreeBox.left <= collectiveMinLeft
-    lessThanEqualPropagator(`${writer}: parent.left <= collective.left`, net, parentSubtreeBox.left, collectiveMinLeft);
-    // parentSubtreeBox.top <= collectiveMinTop
-    lessThanEqualPropagator(`${writer}: parent.top <= collective.top`, net, parentSubtreeBox.top, collectiveMinTop);
-    // parentSubtreeBox.right >= collectiveMaxRight (equiv. collectiveMaxRight <= parentSubtreeBox.right)
-    lessThanEqualPropagator(`${writer}: collective.right <= parent.right`, net, collectiveMaxRight, parentSubtreeBox.right);
-    // parentSubtreeBox.bottom >= collectiveMaxBottom (equiv. collectiveMaxBottom <= parentSubtreeBox.bottom)
-    lessThanEqualPropagator(`${writer}: collective.bottom <= parent.bottom`, net, collectiveMaxBottom, parentSubtreeBox.bottom);
+    // parentSubtree.top = min(parentIntrinsic.top, collectiveChildren.top)
+    minRangeListPropagator(`${writer} Subtree Top`,net, 
+      [parentIntrinsicBox.top, collectiveChildrenBox.top],
+      parentSubtreeBox.top
+    );
+
+    // parentSubtree.bottom = max(parentIntrinsic.bottom, collectiveChildren.bottom)
+    maxRangeListPropagator(`${writer} Subtree Bottom`,net, 
+      [parentIntrinsicBox.bottom, collectiveChildrenBox.bottom],
+      parentSubtreeBox.bottom
+    );
+
+    // Remove the previous containment constraint as it's now implicitly handled
+    // collectiveBox.containedInConstraints(net, parentSubtreeBox); // Ensure this line is removed or commented out
 
     console.log(`${writer}: Constrained parent subtree box to contain intrinsic box and ${childrenIds.length} children.`);
 
-    // Optional: Add horizontal separation between children
-    // ...
   }
 
   cellsToMinimize(): CellRef[] {
-    // If you want the subtree box to be as small as possible while satisfying constraints,
-    // you might minimize its width and height, or maximize left/top and minimize right/bottom.
-    // However, start without minimization here to isolate the inconsistency.
+    // Consider adding parentSubtreeBox.width and parentSubtreeBox.height here
+    // if you want the layout to be as compact as possible.
+    // return [parentSubtreeBox.width, parentSubtreeBox.height];
     return [];
   }
 }

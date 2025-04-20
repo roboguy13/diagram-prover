@@ -24,9 +24,9 @@ export class ConstraintApplicator {
   public processLayout(layoutTree: LayoutTree): void {
     const layouts = layoutTree.nodeLayouts.values()
 
-    const roots = layoutTree.roots;
+    const roots = layoutTree.layoutRoots;
 
-    this.horizontalConstraints(layoutTree, roots.map(root => root.nodeId));
+    this.horizontalConstraints(layoutTree, roots);
 
     for (const layout of layouts) {
       ConstraintApplicator.debugLeaves(layoutTree, layout.nodeId);
@@ -50,8 +50,9 @@ export class ConstraintApplicator {
 
       const children = layoutTree.getChildren(layout.nodeId);
       if (children.length > 0) {
-        this.verticalConstraints(layoutTree, layout.nodeId, children);
-        this.horizontalConstraints(layoutTree, children);
+        this.verticalConstraints(layoutTree, children, layout.nodeId);
+        const childLayouts = children.map(childId => layoutTree.getNodeLayout(childId)).filter((l): l is NonNullable<typeof l> => l != null);
+        this.horizontalConstraints(layoutTree, childLayouts);
       }
     }
 
@@ -81,20 +82,21 @@ export class ConstraintApplicator {
     // minimizer.minimize();
   }
 
-  private horizontalConstraints(layoutTree: LayoutTree, adjacent: NodeId[]): void {
+  private horizontalConstraints(layoutTree: LayoutTree, adjacent: NodeLayout[]): void {
     for (let i = 0; i < adjacent.length - 1; i++) {
       const left = adjacent[i]!;
       const right = adjacent[i + 1]!;
 
       this.applyConstraint(
-        new HorizontalSeparationConstraint(left, right),
+        new HorizontalSeparationConstraint(left.nodeId, right.nodeId),
         layoutTree
       );
     }
   }
 
-  private verticalConstraints(layoutTree: LayoutTree, topNodeId: NodeId, bottomNodeIds: NodeId[]): void {
-    for (const bottomNodeId of bottomNodeIds) {
+  private verticalConstraints(layoutTree: LayoutTree, topNodeIds: NodeId[], bottomNodeId: NodeId): void {
+    console.log(`Vertical constraints for ${topNodeIds} and ${bottomNodeId}`);
+    for (const topNodeId of topNodeIds) {
       this.applyConstraint(
         new VerticalSeparationConstraint(topNodeId, bottomNodeId),
         layoutTree

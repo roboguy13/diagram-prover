@@ -6,7 +6,7 @@ import { PartialSemigroup } from './PartialSemigroup'
 import { isEqual } from 'lodash'
 import { DesktopIcon } from '@radix-ui/react-icons'
 
-const DEBUG_PROPAGATOR_NETWORK = true
+const DEBUG_PROPAGATOR_NETWORK = false
 
 export type Content<A> =
   | { kind: 'Inconsistent' }
