@@ -4,6 +4,7 @@ import { Constraint } from "../Constraint";
 
 export class VerticalSeparationConstraint  implements Constraint {
   private readonly _PADDING = 20;
+  private _paddingCell: CellRef | null = null;
 
   constructor(
     private _topNodeId: string,
@@ -23,7 +24,7 @@ export class VerticalSeparationConstraint  implements Constraint {
     const topBox = topLayout.intrinsicBox;
     const bottomBox = bottomLayout.intrinsicBox;
 
-    const paddingCell = net.newCell(`padding`, known(between(this._PADDING, this._PADDING*3)));
+    this._paddingCell = net.newCell(`padding`, known(between(this._PADDING, this._PADDING*3)));
 
     const requiredBottomBoxTop = net.newCell(`requiredBottomBoxTop`, unknown());
 
@@ -32,7 +33,7 @@ export class VerticalSeparationConstraint  implements Constraint {
       `VerticalSeparationConstraint`,
       net,
       topBox.bottom,
-      paddingCell,
+      this._paddingCell!,
       requiredBottomBoxTop,
     );
 
@@ -46,6 +47,6 @@ export class VerticalSeparationConstraint  implements Constraint {
   }
 
   cellsToMinimize(): CellRef[] {
-    return [];
+    return [this._paddingCell].filter(cell => cell !== null) as CellRef[];
   }
 }

@@ -17,6 +17,7 @@ import { NodeLayout } from "./NodeLayout";
 import { HorizontalSeparationConstraint } from "./constraints/HorizontalSeparationConstraint";
 import { NodeId } from "../../../../ir/StringDiagram";
 import { VerticalSeparationConstraint } from "./constraints/VerticalSeparationConstraint";
+import { VerticalAlignmentConstraint } from "./constraints/VerticalAlignmentConstraint";
 
 export class ConstraintApplicator {
   private _constraints: Constraint[] = [];
@@ -49,6 +50,10 @@ export class ConstraintApplicator {
       );
 
       const children = layoutTree.getChildren(layout.nodeId);
+      this.applyConstraint(
+        new VerticalAlignmentConstraint(children),
+        layoutTree
+      );
       if (children.length > 0) {
         this.verticalConstraints(layoutTree, children, layout.nodeId);
         const childLayouts = children.map(childId => layoutTree.getNodeLayout(childId)).filter((l): l is NonNullable<typeof l> => l != null);
@@ -78,8 +83,8 @@ export class ConstraintApplicator {
     const cellsToMinimize = this._constraints
       .flatMap(constraint => constraint.cellsToMinimize())
 
-    // const minimizer = new Minimizer(layoutTree.net, cellsToMinimize);
-    // minimizer.minimize();
+    const minimizer = new Minimizer(layoutTree.net, cellsToMinimize);
+    minimizer.minimize();
   }
 
   private horizontalConstraints(layoutTree: LayoutTree, adjacent: NodeLayout[]): void {

@@ -125,7 +125,7 @@ export class LayoutTree {
 
     const children = this._children.get(parentId);
     if (children!.find(id => id === childId)) {
-      console.warn(`Child ${childId} already exists for parent ${parentId}. Skipping.`);
+      // console.warn(`Child ${childId} already exists for parent ${parentId}. Skipping.`);
       return;
     }
     this._children.get(parentId)!.push(childId);
@@ -156,7 +156,7 @@ export class LayoutTree {
     const processNode = (nodeId: string) => {
       const layout = this.getNodeLayout(nodeId);
       if (visited.has(nodeId) || !layout) {
-        if (!layout) console.warn(`processNode: Layout not found for ${nodeId}, skipping.`);
+        // if (!layout) console.warn(`processNode: Layout not found for ${nodeId}, skipping.`);
         return;
       }
       visited.add(nodeId);
@@ -179,7 +179,7 @@ export class LayoutTree {
 
     this._nodeLayouts.forEach((layout) => {
       if (!visited.has(layout.nodeId)) {
-        console.warn(`Node ${layout.nodeId} was not visited during root traversal. Processing now (may indicate disconnected graph or hierarchy issue).`);
+        // console.warn(`Node ${layout.nodeId} was not visited during root traversal. Processing now (may indicate disconnected graph or hierarchy issue).`);
         processNode(layout.nodeId);
       }
     });
@@ -192,8 +192,8 @@ export class LayoutTree {
       let targetHandle: string | null = conn.to.portId;
 
       if (sourceId && targetId) {
-        if (!sourceHandle) console.warn(`Edge ${conn.id}: Missing source handle for source ${sourceId}`);
-        if (!targetHandle) console.warn(`Edge ${conn.id}: Missing target handle for target ${targetId}`);
+        // if (!sourceHandle) console.warn(`Edge ${conn.id}: Missing source handle for source ${sourceId}`);
+        // if (!targetHandle) console.warn(`Edge ${conn.id}: Missing target handle for target ${targetId}`);
 
         edges.push({
           id: conn.id,
@@ -436,10 +436,15 @@ export class LayoutTree {
     // 1. Create NodeLayouts for all nodes and handle nesting
     for (const nodeId of nodeIds) {
       const node = diagram.nodes.get(nodeId)!;
+
+      if (node.nodeKind === 'portBar') {
+        continue
+      }
+
       const intrinsicBox = SimpleBoundingBox.createNewWithDims(net, 'intrinsic', nodeId, getStringNodeDimensions(node));
       const subtreeExtentBox = SimpleBoundingBox.createNew(net, 'subtree extent', nodeId);
       const nestingParentId = diagram.nestingParents.get(nodeId) ?? null;
-      const portBarType: PortBarType | null = node.nodeKind === 'portBar' ? 'parameter-bar' : null; // Simplified assumption
+      const portBarType: PortBarType | null = null //node.nodeKind === 'portBar' ? 'parameter-bar' : null;
 
       console.log(`--- node id: ${nodeId}, nesting parentId: ${nestingParentId}`);
 
@@ -480,7 +485,7 @@ export class LayoutTree {
         // Parent = target node, Child = source node
         layoutTree.addChild(targetNodeId, sourceNodeId);
       } else {
-        console.warn(`Skipping wire ${wire.id}: Node ${sourceNodeId} or ${targetNodeId} not found in layout.`);
+        // console.warn(`Skipping wire ${wire.id}: Node ${sourceNodeId} or ${targetNodeId} not found in layout.`);
       }
     }
     console.log("Final _children map after processing wires:", layoutTree._children);
