@@ -2,8 +2,9 @@ import { maxRangeListPropagator, minRangeListPropagator, NumericRange } from "..
 import { CellRef, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 import { BoundingBox, SimpleBoundingBox } from "./BoundingBox";
 
-export class CollectiveBoundingBox implements BoundingBox {
+export class CollectiveBoundingBox extends BoundingBox {
   private _boundingBox: SimpleBoundingBox;
+  protected override _typePrefix: string
 
   constructor(
     net: PropagatorNetwork<NumericRange>,
@@ -11,9 +12,12 @@ export class CollectiveBoundingBox implements BoundingBox {
     nodeIds: string[],
     boundingBoxes: BoundingBox[]
   ) {
+    super()
     if (boundingBoxes.length === 0) {
       throw new Error("No bounding boxes provided for CollectiveBoundingBox");
     }
+
+    this._typePrefix = typePrefix;
 
     const nodeIdsString = nodeIds.join(", ");
 

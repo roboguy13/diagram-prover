@@ -24,8 +24,10 @@ export class SubtreeIntrinsicConstraint implements Constraint {
     const children = layoutTree.getChildren(this._nodeId);
 
     if (children.length === 0) {
+      console.log(`SubtreeIntrinsicConstraint: Node ${this._nodeId} is a leaf. Applying equalConstraints.`);
       intrinsicBox.equalConstraints(net, subtreeExtentBox);
     } else {
+      console.log(`SubtreeIntrinsicConstraint: Node ${this._nodeId} is non-leaf with children [${children.join(', ')}]. Applying containedInConstraints.`);
       intrinsicBox.containedInConstraints(net, subtreeExtentBox);
     }
   }

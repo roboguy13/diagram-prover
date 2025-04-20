@@ -560,7 +560,20 @@ class Cell<A> {
 
   write(writer: PropagatorDescription, content: Content<A>) {
     let previousContent = this._content
-    this._content = semigroupContent<A>(this._pSemigroup).concat(this._content, content)
+    const mergedContent = semigroupContent<A>(this._pSemigroup).concat(this._content, content)
+
+    if (DEBUG_PROPAGATOR_NETWORK) {
+      const writerDesc = writer.description || 'Unknown Writer';
+      console.log(`WRITE Attempt: Cell ${this._ref} (${this.description}) by Propagator "${writerDesc}"`);
+      console.log(`  Old Content: ${printContent(this._net.aPrinter)(previousContent)}`);
+      console.log(`  New Content: ${printContent(this._net.aPrinter)(content)}`);
+    }
+    
+    this._content = mergedContent
+
+    if (DEBUG_PROPAGATOR_NETWORK) {
+      console.log(`  Merged Content: ${printContent(this._net.aPrinter)(mergedContent)}`);
+    }
 
     switch (this._content.kind) {
         case 'Inconsistent':

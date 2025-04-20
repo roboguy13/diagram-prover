@@ -401,6 +401,11 @@ export class LayoutTree {
     }
   }
 
+  public get roots(): NodeLayout[] {
+    const nodeLayouts = Array.from(this._nodeLayouts.values());
+    return nodeLayouts.filter(layout => layout.nestingParentId === null);
+  }
+
   static buildFromStringDiagram(net: PropagatorNetwork<NumericRange>, diagram: OpenDiagram): LayoutTree {
     console.log("Building layout tree from string diagram...")
     console.log("Diagram:", diagram);

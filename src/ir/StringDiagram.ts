@@ -106,7 +106,11 @@ export class Diagram {
     for (const [nodeId, node] of nodes) {
       for (const port of node.ports) {
         if (port.inner) {
-          this._nestingParents.set(port.inner.nodeId, nodeId);
+          if (port.inner.nodeId === nodeId) {
+            console.warn(`Port ${port.id} of node ${nodeId} points to itself. This is not allowed.`);
+          } else {
+            this._nestingParents.set(port.inner.nodeId, nodeId);
+          }
         }
       }
     }
@@ -205,46 +209,63 @@ export class DiagramBuilder {
   ): PortRef {
     const lamId = DiagramBuilder.generateId('lam');
 
-    /* create parameter *bridge* ports on the λ‑node itself */
-    const paramPorts = Array.from({ length: paramCount }, (_, i) => ({
-      nodeId: lamId,
-      portId: inputHandleName(i)
+    // --- Build the inner diagram ---
+    const innerBuilder = new DiagramBuilder();
+
+    // Create the inner parameter bar and get references to its ports
+    const { paramBarNodeId, innerParamRefs } = this.createInnerParamBar(innerBuilder, paramCount);
+
+    // Build the body using the inner builder and refs to the inner param bar
+    const innerResultRef = body(innerBuilder, innerParamRefs);
+    const bodyDia = innerBuilder.finish();
+    // --- Inner diagram built ---
+
+
+    // --- Create the outer Lambda node ---
+    // Create PortSpecs for the outer lambda node's input ports
+    const outerParamPortsSpecs: PortSpec[] = Array.from({ length: paramCount }, (_, i) => ({
+      id: inputHandleName(i), // Inputs on the lambda node
+      direction: 'input' as const,
+      // 'inner' points to the corresponding output port on the inner paramBar
+      inner: { nodeId: paramBarNodeId, portId: outputHandleName(i) }
     }));
 
-    /* build the nested body diagram */
-    const inner = new DiagramBuilder();
-    const bodyRef = body(inner, paramPorts);
-    const bodyDia = inner.finish();
+    // Create PortSpec for the outer lambda node's output port
+    const outerResultPortSpec: PortSpec = {
+      id: outputHandleName(0), // Output on the lambda node
+      direction: 'output' as const,
+      // 'inner' points to the result port returned by the body function
+      inner: innerResultRef
+    };
 
-    const resultPort = { nodeId: lamId, portId: outputHandleName(0) };
-
-    const lamNode: NestedNode = new NestedNode(bodyDia, {
+    const lamNode = new NestedNode(bodyDia, {
       kind: 'NestedNode',
       nodeId: lamId,
       nodeKind: 'lam',
       ports: [
-        // bound‑variable ports
-        ...paramPorts.map((p, i) => ({
-          id: p.portId,
-          direction: 'input' as const,
-          inner: { nodeId: bodyRef.nodeId, portId: bodyRef.portId }, // bridge
-        })),
-        // result port
-        { id: resultPort.portId, direction: 'output' }
+        ...outerParamPortsSpecs,
+        outerResultPortSpec
       ],
     });
 
+    // Add the lambda node itself to the *outer* builder's nodes
     this._nodes.set(lamId, lamNode);
 
-    for (const node of bodyDia.nodes.values()) {
-      this._nodes.set(node.nodeId, node);
+    // Add all nodes and wires from the inner diagram to the *outer* builder's maps.
+    for (const [innerNodeId, node] of bodyDia.nodes.entries()) {
+       // Avoid overwriting the paramBar node if it was already added (shouldn't happen with unique IDs, but safe)
+       if (!this._nodes.has(innerNodeId)) {
+         this._nodes.set(innerNodeId, node);
+       }
+    }
+    for (const [innerWireId, wire] of bodyDia.wires.entries()) {
+       if (!this._wires.has(innerWireId)) {
+         this._wires.set(innerWireId, wire);
+       }
     }
 
-    for (const wire of bodyDia.wires.values()) {
-      this._wires.set(wire.id, wire);
-    }
-
-    return resultPort;
+    // Return the PortRef for the lambda node's result port
+    return { nodeId: lamId, portId: outerResultPortSpec.id };
   }
 
   finish(): Diagram {
@@ -252,6 +273,32 @@ export class DiagramBuilder {
       this._nodes,
       this._wires
     )
+  }
+
+  private createInnerParamBar(
+    innerBuilder: DiagramBuilder,
+    paramCount: number
+  ): { paramBarNodeId: NodeId, innerParamRefs: PortRef[] } {
+    const paramBarNodeId = DiagramBuilder.generateId('portBar');
+
+    const innerParamPortsSpecs = Array.from({ length: paramCount }, (_, i) => ({
+      id: outputHandleName(i),
+      direction: 'output' as const,
+    }));
+
+    const innerParamNode = new SimpleNode({
+      kind: 'SimpleNode',
+      nodeId: paramBarNodeId,
+      nodeKind: 'portBar',
+      ports: innerParamPortsSpecs,
+    });
+
+    const innerParamRefs = innerParamPortsSpecs.map((spec, i) => ({
+      nodeId: paramBarNodeId,
+      portId: spec.id,
+    }));
+
+    return { paramBarNodeId, innerParamRefs };
   }
 
   private wire(from: PortRef, to: PortRef): void {

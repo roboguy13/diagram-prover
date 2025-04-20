@@ -3,7 +3,8 @@ import {
   subtractRangePropagator,
   lessThanEqualPropagator,
   exactly,
-  atLeast
+  atLeast,
+  between
 } from "../../../../../../constraint/propagator/NumericRange";
 import { CellRef, known, unknown } from "../../../../../../constraint/propagator/Propagator";
 import { CollectiveBoundingBox } from "../../CollectiveBoundingBox";
@@ -28,11 +29,14 @@ export class ContainerSizeConstraint implements Constraint {
 
     const containerLayout = layoutTree.getNodeLayout(this._containerId);
 
+    console.log(`ContainerSizeConstraint: Applying for container ${this._containerId}`);
+
     if (!containerLayout) {
       console.warn(`Container layout not found for ID: ${this._containerId}`);
       return;
     }
 
+    const nestedChildrenIds = this._nestedIds
     const nestedLayouts = this._nestedIds.map(id => layoutTree.getNodeLayout(id)).filter(layout => layout !== undefined);
 
     if (nestedLayouts.length === 0) {
@@ -40,13 +44,15 @@ export class ContainerSizeConstraint implements Constraint {
       return;
     }
 
-    const nestedBoundingBoxes = nestedLayouts.map(layout => layout.intrinsicBox);
+    const nestedBoundingBoxes = nestedLayouts.map(layout => layout.subtreeExtentBox);
     const collectiveBoundingBox = new CollectiveBoundingBox(
       net,
       "Container",
       this._nestedIds,
       nestedBoundingBoxes
     );
+
+    console.log(`ContainerSizeConstraint: Container ${this._containerId} has nested children [${nestedChildrenIds.join(', ')}]`);
 
     const containerBox = containerLayout.intrinsicBox;
 
@@ -60,8 +66,8 @@ export class ContainerSizeConstraint implements Constraint {
     const collectiveTop = collectiveBoundingBox.top;
     const collectiveBottom = collectiveBoundingBox.bottom;
 
-    this.verticalPadding = net.newCell(`verticalPadding`, known(atLeast(this._PADDING_VERTICAL)));
-    this.horizontalPadding = net.newCell(`horizontalPadding`, known(atLeast(this._PADDING_HORIZONTAL)));
+    this.verticalPadding = net.newCell(`verticalPadding`, known(between(this._PADDING_VERTICAL, this._PADDING_VERTICAL * 3)));
+    this.horizontalPadding = net.newCell(`horizontalPadding`, known(between(this._PADDING_HORIZONTAL, this._PADDING_HORIZONTAL * 3)));
 
     net.equalPropagator(
       `Collective left = horizontalPadding`,
@@ -75,7 +81,7 @@ export class ContainerSizeConstraint implements Constraint {
       this.verticalPadding,
     );
 
-
+    console.log(`ContainerSizeConstraint: Applying padWith for container ${this._containerId} and ${nestedChildrenIds.length} children.`);
     this.padWith(layoutTree, collectiveRight, containerBox.width, this.horizontalPadding);
     this.padWith(layoutTree, collectiveBottom, containerBox.height, this.verticalPadding);
 
@@ -108,6 +114,7 @@ export class ContainerSizeConstraint implements Constraint {
     padding: CellRef
   ): void {
     const net = layoutTree.net;
+    console.log(`padWith: Relating smallerEdge (${layoutTree.net.cellDescription(smallerEdge)}), largerEdge (${layoutTree.net.cellDescription(largerEdge)}), padding (${layoutTree.net.cellDescription(padding)})`);
 
     subtractRangePropagator(
       `Larger edge - smaller edge = padding`,

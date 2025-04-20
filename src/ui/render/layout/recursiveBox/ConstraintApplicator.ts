@@ -7,17 +7,26 @@ import { known } from "../../../../constraint/propagator/Propagator";
 // Import isNodePortLocation
 import { isNode } from "reactflow";
 import { determineLayers } from "../../../../utils/LevelOrder";
-import { NodeId } from "../../../../engine/Term";
 import { PortBarType } from "../../../components/Nodes/nodeTypes";
 import { Constraint } from "./Constraint";
 import { Minimizer } from "../../../../constraint/propagator/Minimize";
 import { ContainerSizeConstraint } from "./constraints/container/ContainerSizeConstraint";
+import { SubtreeIntrinsicConstraint } from "./constraints/SubtreeIntrinsicConstraint";
+import { SubtreeExtentChildrenConstraint } from "./constraints/SubtreeExtentChildrenConstraint";
+import { NodeLayout } from "./NodeLayout";
+import { HorizontalSeparationConstraint } from "./constraints/HorizontalSeparationConstraint";
+import { NodeId } from "../../../../ir/StringDiagram";
+import { VerticalSeparationConstraint } from "./constraints/VerticalSeparationConstraint";
 
 export class ConstraintApplicator {
   private _constraints: Constraint[] = [];
 
   public processLayout(layoutTree: LayoutTree): void {
     const layouts = layoutTree.nodeLayouts.values()
+
+    const roots = layoutTree.roots;
+
+    this.horizontalConstraints(layoutTree, roots.map(root => root.nodeId));
 
     for (const layout of layouts) {
       ConstraintApplicator.debugLeaves(layoutTree, layout.nodeId);
@@ -28,17 +37,69 @@ export class ConstraintApplicator {
       if (nestingChildren.length > 0) {
         this.containerConstraints(layoutTree, layout.nodeId, nestingChildren);
       }
+
+      this.applyConstraint(
+        new SubtreeIntrinsicConstraint(layout.nodeId),
+        layoutTree
+      );
+
+      this.applyConstraint(
+        new SubtreeExtentChildrenConstraint(layout.nodeId),
+        layoutTree
+      );
+
+      const children = layoutTree.getChildren(layout.nodeId);
+      if (children.length > 0) {
+        this.verticalConstraints(layoutTree, layout.nodeId, children);
+        this.horizontalConstraints(layoutTree, children);
+      }
     }
 
     this.performMinimization(layoutTree);
   }
 
+  // private nestedWithin(layoutTree: LayoutTree, nodeId: string, candidateNestingParentId: NodeId): boolean {
+  //   function helper(currentNodeId: NodeId): boolean {
+  //     if (currentNodeId === candidateNestingParentId) {
+  //       return true;
+  //     }
+
+  //     const parentNodeId = layoutTree.getNestingChildren(currentNodeId);
+  //     if (!parentNodeId) {
+  //       return false;
+  //     }
+
+  //     return helper(parentNodeId);
+  //   }
+  // }
+
   private performMinimization(layoutTree: LayoutTree): void {
     const cellsToMinimize = this._constraints
       .flatMap(constraint => constraint.cellsToMinimize())
 
-    const minimizer = new Minimizer(layoutTree.net, cellsToMinimize);
-    minimizer.minimize();
+    // const minimizer = new Minimizer(layoutTree.net, cellsToMinimize);
+    // minimizer.minimize();
+  }
+
+  private horizontalConstraints(layoutTree: LayoutTree, adjacent: NodeId[]): void {
+    for (let i = 0; i < adjacent.length - 1; i++) {
+      const left = adjacent[i]!;
+      const right = adjacent[i + 1]!;
+
+      this.applyConstraint(
+        new HorizontalSeparationConstraint(left, right),
+        layoutTree
+      );
+    }
+  }
+
+  private verticalConstraints(layoutTree: LayoutTree, topNodeId: NodeId, bottomNodeIds: NodeId[]): void {
+    for (const bottomNodeId of bottomNodeIds) {
+      this.applyConstraint(
+        new VerticalSeparationConstraint(topNodeId, bottomNodeId),
+        layoutTree
+      );
+    }
   }
 
   private containerConstraints(layoutTree: LayoutTree, containerId: string, nestedIds: string[]): void {
