@@ -146,71 +146,168 @@ export class LayoutTree {
     return this._nestingChildren.get(parentId) ?? [];
   }
 
-  // TODO: Refactor?
   toNodesAndEdges(): NodeListAndEdges {
-    console.log("Converting layout tree to nodes and edges using recursive traversal...");
-    const nodes: ApplicationNode[] = [];
-    const edges: Edge[] = [];
-    const visited = new Set<string>();
+    console.log("Converting layout tree to nodes and edges (handling port bars)...");
+    const finalNodes: ApplicationNode[] = [];
+    const finalEdges: Edge[] = [];
 
-    const processNode = (nodeId: string) => {
-      const layout = this.getNodeLayout(nodeId);
-      if (visited.has(nodeId) || !layout) {
-        // if (!layout) console.warn(`processNode: Layout not found for ${nodeId}, skipping.`);
-        return;
-      }
-      visited.add(nodeId);
-
-      try {
-        const appNode = this.nodeToApplicationNode(nodeId);
-        nodes.push(appNode);
-        console.log(`  Added node: ${nodeId} (Parent: ${appNode.parentId ?? 'none'})`);
-      } catch (e) {
-        console.error(`Error converting node layout ${nodeId} to ApplicationNode:`, e, layout);
-        return;
-      }
-
-      const children = this.getChildren(nodeId);
-      console.log(`  Processing children of ${nodeId}:`, children);
-      for (const childId of children) {
-        processNode(childId);
-      }
-    };
-
+    // --- 1. Filter out portBar nodes ---
     this._nodeLayouts.forEach((layout) => {
-      if (!visited.has(layout.nodeId)) {
-        // console.warn(`Node ${layout.nodeId} was not visited during root traversal. Processing now (may indicate disconnected graph or hierarchy issue).`);
-        processNode(layout.nodeId);
-      }
-    });
-
-    console.log(`originalConnections: ${JSON.stringify(this._originalConnections)}`);
-    this._originalConnections.forEach((conn: Wire) => {
-      let sourceId: string | null = conn.from.nodeId;
-      let targetId: string | null = conn.to.nodeId;
-      let sourceHandle: string | null = conn.from.portId;
-      let targetHandle: string | null = conn.to.portId;
-
-      if (sourceId && targetId) {
-        // if (!sourceHandle) console.warn(`Edge ${conn.id}: Missing source handle for source ${sourceId}`);
-        // if (!targetHandle) console.warn(`Edge ${conn.id}: Missing target handle for target ${targetId}`);
-
-        edges.push({
-          id: conn.id,
-          source: sourceId,
-          target: targetId,
-          sourceHandle: sourceHandle ?? 'default_source_handle',
-          targetHandle: targetHandle ?? 'default_target_handle',
-          type: 'invertedBezier'
-        });
+      const diagramNode = this._stringDiagram?.nodes.get(layout.nodeId);
+      // Only add nodes that are NOT port bars
+      if (diagramNode && diagramNode.nodeKind !== 'portBar') {
+        try {
+          const appNode = this.nodeToApplicationNode(layout.nodeId);
+          finalNodes.push(appNode);
+          // console.log(`  Added node: ${layout.nodeId} (Parent: ${appNode.parentId ?? 'none'})`);
+        } catch (e) {
+          console.error(`Error converting node layout ${layout.nodeId} to ApplicationNode:`, e, layout);
+        }
+      } else if (!diagramNode) {
+         console.warn(`Diagram node not found for layout node ${layout.nodeId} during node filtering.`);
       } else {
-        console.warn("Could not determine source/target node ID for connection:", conn);
+        // console.log(`  Skipping portBar node: ${layout.nodeId}`);
       }
     });
 
-    console.log("Final nodes array order:", nodes.map(n => ({ id: n.id, parentId: n.parentId })));
-    return { nodes: nodes, edges: edges };
+    // --- 2. Process connections to bypass portBars ---
+    console.log(`Original connections: ${this._originalConnections.length}`);
+    // Temporary storage for connections involving port bars
+    const portBarInputs = new Map<NodeId, { sourceNodeId: NodeId, sourcePortId: string, wireId: string }>();
+    const portBarOutputs = new Map<NodeId, { targetNodeId: NodeId, targetPortId: string, wireId: string }>();
+
+    for (const conn of this._originalConnections) {
+      const sourceNode = this._stringDiagram?.nodes.get(conn.from.nodeId);
+      const targetNode = this._stringDiagram?.nodes.get(conn.to.nodeId);
+
+      if (!sourceNode || !targetNode) {
+        console.warn(`Skipping wire ${conn.id}: Source (${conn.from.nodeId}) or Target (${conn.to.nodeId}) node not found in diagram.`);
+        continue;
+      }
+
+      const isSourcePortBar = sourceNode.nodeKind === 'portBar';
+      const isTargetPortBar = targetNode.nodeKind === 'portBar';
+
+      if (!isSourcePortBar && !isTargetPortBar) {
+        // --- Case 1: Direct Connection ---
+        finalEdges.push({
+          id: conn.id,
+          source: conn.from.nodeId,
+          target: conn.to.nodeId,
+          sourceHandle: conn.from.portId, // Assuming portId is the handle ID
+          targetHandle: conn.to.portId, // Assuming portId is the handle ID
+          // type: 'invertedBezier'
+        });
+        // console.log(`  Added direct edge: ${conn.id}`);
+      } else if (!isSourcePortBar && isTargetPortBar) {
+        // --- Case 2: Connection TO Port Bar ---
+        // The target (portBar) acts as an input point for the container
+        console.log(`  [DEBUG] Storing input for portBar ${conn.to.nodeId}: source=${conn.from.nodeId}, port=${conn.from.portId}, wireId=${conn.id}`);
+        portBarInputs.set(conn.to.nodeId, {
+          sourceNodeId: conn.from.nodeId,
+          sourcePortId: conn.from.portId,
+          wireId: conn.id
+        });
+        // console.log(`  Stored input for portBar ${conn.to.nodeId} from ${conn.from.nodeId}`);
+      } else if (isSourcePortBar && !isTargetPortBar) {
+        // --- Case 3: Connection FROM Port Bar ---
+        // The source (portBar) acts as an output point for the container
+        portBarOutputs.set(conn.from.nodeId, {
+          targetNodeId: conn.to.nodeId,
+          targetPortId: conn.to.portId,
+          wireId: conn.id
+        });
+        // console.log(`  Stored output from portBar ${conn.from.nodeId} to ${conn.to.nodeId}`);
+      } else {
+        // --- Case 4: Port Bar to Port Bar ---
+        console.warn(`Skipping wire ${conn.id}: Connection between two port bars is not supported (${conn.from.nodeId} -> ${conn.to.nodeId}).`);
+      }
+    }
+
+    // --- 3. Create bypassed edges ---
+    portBarInputs.forEach((inputInfo, portBarId) => {
+      const outputInfo = portBarOutputs.get(portBarId);
+      if (outputInfo) {
+        // Creates bypassed edge
+      } // ...
+    });
+    // --- 4. Warn about unmatched outputs (optional) ---
+    portBarOutputs.forEach((outputInfo, portBarId) => {
+       console.warn(`Port bar ${portBarId} has an output connection (${outputInfo.wireId}) but no corresponding input connection.`);
+    });
+
+
+    console.log(`Final node count: ${finalNodes.length}, Final edge count: ${finalEdges.length}`);
+    // console.log("Final nodes:", finalNodes.map(n => ({ id: n.id, parentId: n.parentId })));
+    // console.log("Final edges:", finalEdges.map(e => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle })));
+    return { nodes: finalNodes, edges: finalEdges };
   }
+
+  // // TODO: Refactor?
+  // toNodesAndEdges(): NodeListAndEdges {
+  //   console.log("Converting layout tree to nodes and edges using recursive traversal...");
+  //   const nodes: ApplicationNode[] = [];
+  //   const edges: Edge[] = [];
+  //   const visited = new Set<string>();
+
+  //   const processNode = (nodeId: string) => {
+  //     const layout = this.getNodeLayout(nodeId);
+  //     if (visited.has(nodeId) || !layout) {
+  //       // if (!layout) console.warn(`processNode: Layout not found for ${nodeId}, skipping.`);
+  //       return;
+  //     }
+  //     visited.add(nodeId);
+
+  //     try {
+  //       const appNode = this.nodeToApplicationNode(nodeId);
+  //       nodes.push(appNode);
+  //       console.log(`  Added node: ${nodeId} (Parent: ${appNode.parentId ?? 'none'})`);
+  //     } catch (e) {
+  //       console.error(`Error converting node layout ${nodeId} to ApplicationNode:`, e, layout);
+  //       return;
+  //     }
+
+  //     const children = this.getChildren(nodeId);
+  //     console.log(`  Processing children of ${nodeId}:`, children);
+  //     for (const childId of children) {
+  //       processNode(childId);
+  //     }
+  //   };
+
+  //   this._nodeLayouts.forEach((layout) => {
+  //     if (!visited.has(layout.nodeId)) {
+  //       // console.warn(`Node ${layout.nodeId} was not visited during root traversal. Processing now (may indicate disconnected graph or hierarchy issue).`);
+  //       processNode(layout.nodeId);
+  //     }
+  //   });
+
+  //   console.log(`originalConnections: ${JSON.stringify(this._originalConnections)}`);
+  //   this._originalConnections.forEach((conn: Wire) => {
+  //     let sourceId: string | null = conn.from.nodeId;
+  //     let targetId: string | null = conn.to.nodeId;
+  //     let sourceHandle: string | null = conn.from.portId;
+  //     let targetHandle: string | null = conn.to.portId;
+
+  //     if (sourceId && targetId) {
+  //       // if (!sourceHandle) console.warn(`Edge ${conn.id}: Missing source handle for source ${sourceId}`);
+  //       // if (!targetHandle) console.warn(`Edge ${conn.id}: Missing target handle for target ${targetId}`);
+
+  //       edges.push({
+  //         id: conn.id,
+  //         source: sourceId,
+  //         target: targetId,
+  //         sourceHandle: sourceHandle ?? 'default_source_handle',
+  //         targetHandle: targetHandle ?? 'default_target_handle',
+  //         type: 'invertedBezier'
+  //       });
+  //     } else {
+  //       console.warn("Could not determine source/target node ID for connection:", conn);
+  //     }
+  //   });
+
+  //   console.log("Final nodes array order:", nodes.map(n => ({ id: n.id, parentId: n.parentId })));
+  //   return { nodes: nodes, edges: edges };
+  // }
 
   // toNodesAndEdges(): NodeListAndEdges {
   //   console.log("Converting layout tree to nodes and edges...");
@@ -331,6 +428,7 @@ export class LayoutTree {
 
     const inputPorts = diagramNode.inputs
     const outputPorts = diagramNode.outputs
+    console.log(`  [DEBUG] Node ${nodeId}: Input Ports = ${JSON.stringify(inputPorts.map(p => p.portId))}, Output Ports = ${JSON.stringify(outputPorts.map(p => p.portId))}`);
 
     const nodeData: TermNodeData = {
       label: layout.label,
@@ -352,6 +450,10 @@ export class LayoutTree {
       position,
       ...(layout.nestingParentId ? { parentId: layout.nestingParentId, extent: 'parent' as const } : {}),
     };
+
+    if (nodeId === 'lam-8') {
+      console.log(`[DEBUG] layout.kind for ${nodeId}:`, layout.kind);
+    }
 
     switch (layout.kind) {
       case 'NestedNode':

@@ -38,8 +38,8 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
       //   // padding: '10px',
       // }}
     >
-      <Handle type="target" id={outputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
-      <Handle type="source" id={inputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
+      <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
+      <Handle type="source" id={outputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
     </div>
     );
 }
