@@ -505,14 +505,13 @@ export class LayoutTree {
     return layoutTree;
   }
 
-  // Add a getter for layout roots, distinct from nesting roots
   public get layoutRoots(): NodeLayout[] {
     const allNodeIds = Array.from(this._nodeLayouts.keys());
     const childrenNodes = new Set<string>();
     for (const children of this._children.values()) {
       children.forEach(childId => childrenNodes.add(childId));
     }
-    const rootIds = allNodeIds.filter(nodeId => !childrenNodes.has(nodeId));
+    const rootIds = allNodeIds.filter(nodeId => !childrenNodes.has(nodeId) && !this._nestingChildren.has(nodeId));
     return rootIds.map(id => this.getNodeLayout(id)).filter((l): l is NodeLayout => l != null);
   }
 
