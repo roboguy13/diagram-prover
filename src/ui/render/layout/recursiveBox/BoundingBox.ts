@@ -1,20 +1,81 @@
-import { NumericRange, addRangePropagator, atLeast, divNumericRangeNumberPropagator, exactly, printNumericRange } from "../../../../constraint/propagator/NumericRange";
+import { NumericRange, addRangePropagator, atLeast, divNumericRangeNumberPropagator, exactly, lessThanEqualPropagator, printNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 import { Dimensions } from "../../../NodeDimensions";
 
-export interface BoundingBox {
-  get left(): CellRef
-  get top(): CellRef
-  get right(): CellRef
-  get bottom(): CellRef
-  get width(): CellRef
-  get height(): CellRef
-  get centerX(): CellRef
+export abstract class BoundingBox {
+  abstract get left(): CellRef
+  abstract get top(): CellRef
+  abstract get right(): CellRef
+  abstract get bottom(): CellRef
+  abstract get width(): CellRef
+  abstract get height(): CellRef
+  abstract get centerX(): CellRef
+  protected abstract get _typePrefix(): string
 
+  public containedInConstraints(net: PropagatorNetwork<NumericRange>, box: BoundingBox): void {
+    // this.left <= box.right
+    lessThanEqualPropagator(
+      `${this._typePrefix} left <= box.right`,
+      net,
+      this.left,
+      box.right
+    );
+
+    // this.top <= box.bottom
+    lessThanEqualPropagator(
+      `${this._typePrefix} top <= box.bottom`,
+      net,
+      this.top,
+      box.bottom
+    );
+
+    // this.right >= box.left
+    lessThanEqualPropagator(
+      `${this._typePrefix} right >= box.left`,
+      net,
+      box.left,
+      this.right
+    );
+
+    // this.bottom >= box.top
+    lessThanEqualPropagator(
+      `${this._typePrefix} bottom >= box.top`,
+      net,
+      box.top,
+      this.bottom
+    );
+  }
+
+  public equalConstraints(net: PropagatorNetwork<NumericRange>, box: BoundingBox): void {
+    net.equalPropagator(
+      `${this._typePrefix} left = box.left`,
+      this.left,
+      box.left
+    );
+
+
+    net.equalPropagator(
+      `${this._typePrefix} top = box.top`,
+      this.top,
+      box.top
+    );
+
+    net.equalPropagator(
+      `${this._typePrefix} right = box.right`,
+      this.right,
+      box.right
+    );
+
+    net.equalPropagator(
+      `${this._typePrefix} bottom = box.bottom`,
+      this.bottom,
+      box.bottom
+    );
+  }
   // getDebugInfo(net: PropagatorNetwork<NumericRange>): string
 }
 
-export class SimpleBoundingBox implements BoundingBox {
+export class SimpleBoundingBox extends BoundingBox {
   public static createNew(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string): SimpleBoundingBox {
     return SimpleBoundingBox.create(
       net,
@@ -174,7 +235,7 @@ export class SimpleBoundingBox implements BoundingBox {
   }
 
   private constructor(
-    private _typePrefix: string,
+    protected _typePrefix: string,
     private _nodeId: string,
 
     private _minX: CellRef,
@@ -187,6 +248,7 @@ export class SimpleBoundingBox implements BoundingBox {
 
     private _centerX: CellRef,
   ) {
+    super()
   }
 
   // constructor(net: PropagatorNetwork<NumericRange>, typePrefix: string, nodeId: string, minX: CellRef, minY: CellRef, width: CellRef, height: CellRef) {
@@ -220,6 +282,7 @@ export class SimpleBoundingBox implements BoundingBox {
   public get centerX(): CellRef {
     return this._centerX;
   }
+
 
   public getDebugInfo(net: PropagatorNetwork<NumericRange>): string {
     const minXContent = net.readCell(this._minX);

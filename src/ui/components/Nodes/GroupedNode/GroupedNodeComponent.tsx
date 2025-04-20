@@ -38,8 +38,8 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
       //   // padding: '10px',
       // }}
     >
-      <Handle type="target" id={outputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
-      <Handle type="source" id={inputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
+      <Handle type="target" id={outputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
+      <Handle type="source" id={inputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
     </div>
     );
 }
@@ -48,9 +48,6 @@ export type Dimensions = {
   width: number;
   height: number;
 }
-
-const WIDTH_PADDING_PER_NODE = NODE_WIDTH;
-const HEIGHT_PADDING_PER_NODE = NODE_HEIGHT;
 
 export function calculateGroupBounds(nodeDimensions: Dimensions[]): Dimensions {
   if (nodeDimensions.length === 0) {

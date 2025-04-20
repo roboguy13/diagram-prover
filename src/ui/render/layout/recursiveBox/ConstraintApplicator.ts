@@ -22,25 +22,6 @@ export class ConstraintApplicator {
     for (const layout of layouts) {
       ConstraintApplicator.debugLeaves(layoutTree, layout.nodeId);
 
-      // // if (layout.portBarType) {
-      // //   if (!layout.nestingParentId) {
-      // //     console.warn(`Port bar layout with nodeId ${layout.nodeId} has no nestingParentId`);
-      // //     continue
-      // //   }
-
-      // //   this.portBarConstraints(layoutTree, layout.nodeId, layout.nestingParentId, layout.portBarType);
-      // // }
-
-      // if (rootIds.has(layout.nodeId)) {
-      //   const topCell = layout.intrinsicBox.top;
-      //   console.log(`Attempting to pin root node ${layout.nodeId} top (Cell ID: ${layoutTree.net.cellDescription(topCell)}) to 0`);
-      //   layoutTree.net.writeCell(
-      //       {description: `Top cell for ${layout.nodeId}`, inputs: [topCell], outputs: []},
-      //       topCell,
-      //       known(exactly(0))
-      //   );
-      // }
-      
       const nestingChildren = layoutTree.getNestingChildren(layout.nodeId);
       console.log(`Nesting children for ${layout.nodeId}:`, nestingChildren);
 
@@ -77,7 +58,6 @@ export class ConstraintApplicator {
       layoutTree
     );
   }
-
 
   private applyConstraint(constraint: Constraint, layoutTree: LayoutTree): void {
     constraint.apply(layoutTree);

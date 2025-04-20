@@ -195,6 +195,7 @@ export class LayoutTree {
            target: targetId,
            sourceHandle: sourceHandle ?? 'default_source_handle',
            targetHandle: targetHandle ?? 'default_target_handle',
+           type: 'invertedBezier'
          });
        } else {
          console.warn("Could not determine source/target node ID for connection:", conn);

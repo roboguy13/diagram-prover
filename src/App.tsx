@@ -8,6 +8,7 @@ import {
   type OnConnect,
   useReactFlow,
   Panel,
+  ConnectionMode,
 } from '@xyflow/react';
 
 import { ChevronRightIcon, MagicWandIcon } from '@radix-ui/react-icons'
@@ -165,6 +166,7 @@ export default function App() {
         onEdgesChange={(changes) => dispatch({ kind: 'EditorMsg', msg: { type: 'EdgeChangeMsg', changes: changes } })}
         onConnect={(connection) => { }}
         colorMode='dark'
+        connectionMode={ConnectionMode.Loose}
         fitView
       >
         <Background />

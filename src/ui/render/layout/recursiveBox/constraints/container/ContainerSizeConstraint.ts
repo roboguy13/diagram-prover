@@ -10,6 +10,7 @@ import { CollectiveBoundingBox } from "../../CollectiveBoundingBox";
 import { Constraint } from "../../Constraint";
 import { LayoutTree } from "../../LayoutTree";
 
+// Constrain the size of a nested node based on the contained subgraph, and center the subgraph within the container.
 export class ContainerSizeConstraint implements Constraint {
   private readonly _PADDING_HORIZONTAL = 20;
   private readonly _PADDING_VERTICAL = 20;
