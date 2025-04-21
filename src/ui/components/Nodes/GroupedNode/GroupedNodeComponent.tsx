@@ -17,7 +17,7 @@ import {
 import { type GroupedNode, ApplicationNode } from '../nodeTypes';
 
 import { type Model } from '../../../architecture/Model';
-import { inputHandleName, outputHandleName } from '../../../NodeUtils';
+import { boundVarHandleName, inputHandleName, outputHandleName } from '../../../NodeUtils';
 import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config';
 
 export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>) => {
@@ -38,8 +38,9 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
       //   // padding: '10px',
       // }}
     >
-      <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 0 }} />
+      <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ bottom: 0 }} />
       <Handle type="source" id={outputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
+      <Handle type="source" id={boundVarHandleName(0)} position={Position.Left} style={{ bottom: 0 }} />
     </div>
     );
 }

@@ -11,11 +11,11 @@ import { propagatorNetworkToElkNode } from "../../../../constraint/propagator/Pr
 import { elk } from "../elk/ElkEngine";
 import { elkToReactFlow } from "../elk/ElkToReactFlow";
 import { PropagatorNetworkToJson } from "../../../../constraint/propagator/PropagatorToJson";
-import { inputHandleName, outputHandleName } from "../../../NodeUtils";
+import { boundVarHandleName, inputHandleName, outputHandleName } from "../../../NodeUtils";
 import { layout } from "dagre";
 import { Graph, GraphEdge, spanningForest } from "../../../../utils/SpanningForest";
 import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedHierarchy";
-import { DiagramNodeKind, NodeId, NodeKind, OpenDiagram, Wire } from "../../../../ir/StringDiagram";
+import { DiagramBuilder, DiagramNodeKind, NestedNode, NodeId, NodeKind, OpenDiagram, PortRef, Wire } from "../../../../ir/StringDiagram";
 
 // class PortBarLayouts {
 //   constructor(
@@ -236,11 +236,61 @@ export class LayoutTree {
        console.warn(`Port bar ${portBarId} has an output connection (${outputInfo.wireId}) but no corresponding input connection.`);
     });
 
+    const nodeLayouts = Array.from(this._nodeLayouts.values());
+
+    for (const nodeLayout of nodeLayouts) {
+      const nodeId = nodeLayout.nodeId;
+      const node = this._stringDiagram?.nodes.get(nodeId);
+      console.log(`Processing node ${nodeId}:`, node);
+      if (node && node instanceof NestedNode) {
+        const portBarId = this.getPortBarId(nodeId);
+        const portBarConnectionTargets = this.getPortBarConnectionTargets(portBarId);
+        console.log(`Port bar ${portBarId} connection targets:`, portBarConnectionTargets);
+
+        for (const target of portBarConnectionTargets) {
+          const targetNode = this._stringDiagram?.nodes.get(target.nodeId);
+          if (targetNode) {
+            finalEdges.push({
+              id: DiagramBuilder.generateId('var-wire'),
+              source: node.nodeId,
+              target: target.nodeId,
+              sourceHandle: boundVarHandleName(0),
+              targetHandle: target.portId,
+              type: 'straight'
+            });
+            // console.log(`  Added edge from port bar ${portBarId} to ${target.nodeId}`);
+          } else {
+            console.warn(`Target node ${target.nodeId} not found for port bar connection.`);
+          }
+        }
+      }
+    }
 
     console.log(`Final node count: ${finalNodes.length}, Final edge count: ${finalEdges.length}`);
     // console.log("Final nodes:", finalNodes.map(n => ({ id: n.id, parentId: n.parentId })));
     // console.log("Final edges:", finalEdges.map(e => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle })));
     return { nodes: finalNodes, edges: finalEdges };
+  }
+
+  getPortBarId(nodeId: string): NodeId {
+    const diagramNode = this._stringDiagram?.nodes.get(nodeId);
+    if (!diagramNode) {
+      throw new Error(`Diagram node not found for node ID: ${nodeId}`);
+    }
+    if (diagramNode instanceof NestedNode) {
+      return diagramNode.portBarId
+    } else {
+      throw new Error(`Node ID ${nodeId} is not a nested node.`);
+    }
+  }
+
+  getPortBarConnectionTargets(nodeId: string): PortRef[] {
+    const portBarNode = this._stringDiagram?.nodes.get(nodeId);
+    const wires = Array.from(this._stringDiagram!.wires.values())
+    
+    const portBarConnections = wires.filter(wire => wire.from.nodeId === nodeId);
+    const portBarTargets = portBarConnections.map(wire => wire.to);
+    return portBarTargets
   }
 
   // // TODO: Refactor?

@@ -76,13 +76,19 @@ export class NestedNode extends DiagramNode {
   ports: PortSpec[];
 
   inner: Diagram
+  private _portBarId: NodeId;
 
-  constructor(inner: Diagram, data: DiagramNodeData) {
+  constructor(inner: Diagram, data: DiagramNodeData, portBarId: NodeId) {
     super()
     this.nodeId = data.nodeId;
     this.nodeKind = data.nodeKind;
     this.ports = data.ports;
     this.inner = inner;
+    this._portBarId = portBarId
+  }
+
+  get portBarId(): NodeId {
+    return this._portBarId;
   }
 }
 
@@ -151,7 +157,7 @@ export class DiagramBuilder {
     return this._nodes;
   }
 
-  protected static generateId(prefix: string): string {
+  public static generateId(prefix: string): string {
     return `${prefix}-${this.uniqueId++}`;
   }
 
@@ -246,7 +252,7 @@ export class DiagramBuilder {
         ...outerParamPortsSpecs,
         outerResultPortSpec
       ],
-    });
+    }, paramBarNodeId);
 
     // Add the lambda node itself to the *outer* builder's nodes
     this._nodes.set(lamId, lamNode);
