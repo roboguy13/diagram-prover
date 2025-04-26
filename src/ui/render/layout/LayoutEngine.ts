@@ -10,7 +10,7 @@ export type NodesAndEdges = { nodes: NodeMap, edges: Edge[] }
 export type NodeListAndEdges = { nodes: ApplicationNode[], edges: Edge[] }
 
 export interface LayoutEngine<A> {
-  fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<A>
+  // fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<A>
   fromStringDiagram(diagram: OpenDiagram, activeRedexId: string | null): Promise<A>
 
   toReactFlow(g: A): Promise<NodeListAndEdges>

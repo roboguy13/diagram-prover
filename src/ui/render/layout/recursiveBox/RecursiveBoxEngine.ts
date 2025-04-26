@@ -3,6 +3,7 @@ import { ConflictHandler, PropagatorNetwork } from "../../../../constraint/propa
 import { SemanticNode } from "../../../../ir/SemanticGraph";
 import { OpenDiagram } from "../../../../ir/StringDiagram";
 import { ApplicationNode } from "../../../components/Nodes/nodeTypes";
+import { ElkRouter } from "../../routing/ElkRouter";
 import { ConstraintLayoutEngine, NodeListAndEdges, NodesAndEdges } from "../LayoutEngine";
 import { ConstraintApplicator } from "./ConstraintApplicator";
 import { LayoutTree } from "./LayoutTree";
@@ -18,11 +19,6 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
 
   addConflictHandler(handler: ConflictHandler<NumericRange>) {
     this._conflictHandlers.push(handler)
-  }
-
-  fromSemanticNode(n: SemanticNode<void>, activeRedexId: string | null): Promise<LayoutTree> {
-    const net = new PropagatorNetwork<NumericRange>(printNumericRange, partialSemigroupNumericRange(), this._conflictHandlers)
-    return Promise.resolve(LayoutTree.buildFromSemanticNode(net, n));
   }
 
   fromStringDiagram(diagram: OpenDiagram, activeRedexId: string | null): Promise<LayoutTree> {

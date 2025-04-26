@@ -2,7 +2,7 @@ import { BaseEdge, EdgeProps, getBezierPath, Position } from '@xyflow/react';
 import React from 'react';
 
 // TODO: Find a better way
-const HANDLE_SIZE = 9
+const HANDLE_SIZE = 0 //9
 
 export function InvertedBezierEdge({
   sourceX,
@@ -33,7 +33,7 @@ export function InvertedBezierEdge({
       path={path}
       markerEnd={markerEnd}
       markerStart={markerStart}
-      style={{ ...style, stroke: 'white' }}
+      style={{ ...style, stroke: 'cornflowerblue' }}
     />
   );
 }

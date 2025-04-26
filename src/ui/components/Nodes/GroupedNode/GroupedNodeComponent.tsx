@@ -17,10 +17,33 @@ import {
 import { type GroupedNode, ApplicationNode } from '../nodeTypes';
 
 import { type Model } from '../../../architecture/Model';
-import { boundVarHandleName, inputHandleName, outputHandleName } from '../../../NodeUtils';
+import { parameterHandleName, inputHandleName, outputHandleName, portOffsetPercentages } from '../../../NodeUtils';
 import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config';
 
 export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>) => {
+  const boundVarCount = 2 // TODO
+
+  const boundVarHandles = []
+
+  const boundVarPortOffets = portOffsetPercentages(boundVarCount);
+
+  for (let i = 0; i < boundVarCount; i++) {
+    const boundVarPortOffset = boundVarPortOffets[i]!
+
+    boundVarHandles.push(
+      <Handle
+        type="source"
+        position={Position.Right}
+        id={parameterHandleName(i)}
+        key={i}
+        style={{
+          top: boundVarPortOffset + '%',
+          // top: boundVarPortOffets[i] + '%',
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className='transpose-node'
@@ -38,9 +61,12 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
       //   // padding: '10px',
       // }}
     >
-      <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ bottom: 0 }} />
+      <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 5 }} />
       <Handle type="source" id={outputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
-      <Handle type="source" id={boundVarHandleName(0)} position={Position.Left} style={{ bottom: 0 }} />
+
+
+      {boundVarHandles}
+      {/* <Handle type="source" id={boundVarHandleName(0)} position={Position.Left} style={{ bottom: 0 }} /> */}
     </div>
     );
 }

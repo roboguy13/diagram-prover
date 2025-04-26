@@ -9,6 +9,7 @@ import {
   useReactFlow,
   Panel,
   ConnectionMode,
+  useNodesInitialized,
 } from '@xyflow/react';
 
 import { ChevronRightIcon, MagicWandIcon } from '@radix-ui/react-icons'
@@ -29,9 +30,21 @@ import { debugConfictHandler } from './ui/render/layout/recursiveBox/DebugConfli
 import { PortBarComponent } from './ui/components/Nodes/PortBar/PortBarComponent';
 import { PanelPortBar } from './ui/components/Editor/PanelPortBar/PanelPortBarComponent';
 import { RecursiveBoxEngine } from './ui/render/layout/recursiveBox/RecursiveBoxEngine';
+import { ElkRouter } from './ui/render/routing/ElkRouter';
 
 export interface Props {
   nodesAndEdges: NodesAndEdges;
+}
+
+function isLayoutReady(nodes: ApplicationNode[]): boolean {
+  // See if there are dimensions for every node
+
+  for (const node of nodes) {
+    if (!node.width || !node.height) {
+      return false;
+    }
+  }
+  return true
 }
 
 export default function App() {
@@ -48,6 +61,7 @@ export default function App() {
   const outputBarId = state.outputBar?.id;
 
   const existingNodeIds = Array.from(state.graph?.nodes.keys() || []);
+  const nodesInitialized = useNodesInitialized();
 
   // if (state.mode === 'normal-mode') {
   //   if (inputBarId && !existingNodeIds.includes(inputBarId)) {
@@ -59,14 +73,74 @@ export default function App() {
   //   }
   // }
 
-    useEffect(() => {
-      if (theLayoutEngine instanceof RecursiveBoxEngine) {
-        theLayoutEngine.addConflictHandler(net => conflict => {
-          if (state.mode !== 'debug-propagators-mode')
-            debugConfictHandler(dispatch)(net)(conflict)
-          })
-      }
-    }, [])
+  // useEffect(() => {
+  //   console.log("--- Routing Effect Check ---");
+  //   console.log("Nodes Initialized:", nodesInitialized);
+  //   console.log("Nodes in state:", nodes.length);
+  //   console.log("Edges in state:", edges.length);
+
+  //   const layoutReady = isLayoutReady(nodes);
+  //   console.log("Is Layout Ready:", layoutReady);
+
+  //   if (!layoutReady && nodes.length > 0) {
+  //     console.log("Nodes missing dimensions:");
+  //     nodes.forEach(n => {
+  //       // Only log if dimensions are missing *after* initialization is expected
+  //       if (nodesInitialized && (!n.width || !n.height)) {
+  //         console.log(`  Node ID: ${n.id}, Width: ${n.width}, Height: ${n.height}`);
+  //       } else if (!nodesInitialized) {
+  //          console.log(`  Node ID: ${n.id} - Waiting for initialization.`);
+  //       }
+  //     });
+  //   }
+
+  //   // Check all conditions
+  //   if (nodesInitialized && nodes.length > 0 && edges.length > 0 && layoutReady) {
+  //     console.log("Conditions met, attempting to run router...");
+  //     try {
+  //       const router = new ElkRouter();
+  //       // Pass the nodes from state, which should now have dimensions
+  //       const newEdges = router.route(nodes, edges);
+  //       console.log("Router finished. New Edges:", newEdges);
+
+  //       // IMPORTANT: Dispatch an action to update state.graph.edges with newEdges.
+  //       // Make sure this dispatch doesn't cause an infinite loop.
+  //       // Only dispatch if newEdges are different from edges.
+  //       // Example:
+  //       // if (JSON.stringify(newEdges) !== JSON.stringify(edges)) {
+  //       //    console.log("Dispatching updated edges...");
+  //       //    dispatch({ kind: 'EditorMsg', msg: { type: 'UpdateEdgesMsg', edges: newEdges } });
+  //       // } else {
+  //       //    console.log("No edge changes detected, skipping dispatch.");
+  //       // }
+
+  //     } catch (error) {
+  //         console.error("Error during ElkRouter execution:", error);
+  //     }
+
+  //   } else {
+  //     console.log("Routing conditions not met.");
+  //   }
+  //    console.log("--- End Routing Effect Check ---");
+  //   // Dependencies now use the state-derived variables
+  // }, [nodes, edges, nodesInitialized, dispatch]);
+
+  // useEffect(() => {
+  //   if (nodes.length > 0 && edges.length > 0 && isLayoutReady(nodes)) {
+  //     const router = new ElkRouter()
+  //     const newEdges = router.route(nodes, edges)
+  //     console.log('*** new edges:', newEdges)
+  //   }
+  // }, [nodes, edges, nodesInitialized, dispatch])
+
+  useEffect(() => {
+    if (theLayoutEngine instanceof RecursiveBoxEngine) {
+      theLayoutEngine.addConflictHandler(net => conflict => {
+        if (state.mode !== 'debug-propagators-mode')
+          debugConfictHandler(dispatch)(net)(conflict)
+      })
+    }
+  }, [])
 
   useEffect(() => {
     if (state.updateCenter && reactFlowInstance) {
@@ -86,11 +160,11 @@ export default function App() {
         } catch (error) {
           console.error("Error centering graph:", error);
         }
-        
+
         // Reset the flag after centering
         dispatch({ kind: 'EditorMsg', msg: { type: 'ResetUpdateCenter' } });
       }, 50);
-      
+
       // Clean up timeout if component unmounts or effect runs again
       return () => clearTimeout(timeoutId);
     }
@@ -100,15 +174,15 @@ export default function App() {
   // console.log("Rendering React Flow with nodes:", nodes, "and edges:", edges);
 
   const handleBetaStep = useCallback(() => {
-    dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' }});
+    dispatch({ kind: 'EditorMsg', msg: { type: 'BetaStepMsg' } });
   }, [dispatch]);
 
   const handleStepBack = useCallback(() => {
-    dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' }});
+    dispatch({ kind: 'EditorMsg', msg: { type: 'StepBackMsg' } });
   }, [dispatch]);
 
   const handleLayoutDebug = useCallback(() => {
-    dispatch({ kind: 'EditorMsg', msg: { type: 'ToggleDebugPropagatorsMode' }});
+    dispatch({ kind: 'EditorMsg', msg: { type: 'ToggleDebugPropagatorsMode' } });
   }, [dispatch]);
 
   // Keyboard events
@@ -116,8 +190,8 @@ export default function App() {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Skip if focus is on input elements
       if (
-        event.target instanceof HTMLInputElement || 
-        event.target instanceof HTMLTextAreaElement || 
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
         (event.target as HTMLElement).isContentEditable
       ) {
         return;
@@ -151,12 +225,12 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ 
+    <div style={{
       position: 'relative',
       width: '100%',
       height: '100%',
       // margin: '60px 0',
-      }}>
+    }}>
       <ReactFlow
         nodes={nodes}
         nodeTypes={nodeTypes}
@@ -171,8 +245,8 @@ export default function App() {
       >
         <Background />
         <MiniMap position='top-right' />
-              {/* These panels will each create their own actual node in the React Flow instance */}
-      {/* <Panel position="top-center" style={{ marginTop: '10px' }}>
+        {/* These panels will each create their own actual node in the React Flow instance */}
+        {/* <Panel position="top-center" style={{ marginTop: '10px' }}>
         <PanelPortBar
           id="top-bar"
           label="Top Port Bar"

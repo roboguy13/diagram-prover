@@ -165,6 +165,35 @@ export let idTerm = (ty: Type): Term =>
 
 // export let exampleTerm: Term = lamTerm(unitTyTerm(), appTerm(boundVarTerm(0), boundVarTerm(0)))
 
+let plus: Term =
+  lamTerm(
+    // m
+    unitTyTerm(),
+    lamTerm(
+      // n
+      unitTyTerm(),
+      lamTerm(
+        // f
+        unitTyTerm(),
+        lamTerm(
+          // x
+          unitTyTerm(),
+          appTerm(
+            appTerm(
+              boundVarTerm(3),
+              boundVarTerm(1))
+            ,
+            appTerm(
+              appTerm(
+                boundVarTerm(2),
+                boundVarTerm(1)),
+              boundVarTerm(0))
+          )
+        )
+      )
+    )
+  );
+
 export let exampleTerm: Term =
   appTerm(
     lamTerm(piTerm(unitTyTerm(), unitTyTerm()),

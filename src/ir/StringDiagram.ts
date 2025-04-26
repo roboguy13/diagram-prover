@@ -1,4 +1,5 @@
-import { inputHandleName, outputHandleName } from "../ui/NodeUtils";
+import { freeVarHandleName, inputHandleName, outputHandleName, parameterHandleName } from "../ui/NodeUtils";
+import assert from "node:assert";
 
 export type PortId = string;
 export type WireId = string;
@@ -6,6 +7,7 @@ export type NodeId = string;
 
 export type PortRef = {
   nodeId: NodeId;
+  // portSpec: PortSpec;
   portId: PortId;
 }
 
@@ -15,7 +17,7 @@ export type Wire = {
   to: PortRef;
 }
 
-export type NodeKind = 'app' | 'lam' | 'pi' | 'unit' | 'portBar';
+export type NodeKind = 'app' | 'lam' | 'pi' | 'unit';
 
 export type DiagramNodeKind = 'SimpleNode' | 'NestedNode';
 
@@ -39,19 +41,29 @@ export abstract class DiagramNode implements DiagramNodeData {
   get inputs(): PortRef[] {
     return this.ports
       .filter(p => p.direction === 'input')
-      .map(p => ({ nodeId: this.nodeId, portId: p.id }))
+      .map(p => p.portRef)
   }
 
   get outputs(): PortRef[] {
     return this.ports
       .filter(p => p.direction === 'output')
-      .map(p => ({ nodeId: this.nodeId, portId: p.id }))
+      .map(p => p.portRef)
   }
 
   bidirectional(): PortRef[] {
     return this.ports
       .filter(p => p.direction === 'bidirectional')
-      .map(p => ({ nodeId: this.nodeId, portId: p.id }))
+      .map(p => p.portRef)
+  }
+
+  private getPortSpec(portId: PortId): PortSpec {
+    for (const port of this.ports) {
+      if (port.portRef.portId === portId) {
+        return port;
+      }
+    }
+
+    throw new Error(`Port with ID ${portId} not found in node ${this.nodeId}`);
   }
 }
 
@@ -76,29 +88,105 @@ export class NestedNode extends DiagramNode {
   ports: PortSpec[];
 
   inner: Diagram
-  private _portBarId: NodeId;
 
-  constructor(inner: Diagram, data: DiagramNodeData, portBarId: NodeId) {
+  constructor(inner: Diagram, data: DiagramNodeData) {
     super()
     this.nodeId = data.nodeId;
     this.nodeKind = data.nodeKind;
     this.ports = data.ports;
     this.inner = inner;
-    this._portBarId = portBarId
-  }
-
-  get portBarId(): NodeId {
-    return this._portBarId;
   }
 }
 
 export type PortDirection = 'input' | 'output' | 'bidirectional';
 
-export type PortSpec = {
-  id: PortId;
+export interface PortSpec {
+  portRef: PortRef;
   direction: PortDirection;
-  /** If this port is merely exposing a deeper port, point to it */
-  inner?: { nodeId: NodeId; portId: PortId };
+}
+
+export class InputPort implements PortSpec {
+  private readonly _portRef: PortRef;
+
+  constructor(
+    nodeId: NodeId,
+    portIndex: number
+  ) {
+    this._portRef = { nodeId, portId: inputHandleName(portIndex) };
+  }
+
+  get portRef() { return this._portRef }
+  get direction(): PortDirection { return 'input' }
+}
+
+export class OutputPort implements PortSpec {
+  private readonly _portRef: PortRef;
+
+  constructor(
+    nodeId: NodeId,
+    portIndex: number
+  ) {
+    this._portRef = { nodeId, portId: outputHandleName(portIndex) };
+  }
+
+  get portRef() { return this._portRef }
+  get direction(): PortDirection { return 'output' }
+}
+
+export class ParameterPort implements PortSpec {
+  private readonly _portRef: PortRef;
+
+  constructor(
+    nodeId: NodeId,
+    portIndex: number
+  ) {
+    this._portRef = { nodeId, portId: parameterHandleName(portIndex) };
+  }
+
+  get portRef() { return this._portRef }
+  get direction(): PortDirection { return 'output' }
+}
+
+export class FreeVarPort implements PortSpec {
+  private readonly _portRef: PortRef;
+  private _innerPorts: PortRef[] = [];
+
+  constructor(
+    nodeId: NodeId,
+    portIndex: number,
+  ) {
+    this._portRef = { nodeId, portId: freeVarHandleName(portIndex) };
+  }
+
+  addInnerPort(portRef: PortRef): void {
+    this._innerPorts.push(portRef);
+  }
+
+  get portRef() { return this._portRef }
+
+  get innerPorts(): PortRef[] { return this._innerPorts }
+  get direction(): PortDirection { return 'bidirectional' }
+}
+
+export class NestedOutputPort implements PortSpec {
+  private readonly _portRef: PortRef;
+
+  constructor(
+    nodeId: NodeId,
+    portIndex: number,
+    private _innerPort: PortRef | null
+  ) {
+    this._portRef = { nodeId, portId: outputHandleName(portIndex) };
+  }
+
+  addInnerPort(portRef: PortRef): void {
+    assert(this._innerPort === null, 'Inner port already set');
+    this._innerPort = portRef;
+  }
+
+  get portRef(): PortRef { return this._portRef }
+  get innerPort(): PortRef | null { return this._innerPort }
+  get direction(): PortDirection { return 'bidirectional' }
 }
 
 export class Diagram {
@@ -109,17 +197,6 @@ export class Diagram {
     public nodes: Map<NodeId, DiagramNode>,
     public wires: Map<WireId, Wire>,
   ) {
-    for (const [nodeId, node] of nodes) {
-      for (const port of node.ports) {
-        if (port.inner) {
-          if (port.inner.nodeId === nodeId) {
-            console.warn(`Port ${port.id} of node ${nodeId} points to itself. This is not allowed.`);
-          } else {
-            this._nestingParents.set(port.inner.nodeId, nodeId);
-          }
-        }
-      }
-    }
   }
 
   get nestingParents(): Map<NodeId, NodeId> {
@@ -166,112 +243,97 @@ export class DiagramBuilder {
     this._wires = builder?._wires || new Map();
   }
 
+  private static makeParameterPorts(nodeId: NodeId, paramCount: number): ParameterPort[] {
+    return Array.from({ length: paramCount }, (_, i) => new ParameterPort(nodeId, i));
+  }
+
   app(f: PortRef, arg: PortRef): PortRef {
     const appId = DiagramBuilder.generateId('app');
 
-    const inPortF = { nodeId: appId, portId: inputHandleName(0) };
-    const inPortArg = { nodeId: appId, portId: inputHandleName(1) };
-    const outPort = { nodeId: appId, portId: outputHandleName(0) };
+    const inPortArg = new InputPort(appId, 0);
+    const inPortF = new InputPort(appId, 1);
+    const outPort = new OutputPort(appId, 0);
 
     const appNode: SimpleNode = new SimpleNode({
       kind: 'SimpleNode',
       nodeId: appId,
       nodeKind: 'app',
-      ports: [
-        { id: inPortF.portId, direction: 'input' },
-        { id: inPortArg.portId, direction: 'input' },
-        { id: outPort.portId, direction: 'output' }
-      ]
+      ports: [ inPortF, inPortArg, outPort ]
     });
 
     this._nodes.set(appId, appNode);
-    this.wire(f, inPortF);
-    this.wire(arg, inPortArg);
+    this.wire(f, inPortF.portRef);
+    this.wire(arg, inPortArg.portRef);
 
-    return outPort;
+    return outPort.portRef;
   }
 
   unit(): PortRef {
     const unitId = DiagramBuilder.generateId('unit');
 
-    const outPort = { nodeId: unitId, portId: outputHandleName(0) };
+    const outPort = new OutputPort(unitId, 0);
 
     const unitNode: SimpleNode = new SimpleNode({
       kind: 'SimpleNode',
       nodeId: unitId,
       nodeKind: 'unit',
-      ports: [
-        { id: outPort.portId, direction: 'output' }
-      ]
+      ports: [ outPort ]
     });
 
     this._nodes.set(unitId, unitNode);
 
-    return outPort;
+    return outPort.portRef;
   }
 
   lam(paramCount: number,
     body: (inner: OpenDiagramBuilder, params: PortRef[]) => PortRef
   ): PortRef {
     const lamId = DiagramBuilder.generateId('lam');
+    const innerBuilder = new OpenDiagramBuilder(
+      new DiagramBuilder(null),
+      new FreeVarBuilder(lamId)
+    );
 
-    // --- Build the inner diagram ---
-    const innerBuilder = new OpenDiagramBuilder();
+    const paramPorts: ParameterPort[] = DiagramBuilder.makeParameterPorts(lamId, paramCount);
 
-    // Create the inner parameter bar and get references to its ports
-    const { paramBarNodeId, innerParamRefs } = this.createInnerParamBar(innerBuilder, paramCount);
+    const bodyResultRef = body(innerBuilder, paramPorts.map(p => p.portRef));
+    const bodyDiagram = innerBuilder.finish();
 
-    // Build the body using the inner builder and refs to the inner param bar
-    const innerResultRef = body(innerBuilder, innerParamRefs);
-    const bodyDia = innerBuilder.finish();
-    // --- Inner diagram built ---
+    const lamOutPort = new NestedOutputPort(lamId, 0, bodyResultRef);
 
+    const freeVars = innerBuilder.freeVars;
 
-    // --- Create the outer Lambda node ---
-    // Create PortSpecs for the outer lambda node's input ports
-    const outerParamPortsSpecs: PortSpec[] = Array.from({ length: paramCount }, (_, i) => ({
-      id: inputHandleName(i), // Inputs on the lambda node
-      direction: 'input' as const,
-      // 'inner' points to the corresponding output port on the inner paramBar
-      inner: { nodeId: paramBarNodeId, portId: outputHandleName(i) }
-    }));
+    const freeVarPorts = Array.from(freeVars.values()).map((port, i) => {
+      return new FreeVarPort(lamId, i);
+    });
 
-    // Create PortSpec for the outer lambda node's output port
-    const outerResultPortSpec: PortSpec = {
-      id: outputHandleName(0), // Output on the lambda node
-      direction: 'output' as const,
-      // 'inner' points to the result port returned by the body function
-      inner: innerResultRef
-    };
+    const lamNode: NestedNode = new NestedNode(
+      bodyDiagram,
+      {
+        kind: 'NestedNode',
+        nodeId: lamId,
+        nodeKind: 'lam',
+        ports: [ lamOutPort, ...paramPorts, ...freeVarPorts ]
+      }
+    );
 
-    const lamNode = new NestedNode(bodyDia, {
-      kind: 'NestedNode',
-      nodeId: lamId,
-      nodeKind: 'lam',
-      ports: [
-        ...outerParamPortsSpecs,
-        outerResultPortSpec
-      ],
-    }, paramBarNodeId);
-
-    // Add the lambda node itself to the *outer* builder's nodes
     this._nodes.set(lamId, lamNode);
+    this.addNestedDiagram(bodyDiagram);
 
-    // Add all nodes and wires from the inner diagram to the *outer* builder's maps.
-    for (const [innerNodeId, node] of bodyDia.nodes.entries()) {
-       // Avoid overwriting the paramBar node if it was already added (shouldn't happen with unique IDs, but safe)
-       if (!this._nodes.has(innerNodeId)) {
-         this._nodes.set(innerNodeId, node);
-       }
-    }
-    for (const [innerWireId, wire] of bodyDia.wires.entries()) {
-       if (!this._wires.has(innerWireId)) {
-         this._wires.set(innerWireId, wire);
-       }
+    for (const wireId of bodyDiagram.wires.keys()) {
+      const wire = bodyDiagram.getWire(wireId);
+      const fromPortId = wire.from;
+
+      const fromFreeVarPort = freeVarPorts.find(p => p.portRef.portId === fromPortId.portId);
+
+      if (fromFreeVarPort) {
+        fromFreeVarPort.addInnerPort(wire.to);
+      }
     }
 
-    // Return the PortRef for the lambda node's result port
-    return { nodeId: lamId, portId: outerResultPortSpec.id };
+    lamOutPort.addInnerPort(bodyResultRef);
+
+    return lamOutPort.portRef;
   }
 
   finish(): Diagram {
@@ -281,24 +343,24 @@ export class DiagramBuilder {
     )
   }
 
-  private createInnerParamBar(
-    innerBuilder: OpenDiagramBuilder,
-    paramCount: number
-  ): { paramBarNodeId: NodeId, innerParamRefs: PortRef[] } {
-    const rec = innerBuilder.getParamBar(paramCount);
-    const paramBarNodeId = rec.paramBarId;
-    const innerParamPortsSpecs = rec.paramPortSpecs;
+  private addNestedDiagram(diagram: Diagram) {
+    for (const [nodeId, node] of diagram.nodes) {
+      if (this._nodes.has(nodeId)) {
+        throw new Error(`Node with ID ${nodeId} already exists`);
+      }
+      this._nodes.set(nodeId, node);
+    }
 
-    const innerParamRefs = innerParamPortsSpecs.map((spec, i) => ({
-      nodeId: paramBarNodeId,
-      portId: spec.id,
-    }));
-
-    return { paramBarNodeId, innerParamRefs };
+    for (const [wireId, wire] of diagram.wires) {
+      if (this._wires.has(wireId)) {
+        throw new Error(`Wire with ID ${wireId} already exists`);
+      }
+      this._wires.set(wireId, wire);
+    }
   }
 
   private wire(from: PortRef, to: PortRef): void {
-    const wireId = `${from.nodeId}-${from.portId}-${to.nodeId}-${to.portId}`;
+    const wireId = `${from.nodeId}-${from.nodeId}-${to.nodeId}-${to.nodeId}`;
     const wire: Wire = {
       id: wireId,
       from,
@@ -322,76 +384,67 @@ export class OpenDiagram extends Diagram {
   }
 }
 
-export class OpenDiagramBuilder extends DiagramBuilder {
-  private _freeVars: Map<string, PortRef>;
-  private readonly _portBarId: NodeId;
+export class FreeVarBuilder {
+  private _freeVars: Map<string, PortRef> = new Map();
+  private _currPortIndex = 0;
 
-  constructor(builder: DiagramBuilder = new DiagramBuilder(), freeVars: Map<string, PortRef> = new Map(), portBarId: NodeId = DiagramBuilder.generateId('portBar')) {
-    super(builder);
-    this._freeVars = freeVars;
-    this._portBarId = portBarId;
-    if (!this._nodes.has(this._portBarId)) {
-      const freeVarPortBarNode = new SimpleNode({
-        kind: 'SimpleNode',
-        nodeId: this._portBarId,
-        nodeKind: 'portBar',
-        ports: [], // Start with no ports
-      });
-      this._nodes.set(this._portBarId, freeVarPortBarNode);
+  constructor(
+    private nodeId: NodeId
+  ) { }
+
+  public addFreeVar(name: string): PortRef {
+    const freeVarPort = this._freeVars.get(name);
+
+    if (freeVarPort) {
+      return freeVarPort;
     }
+    
+    const portRef: PortRef = { nodeId: this.nodeId, portId: freeVarHandleName(this._currPortIndex) };
+    ++this._currPortIndex
+    this._freeVars.set(name, portRef);
+    return portRef
   }
 
-  getParamBar(paramCount: number): { paramBarId: NodeId, paramPortSpecs: PortSpec[] } {
-    const paramPortSpecs = Array.from({ length: paramCount }, (_, i) => ({
-      id: outputHandleName(i),
-      direction: 'output' as const,
-    }));
+  public get freeVarPortRefs(): PortRef[] {
+    return Array.from(this._freeVars.values());
+  }
 
-    let paramBarNode = this._nodes.get(this._portBarId) as SimpleNode;
-    if (!paramBarNode) {
-      paramBarNode = new SimpleNode({
-        kind: 'SimpleNode',
-        nodeId: this._portBarId,
-        nodeKind: 'portBar',
-        ports: paramPortSpecs,
-      });
-      this._nodes.set(this._portBarId, paramBarNode);
-    } else {
-      paramBarNode.ports.push(...paramPortSpecs);
-      this._nodes.set(this._portBarId, paramBarNode);
-    }
+  public get freeVarMap(): Map<string, PortRef> {
+    return this._freeVars;
+  }
+}
 
-    return { paramBarId: this._portBarId, paramPortSpecs };
+export class OpenDiagramBuilder extends DiagramBuilder {
+  constructor(
+    builder: DiagramBuilder = new DiagramBuilder(),
+    private _freeVarBuilder: FreeVarBuilder | null = null,
+  ) {
+    super(builder);
   }
 
   freeVar(name: string): PortRef {
-    const cached = this.freeVars.get(name);
-    if (cached) {
-      return cached;
+    if (!this._freeVarBuilder) {
+      // TODO: Implement handling for top-level free variables
+      throw new Error('FreeVarBuilder is not initialized');
     }
-
-    const barNode = this.nodes.get(this['portBarId']) as SimpleNode;
-    const portId = outputHandleName(barNode.ports.length);
-
-    barNode.ports.push({
-      id: portId,
-      direction: 'output',
-    });
-
-    const ref = { nodeId: barNode.nodeId, portId };
-    this.freeVars.set(name, ref);
-    return ref;
+    return this._freeVarBuilder.addFreeVar(name);
   }
 
-  public get freeVars(): Map<string, PortRef> {
-    return this._freeVars;
+  public get freeVars(): PortRef[] {
+    if (!this._freeVarBuilder) {
+      return [];
+    }
+    return this._freeVarBuilder.freeVarPortRefs
   }
 
   public override finish(): OpenDiagram {
-    return new OpenDiagram(super.finish(), this._freeVars);
+    return new OpenDiagram(super.finish(), this.freeVarMap);
   }
 
-  public get portBarId(): NodeId {
-    return this._portBarId;
+  private get freeVarMap(): Map<string, PortRef> {
+    if (!this._freeVarBuilder) {
+      return new Map();
+    }
+    return this._freeVarBuilder.freeVarMap;
   }
 }

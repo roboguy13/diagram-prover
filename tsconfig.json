@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "esModuleInterop": true,
     // Additional strictness flags
     "alwaysStrict": true,
     "noUncheckedIndexedAccess": true,

@@ -11,6 +11,10 @@ export function outputHandleName(i: number): string {
   return `bottom-${i}`;
 }
 
-export function boundVarHandleName(i: number): string {
-  return `bound-var-${i}`;
+export function parameterHandleName(i: number): string {
+  return `parameter-${i}`;
+}
+
+export function freeVarHandleName(i: number): string {
+  return `free-var-${i}`;
 }
