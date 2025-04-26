@@ -64,21 +64,6 @@ export class ConstraintApplicator {
     this.performMinimization(layoutTree);
   }
 
-  // private nestedWithin(layoutTree: LayoutTree, nodeId: string, candidateNestingParentId: NodeId): boolean {
-  //   function helper(currentNodeId: NodeId): boolean {
-  //     if (currentNodeId === candidateNestingParentId) {
-  //       return true;
-  //     }
-
-  //     const parentNodeId = layoutTree.getNestingChildren(currentNodeId);
-  //     if (!parentNodeId) {
-  //       return false;
-  //     }
-
-  //     return helper(parentNodeId);
-  //   }
-  // }
-
   private performMinimization(layoutTree: LayoutTree): void {
     const cellsToMinimize = this._constraints
       .flatMap(constraint => constraint.cellsToMinimize())

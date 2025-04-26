@@ -56,11 +56,6 @@ export class ContainerSizeConstraint implements Constraint {
 
     const containerBox = containerLayout.intrinsicBox;
 
-    const containerLeft = containerBox.left;
-    const containerRight = containerBox.right;
-    const containerTop = containerBox.top;
-    const containerBottom = containerBox.bottom;
-
     const collectiveLeft = collectiveBoundingBox.left;
     const collectiveRight = collectiveBoundingBox.right;
     const collectiveTop = collectiveBoundingBox.top;

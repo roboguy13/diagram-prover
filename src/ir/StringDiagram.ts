@@ -220,7 +220,19 @@ export class Diagram {
     }
     return wire;
   }
-  
+
+  getNestingDepth(nodeId: NodeId): number {
+    let depth = 0;
+    let currentNodeId = nodeId;
+
+    while (this._nestingParents.has(currentNodeId)) {
+      currentNodeId = this._nestingParents.get(currentNodeId)!;
+      depth++;
+    }
+
+    return depth;
+  }
+
   isNestedInterfaceWire(wire: Wire): boolean {
     const toPort = this.getPortSpec(wire.to);
     const fromPort = this.getPortSpec(wire.from);

@@ -24,14 +24,13 @@
   /* padding: 10px; */
   border: 1px solid #1a192b;
   border-radius: 20%;
-  background: #000000;
+  background: rgba(0, 0, 0, 1);
   text-align: center;
   width: 500px;
   height: 500px;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.5;
   
   &.selected,
   &:focus,

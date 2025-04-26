@@ -196,6 +196,7 @@ export class LayoutTree {
           target: conn.to.nodeId,
           sourceHandle: conn.from.portId,
           targetHandle: conn.to.portId,
+          zIndex: this.wireNestingDepth(conn),
         });
       } else {
         console.warn(`Skipping wire ${conn.id}: Source (${conn.from.nodeId}) or Target (${conn.to.nodeId}) node not found in diagram.`);
@@ -203,6 +204,13 @@ export class LayoutTree {
     });
 
     return { nodes, edges };
+  }
+
+  private wireNestingDepth(wire: Wire): number {
+    return Math.max(
+      this._stringDiagram!.getNestingDepth(wire.from.nodeId) ?? 0,
+      this._stringDiagram!.getNestingDepth(wire.to.nodeId) ?? 0
+    )
   }
 
   public logDebugInfo(): void {
