@@ -232,19 +232,19 @@ let two = appTerm(succ, one);
 let three = appTerm(succ, two);
 
 export let exampleTerm: Term = //idTerm(unitTyTerm());
-  // plus
+  plus
 
-  appTerm(
-    lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
-      lamTerm(unitTyTerm(),
-        appTerm(
-          boundVarTerm(1),
-          boundVarTerm(0)
-        )
-      )
-    ),
-    idTerm(unitTyTerm())
-  );
+  // appTerm(
+  //   lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
+  //     lamTerm(unitTyTerm(),
+  //       appTerm(
+  //         boundVarTerm(1),
+  //         boundVarTerm(0)
+  //       )
+  //     )
+  //   ),
+  //   idTerm(unitTyTerm())
+  // );
 
   // lamTerm(
   //   unitTyTerm(),
