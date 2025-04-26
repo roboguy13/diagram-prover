@@ -11,6 +11,10 @@ export function outputHandleName(i: number): string {
   return `bottom-${i}`;
 }
 
+export function nestedOutputHandleName(i: number): string {
+  return `nested-bottom-${i}`;
+}
+
 export function parameterHandleName(i: number): string {
   return `parameter-${i}`;
 }

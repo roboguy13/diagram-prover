@@ -17,8 +17,10 @@ import {
 import { type GroupedNode, ApplicationNode } from '../nodeTypes';
 
 import { type Model } from '../../../architecture/Model';
-import { parameterHandleName, inputHandleName, outputHandleName, portOffsetPercentages } from '../../../NodeUtils';
+import { parameterHandleName, inputHandleName, outputHandleName, portOffsetPercentages, nestedOutputHandleName } from '../../../NodeUtils';
 import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config';
+
+const nestedHandleSpacing = 12
 
 export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>) => {
   const freeVarCount = data.freeVarPortIds.length;
@@ -39,7 +41,7 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
         key={i}
         style={{
           left: parameterPortOffset + '%',
-          top: 10,
+          top: nestedHandleSpacing,
           // top: boundVarPortOffets[i] + '%',
         }}
       />
@@ -66,6 +68,7 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
       // }}
     >
       {/* <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 5 }} /> */}
+      <Handle type="source" id={nestedOutputHandleName(0)} position={Position.Bottom} style={{ bottom: nestedHandleSpacing }} />
       <Handle type="source" id={outputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
 
 

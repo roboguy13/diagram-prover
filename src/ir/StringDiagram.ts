@@ -1,4 +1,4 @@
-import { freeVarHandleName, inputHandleName, outputHandleName, parameterHandleName } from "../ui/NodeUtils";
+import { freeVarHandleName, inputHandleName, nestedOutputHandleName, outputHandleName, parameterHandleName } from "../ui/NodeUtils";
 import { assert } from "chai";
 
 export type PortId = string;
@@ -183,7 +183,7 @@ export class NestedOutputPort implements PortSpec {
     nodeId: NodeId,
     portIndex: number,
   ) {
-    this._portRef = new PortRef({ nodeId, portId: outputHandleName(portIndex) });
+    this._portRef = new PortRef({ nodeId, portId: nestedOutputHandleName(portIndex) });
   }
 
   get portRef(): PortRef { return this._portRef }
@@ -269,6 +269,8 @@ export class Diagram {
 
     const toNode = this.getNode(wire.to.nodeId);
     const fromNode = this.getNode(wire.from.nodeId);
+
+    console.log(`isNestedInterfaceWire: ${toPort.nestedInterfacePort}, ${fromPort.nestedInterfacePort}, ${toNode.nodeId}, ${fromNode.nodeId}`)
 
     if ((toPort.nestedInterfacePort || fromPort.nestedInterfacePort)
            && toNode.nodeId === fromNode.nodeId) {
@@ -418,7 +420,8 @@ export class DiagramBuilder {
     const bodyResultRef = body(innerBuilder, paramPorts.map(p => p.portRef));
     const bodyDiagram = innerBuilder.finish();
 
-    const lamOutPort = new NestedOutputPort(lamId, 0);
+    const lamOutPort = new OutputPort(lamId, 0);
+    const nestedOutPort = new NestedOutputPort(lamId, 0);
 
     const freeVars = innerBuilder.freeVars;
 
@@ -432,7 +435,7 @@ export class DiagramBuilder {
         kind: 'NestedNode',
         nodeId: lamId,
         nodeKind: 'lam',
-        ports: [ lamOutPort, ...paramPorts, ...freeVarPorts ]
+        ports: [ lamOutPort, nestedOutPort, ...paramPorts, ...freeVarPorts ]
       }
     );
 
@@ -443,8 +446,7 @@ export class DiagramBuilder {
       this._nestingParents.set(bodyNode.nodeId, lamId);
     }
 
-    const resultWire = this.wire(bodyResultRef, lamOutPort.portRef);
-    console.log(`resultWire is nested: ${new Diagram(this._nodes, this._wires, this._nestingParents).isNestedInterfaceWire(resultWire)}`);
+    this.wire(bodyResultRef, nestedOutPort.portRef);
 
     return lamOutPort.portRef;
   }
