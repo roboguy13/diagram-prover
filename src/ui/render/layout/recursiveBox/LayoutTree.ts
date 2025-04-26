@@ -197,6 +197,7 @@ export class LayoutTree {
           sourceHandle: conn.from.portId,
           targetHandle: conn.to.portId,
           zIndex: this.wireNestingDepth(conn),
+          type: 'invertedBezier',
         });
       } else {
         console.warn(`Skipping wire ${conn.id}: Source (${conn.from.nodeId}) or Target (${conn.to.nodeId}) node not found in diagram.`);
@@ -207,6 +208,10 @@ export class LayoutTree {
   }
 
   private wireNestingDepth(wire: Wire): number {
+    if (wire.from.nodeId === wire.to.nodeId) {
+      return (this._stringDiagram!.getNestingDepth(wire.from.nodeId) ?? 0) + 1;
+    }
+
     return Math.max(
       this._stringDiagram!.getNestingDepth(wire.from.nodeId) ?? 0,
       this._stringDiagram!.getNestingDepth(wire.to.nodeId) ?? 0

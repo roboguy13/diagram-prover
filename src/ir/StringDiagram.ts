@@ -240,6 +240,12 @@ export class Diagram {
     const toNode = this.getNode(wire.to.nodeId);
     const fromNode = this.getNode(wire.from.nodeId);
 
+    if ((toPort.nestedInterfacePort || fromPort.nestedInterfacePort)
+           && toNode.nodeId === fromNode.nodeId) {
+      // If either port is a nested interface port and belong to the same node
+      return true
+    }
+
     return (toPort.nestedInterfacePort && this.isNestedInNode(fromNode, toNode))
            || (fromPort.nestedInterfacePort && this.isNestedInNode(toNode, fromNode));
   }
@@ -383,6 +389,9 @@ export class DiagramBuilder {
       this._nestingParents.set(bodyNode.nodeId, lamId);
     }
 
+    const resultWire = this.wire(bodyResultRef, lamOutPort.portRef);
+    console.log(`resultWire is nested: ${new Diagram(this._nodes, this._wires, this._nestingParents).isNestedInterfaceWire(resultWire)}`);
+
     return lamOutPort.portRef;
   }
 
@@ -410,7 +419,7 @@ export class DiagramBuilder {
     }
   }
 
-  private wire(from: PortRef, to: PortRef): void {
+  private wire(from: PortRef, to: PortRef): Wire {
     const wireId = `${from.nodeId}:${from.portId}-${to.nodeId}:${to.portId}`;
     const wire: Wire = {
       id: wireId,
@@ -419,6 +428,7 @@ export class DiagramBuilder {
     };
 
     this._wires.set(wireId, wire);
+    return wire
   }
 
   protected get nestingParents(): Map<NodeId, NodeId> {
