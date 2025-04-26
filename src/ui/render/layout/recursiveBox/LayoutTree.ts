@@ -302,6 +302,12 @@ export class LayoutTree {
 
     const wires = Array.from(diagram.wires.values());
     for (const wire of wires) {
+      if (diagram.isNestedInterfaceWire(wire)) {
+        console.log(`Skipping nested interface wire from ${wire.from.nodeId} to ${wire.to.nodeId}`);
+        continue
+      }
+      console.log(`Adding wire from ${wire.from.nodeId} to ${wire.to.nodeId}`);
+
       const sourceNodeId = wire.from.nodeId; // Node providing output (Child in inverted layout)
       const targetNodeId = wire.to.nodeId;   // Node receiving input (Parent in inverted layout)
 
