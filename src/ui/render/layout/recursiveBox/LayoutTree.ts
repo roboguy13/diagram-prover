@@ -138,6 +138,13 @@ export class LayoutTree {
     const x = this.extractRangeValue(nodeLayout.intrinsicBox.left, 'left');
     const y = this.extractRangeValue(nodeLayout.intrinsicBox.top, 'top');
 
+    const isNested = nodeLayout.nestingParentId !== null;
+    const nestingProperties: { parentId: string, extent: 'parent' } | {} =
+      isNested ? {
+        parentId: nodeLayout.nestingParentId,
+        extent: 'parent',
+      } : {};
+
     if (node.kind === 'SimpleNode') {
       return {
         id: nodeId,
@@ -151,8 +158,10 @@ export class LayoutTree {
           outputPortIds: node.outputs.map((output) => output.portId),
           width: width,
           height: height,
+
         },
         position: { x, y },
+        ...nestingProperties,
       };
     } else {
       return {
@@ -166,6 +175,7 @@ export class LayoutTree {
           height: height,
         },
         position: { x, y },
+        ...nestingProperties,
       }
     }
   }
