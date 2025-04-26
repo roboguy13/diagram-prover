@@ -233,6 +233,36 @@ export class Diagram {
     return depth;
   }
 
+  isNestedSourceInterfaceWire(wire: Wire): boolean {
+    const fromPort = this.getPortSpec(wire.from);
+
+    const toNode = this.getNode(wire.to.nodeId);
+    const fromNode = this.getNode(wire.from.nodeId);
+
+    if ((fromPort.nestedInterfacePort)
+           && toNode.nodeId === fromNode.nodeId) {
+      // If the port is a nested interface port and belong to the same node
+      return true
+    }
+
+    return fromPort.nestedInterfacePort && this.isNestedInNode(toNode, fromNode);
+  }
+
+  isNestedTargetInterfaceWire(wire: Wire): boolean {
+    const toPort = this.getPortSpec(wire.to);
+
+    const fromNode = this.getNode(wire.from.nodeId);
+    const toNode = this.getNode(wire.to.nodeId);
+
+    if ((toPort.nestedInterfacePort)
+           && toNode.nodeId === fromNode.nodeId) {
+      // If the port is a nested interface port and belong to the same node
+      return true
+    }
+
+    return toPort.nestedInterfacePort && this.isNestedInNode(fromNode, toNode);
+  }
+
   isNestedInterfaceWire(wire: Wire): boolean {
     const toPort = this.getPortSpec(wire.to);
     const fromPort = this.getPortSpec(wire.from);
@@ -250,8 +280,32 @@ export class Diagram {
            || (fromPort.nestedInterfacePort && this.isNestedInNode(toNode, fromNode));
   }
 
-  isNestedInNode(nodeId: DiagramNode, candidateNestingParentId: DiagramNode): boolean {
-    const nestingParentId = this._nestingParents.get(nodeId.nodeId);
+  getHierarchicalLevel(node: DiagramNode): number {
+    const nestingParentId = this._nestingParents.get(node.nodeId);
+
+    const children = this.getHierachicalChildren(node).filter(c => c.nodeId !== nestingParentId);
+
+    if (children.length === 0) {
+      return 1;
+    }
+
+    const childLevels = children.map(child => this.getHierarchicalLevel(child));
+    return Math.max(...childLevels) + 1;
+  }
+
+  // TODO: Make more efficient?
+  private getHierachicalChildren(node: DiagramNode): DiagramNode[] {
+    const children: DiagramNode[] = [];
+    for (const [nodeId, node] of this.nodes) {
+      if (this._nestingParents.get(nodeId) === node.nodeId) {
+        children.push(node);
+      }
+    }
+    return children
+  }
+
+  isNestedInNode(node: DiagramNode, candidateNestingParentId: DiagramNode): boolean {
+    const nestingParentId = this._nestingParents.get(node.nodeId);
     if (!nestingParentId) {
       return false;
     }

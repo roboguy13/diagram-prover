@@ -1,39 +1,131 @@
 import { BaseEdge, EdgeProps, getBezierPath, Position } from '@xyflow/react';
 import React from 'react';
 
-// TODO: Find a better way
-const HANDLE_SIZE = 0 //9
+// TODO: Find a better way to handle this offset
 
-export function InvertedBezierEdge({
+// Define an offset distance - how far "inward" from the handle the edge should start/end
+// Adjust this value to control the visual effect
+const ATTACHMENT_OFFSET = 7; // pixels
+
+type WhichInvert = 'source' | 'target'
+
+export function SourceInvertedBezierEdge(props: EdgeProps) {
+  return InvertedBezierEdge('source', props);
+}
+
+export function TargetInvertedBezierEdge(props: EdgeProps) {
+  return InvertedBezierEdge('target', props);
+}
+
+export function InvertedBezierEdge(whichInvert: WhichInvert, {
+  id,
   sourceX,
   sourceY,
   targetX,
   targetY,
+  sourcePosition, // The actual position of the source handle
+  targetPosition, // The actual position of the target handle
   style = {},
   markerEnd,
   markerStart,
+  label,
+  labelStyle,
+  labelShowBg,
+  labelBgStyle,
+  labelBgPadding,
+  labelBgBorderRadius,
+  interactionWidth,
 }: EdgeProps) {
-  const startY = sourceY + HANDLE_SIZE; 
 
-  // Calculate control points for an "up from source, down to target" Bezier curve
-  const dy = Math.abs(startY - targetY);
-  // Adjust the multiplier (0.25) as needed for the desired curve intensity
-  const controlPointOffset = dy * 0.25;
+  // --- 1. Calculate Adjusted Coordinates ---
+  let adjustedSourceX = sourceX;
+  let adjustedSourceY = sourceY;
+  let adjustedTargetX = targetX;
+  let adjustedTargetY = targetY;
 
-  // Control point ABOVE source handle
-  const sourceControlY = startY - controlPointOffset;
-  // Control point BELOW target handle
-  const targetControlY = targetY + controlPointOffset;
+  // Offset the source coordinates based on the *original* handle position
+  if (whichInvert === 'source') {
+    switch (sourcePosition) {
+      case Position.Top:
+        adjustedSourceY += ATTACHMENT_OFFSET;
+        break;
+      case Position.Bottom:
+        adjustedSourceY -= ATTACHMENT_OFFSET;
+        break;
+      case Position.Left:
+        adjustedSourceX += ATTACHMENT_OFFSET;
+        break;
+      case Position.Right:
+        adjustedSourceX -= ATTACHMENT_OFFSET;
+        break;
+    }
+  }
 
-  // Construct the SVG path string
-  const path = `M ${sourceX},${startY} C ${sourceX},${sourceControlY} ${targetX},${targetControlY} ${targetX},${targetY}`;
+  // Offset the target coordinates based on the *original* handle position
+  if (whichInvert === 'target') {
+    switch (targetPosition) {
+      case Position.Top:
+        adjustedTargetY += ATTACHMENT_OFFSET;
+        break;
+      case Position.Bottom:
+        adjustedTargetY -= ATTACHMENT_OFFSET;
+        break;
+      case Position.Left:
+        adjustedTargetX += ATTACHMENT_OFFSET;
+        break;
+      case Position.Right:
+        adjustedTargetX -= ATTACHMENT_OFFSET;
+        break;
+    }
+  }
 
-  return (
-    <BaseEdge
-      path={path}
-      markerEnd={markerEnd}
-      markerStart={markerStart}
-      style={{ ...style, stroke: 'cornflowerblue' }}
-    />
-  );
+  // --- 2. Calculate Opposite Positions (for curve direction) ---
+  const oppositeSourcePosition = whichInvert === 'source' ? getOppositePosition(sourcePosition) : sourcePosition;
+  const oppositeTargetPosition = whichInvert === 'target' ? getOppositePosition(targetPosition) : targetPosition;
+
+  // --- 3. Generate Path ---
+  // Use ADJUSTED coordinates and OPPOSITE positions
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX: adjustedSourceX,
+    sourceY: adjustedSourceY,
+    sourcePosition: oppositeSourcePosition,
+    targetX: adjustedTargetX,
+    targetY: adjustedTargetY,
+    targetPosition: oppositeTargetPosition,
+  });
+
+  // Create a props object with only defined properties
+  const edgeProps = {
+    id,
+    path: edgePath,
+    labelX,
+    labelY,
+    ...(markerEnd !== undefined && { markerEnd }),
+    ...(markerStart !== undefined && { markerStart }),
+    style,
+    ...(label !== undefined && { label }),
+    ...(labelStyle !== undefined && { labelStyle }),
+    ...(labelShowBg !== undefined && { labelShowBg }),
+    ...(labelBgStyle !== undefined && { labelBgStyle }),
+    ...(labelBgPadding !== undefined && { labelBgPadding }),
+    ...(labelBgBorderRadius !== undefined && { labelBgBorderRadius }),
+    ...(interactionWidth !== undefined && { interactionWidth }),
+  };
+
+  return <BaseEdge {...edgeProps} />;
+}
+
+function getOppositePosition(position: Position): Position {
+  switch (position) {
+    case Position.Top:
+      return Position.Bottom;
+    case Position.Bottom:
+      return Position.Top;
+    case Position.Left:
+      return Position.Right;
+    case Position.Right:
+      return Position.Left;
+    default: // Should not happen with standard positions
+      return position;
+  }
 }

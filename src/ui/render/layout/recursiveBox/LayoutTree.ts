@@ -1,4 +1,4 @@
-import { Edge, XYPosition } from "@xyflow/react";
+import { Edge, MarkerType, XYPosition } from "@xyflow/react";
 import { NodeLayout } from "./NodeLayout";
 import { SimpleBoundingBox } from "./BoundingBox";
 import { addRangeListPropagator, between, exactly, getMax, getMin, NumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
@@ -205,6 +205,14 @@ export class LayoutTree {
       const sourceNode = this._stringDiagram?.nodes.get(conn.from.nodeId);
       const targetNode = this._stringDiagram?.nodes.get(conn.to.nodeId);
 
+      let edgeType = 'default'
+
+      if (this._stringDiagram?.isNestedSourceInterfaceWire(conn)) {
+        edgeType = 'sourceInvertedBezier'
+      } else if (this._stringDiagram?.isNestedTargetInterfaceWire(conn)) {
+        edgeType = 'targetInvertedBezier'
+      }
+
       if (sourceNode && targetNode) {
         edges.push({
           id: conn.id,
@@ -214,6 +222,8 @@ export class LayoutTree {
           targetHandle: conn.to.portId,
           zIndex: this.wireNestingDepth(conn),
           style: { stroke: 'cornflowerblue' },
+          type: edgeType,
+          // type: 'straight',
           // type: 'invertedBezier',
         });
       } else {

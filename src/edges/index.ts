@@ -1,6 +1,6 @@
 import type { Edge, EdgeTypes, MarkerType } from '@xyflow/react';
 import { FloatingEdge } from '../ui/components/Edges/FloatingEdge';
-import { InvertedBezierEdge } from '../ui/components/Edges/InvertedBezierEdge';
+import { InvertedBezierEdge, SourceInvertedBezierEdge, TargetInvertedBezierEdge } from '../ui/components/Edges/InvertedBezierEdge';
 
 export const initialEdges: Edge[] = [
   { id: 'a->c', source: 'a', target: 'c', animated: true },
@@ -10,5 +10,6 @@ export const initialEdges: Edge[] = [
 
 export const edgeTypes = {
   'floating': FloatingEdge,
-  'invertedBezier': InvertedBezierEdge,
+  'sourceInvertedBezier': SourceInvertedBezierEdge,
+  'targetInvertedBezier': TargetInvertedBezierEdge,
 } satisfies EdgeTypes;

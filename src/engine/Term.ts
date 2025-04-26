@@ -194,17 +194,62 @@ let plus: Term =
     )
   );
 
-export let exampleTerm: Term = //idTerm(unitTyTerm());
-  // plus
+let zero =
+  lamTerm(
+    unitTyTerm(),
+    lamTerm(
+      unitTyTerm(),
+      lamTerm(
+        unitTyTerm(),
+        boundVarTerm(0)
+      )
+    )
+  );
 
-  appTerm(
-    lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
-      lamTerm(unitTyTerm(),
+let succ =
+  lamTerm(
+    unitTyTerm(),
+    lamTerm(
+      unitTyTerm(),
+      lamTerm(
+        unitTyTerm(),
         appTerm(
           boundVarTerm(1),
-          boundVarTerm(0)
+          appTerm(
+            appTerm(
+              boundVarTerm(2),
+              boundVarTerm(1)
+            ),
+            boundVarTerm(0)
+          )
         )
       )
-    ),
-    idTerm(unitTyTerm())
+    )
   );
+
+let one = appTerm(succ, zero);
+let two = appTerm(succ, one);
+let three = appTerm(succ, two);
+
+export let exampleTerm: Term = //idTerm(unitTyTerm());
+  plus
+
+  // appTerm(
+  //   lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
+  //     lamTerm(unitTyTerm(),
+  //       appTerm(
+  //         boundVarTerm(1),
+  //         boundVarTerm(0)
+  //       )
+  //     )
+  //   ),
+  //   idTerm(unitTyTerm())
+  // );
+
+  // lamTerm(
+  //   unitTyTerm(),
+  //   appTerm(
+  //     boundVarTerm(0),
+  //     boundVarTerm(0)
+  //   )
+  // );
