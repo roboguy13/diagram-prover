@@ -18,6 +18,8 @@ export type TermNode = Node<
   'term'>
 export type GroupedNode = Node<
   { label: string,
+    parameterCount: number,
+    inputCount: number,
     width?: number,
     height?: number,
     // nodeIds: string[],

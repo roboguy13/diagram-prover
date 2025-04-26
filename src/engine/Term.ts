@@ -194,15 +194,15 @@ let plus: Term =
     )
   );
 
-export let exampleTerm: Term =
-  appTerm(
-    lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
-      lamTerm(unitTyTerm(),
-        appTerm(
-          boundVarTerm(1),
-          boundVarTerm(0)
-        )
-      )
-    ),
-    idTerm(unitTyTerm())
-  );
+export let exampleTerm: Term = idTerm(unitTyTerm());
+  // appTerm(
+  //   lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
+  //     lamTerm(unitTyTerm(),
+  //       appTerm(
+  //         boundVarTerm(1),
+  //         boundVarTerm(0)
+  //       )
+  //     )
+  //   ),
+  //   idTerm(unitTyTerm())
+  // );

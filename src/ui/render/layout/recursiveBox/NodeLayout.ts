@@ -8,8 +8,6 @@ export type NodeLayout = {
   nestingParentId: string | null
   intrinsicBox: SimpleBoundingBox
   subtreeExtentBox: SimpleBoundingBox
-  position: XYPosition | null
   label: string
   kind: DiagramNodeKind
-  portBarType: PortBarType | null
 }

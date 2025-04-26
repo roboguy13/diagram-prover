@@ -1,14 +1,23 @@
 import { freeVarHandleName, inputHandleName, outputHandleName, parameterHandleName } from "../ui/NodeUtils";
-import assert from "node:assert";
+import { assert } from "chai";
 
 export type PortId = string;
 export type WireId = string;
 export type NodeId = string;
 
-export type PortRef = {
+export class PortRef {
   nodeId: NodeId;
-  // portSpec: PortSpec;
   portId: PortId;
+
+  constructor(rec: { nodeId: NodeId, portId: PortId }) {
+    const { nodeId, portId } = rec;
+    this.nodeId = nodeId;
+    this.portId = portId;
+  }
+
+  equals(other: PortRef): boolean {
+    return this.nodeId === other.nodeId && this.portId === other.portId;
+  }
 }
 
 export type Wire = {
@@ -112,7 +121,7 @@ export class InputPort implements PortSpec {
     nodeId: NodeId,
     portIndex: number
   ) {
-    this._portRef = { nodeId, portId: inputHandleName(portIndex) };
+    this._portRef = new PortRef({ nodeId, portId: inputHandleName(portIndex) });
   }
 
   get portRef() { return this._portRef }
@@ -126,7 +135,7 @@ export class OutputPort implements PortSpec {
     nodeId: NodeId,
     portIndex: number
   ) {
-    this._portRef = { nodeId, portId: outputHandleName(portIndex) };
+    this._portRef = new PortRef({ nodeId, portId: outputHandleName(portIndex) });
   }
 
   get portRef() { return this._portRef }
@@ -140,7 +149,7 @@ export class ParameterPort implements PortSpec {
     nodeId: NodeId,
     portIndex: number
   ) {
-    this._portRef = { nodeId, portId: parameterHandleName(portIndex) };
+    this._portRef = new PortRef({ nodeId, portId: parameterHandleName(portIndex) });
   }
 
   get portRef() { return this._portRef }
@@ -155,7 +164,7 @@ export class FreeVarPort implements PortSpec {
     nodeId: NodeId,
     portIndex: number,
   ) {
-    this._portRef = { nodeId, portId: freeVarHandleName(portIndex) };
+    this._portRef = new PortRef({ nodeId, portId: freeVarHandleName(portIndex) });
   }
 
   addInnerPort(portRef: PortRef): void {
@@ -176,11 +185,11 @@ export class NestedOutputPort implements PortSpec {
     portIndex: number,
     private _innerPort: PortRef | null
   ) {
-    this._portRef = { nodeId, portId: outputHandleName(portIndex) };
+    this._portRef = new PortRef({ nodeId, portId: outputHandleName(portIndex) });
   }
 
   addInnerPort(portRef: PortRef): void {
-    assert(this._innerPort === null, 'Inner port already set');
+    assert(this._innerPort === null || this._innerPort.equals(portRef), `Inner port already set to ${JSON.stringify(this._innerPort)}, attempting to set to ${JSON.stringify(portRef)}`);
     this._innerPort = portRef;
   }
 
@@ -399,7 +408,7 @@ export class FreeVarBuilder {
       return freeVarPort;
     }
     
-    const portRef: PortRef = { nodeId: this.nodeId, portId: freeVarHandleName(this._currPortIndex) };
+    const portRef: PortRef = new PortRef({ nodeId: this.nodeId, portId: freeVarHandleName(this._currPortIndex) });
     ++this._currPortIndex
     this._freeVars.set(name, portRef);
     return portRef
