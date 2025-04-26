@@ -64,8 +64,9 @@ function nodeChange(model: Model, change: NodeChange): Model {
   switch (change.type) {
     case 'position':
       return nodePositionChange(model, change);
-    case 'select':
-      return nodeSelectionChange(model, change);
+    // TODO: Fix the issue with selection (apparently) changing the z-index
+    // case 'select':
+    //   return nodeSelectionChange(model, change);
     default:
       return model;
   }

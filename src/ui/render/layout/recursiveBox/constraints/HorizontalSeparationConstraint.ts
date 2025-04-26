@@ -4,6 +4,8 @@ import { CellRef, known, unknown } from "../../../../../constraint/propagator/Pr
 import { NodeId } from "../../../../../ir/StringDiagram";
 import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
+import { NodeLayout } from "../NodeLayout";
+import { BoundingBox } from "../BoundingBox";
 
 // Separate adjacent nodes by their subtree extents
 export class HorizontalSeparationConstraint implements Constraint {
@@ -13,7 +15,7 @@ export class HorizontalSeparationConstraint implements Constraint {
   constructor(
     private _leftNodeId: NodeId,
     private _rightNodeId: NodeId,
-  ) {}
+  ) { }
 
   apply(layoutTree: LayoutTree): void {
     const net = layoutTree.net;
@@ -25,10 +27,10 @@ export class HorizontalSeparationConstraint implements Constraint {
       throw new Error(`Layout for node ${this._leftNodeId} or ${this._rightNodeId} not found`);
     }
 
-    const leftBox = leftLayout.intrinsicBox;
-    const rightBox = rightLayout.intrinsicBox;
+    const leftBox = this.getBox(leftLayout);
+    const rightBox = this.getBox(rightLayout);
 
-    this.paddingCell = net.newCell(`padding`, known(between(this._PADDING, this._PADDING*3)));
+    this.paddingCell = net.newCell(`padding`, known(between(this._PADDING, this._PADDING * 3)));
 
     const requiredRightBoxLeft = net.newCell(`requiredRightBoxLeft`, unknown());
 
@@ -53,5 +55,13 @@ export class HorizontalSeparationConstraint implements Constraint {
   cellsToMinimize(): CellRef[] {
     return [this.paddingCell]
       .filter(cell => cell !== null) as CellRef[];
+  }
+
+  private getBox(layout: NodeLayout): BoundingBox {
+    if (!layout.nestingParentId) {
+      return layout.intrinsicBox;
+    } else {
+      return layout.subtreeExtentBox;
+    }
   }
 }

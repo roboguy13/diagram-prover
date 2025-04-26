@@ -241,6 +241,8 @@ export default function App() {
         onConnect={(connection) => { }}
         colorMode='dark'
         connectionMode={ConnectionMode.Loose}
+        elevateEdgesOnSelect={false}
+        elevateNodesOnSelect={false}
         fitView
       >
         <Background />

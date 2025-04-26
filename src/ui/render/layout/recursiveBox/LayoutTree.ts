@@ -15,7 +15,7 @@ import { parameterHandleName, inputHandleName, outputHandleName } from "../../..
 import { layout } from "dagre";
 import { Graph, GraphEdge, spanningForest } from "../../../../utils/SpanningForest";
 import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedHierarchy";
-import { DiagramBuilder, DiagramNode, DiagramNodeKind, NestedNode, NodeId, NodeKind, OpenDiagram, PortRef, Wire } from "../../../../ir/StringDiagram";
+import { DiagramBuilder, DiagramNode, DiagramNodeKind, FreeVarPort, NestedNode, NodeId, NodeKind, OpenDiagram, ParameterPort, PortRef, Wire } from "../../../../ir/StringDiagram";
 import { ElkRouter } from "../../routing/ElkRouter";
 
 export class LayoutTree {
@@ -145,6 +145,8 @@ export class LayoutTree {
         extent: 'parent',
       } : {};
 
+    const nestingDepth = this._stringDiagram?.getNestingDepth(nodeId) ?? 0;
+
     if (node.kind === 'SimpleNode') {
       return {
         id: nodeId,
@@ -158,22 +160,26 @@ export class LayoutTree {
           outputPortIds: node.outputs.map((output) => output.portId),
           width: width,
           height: height,
-
         },
+        zIndex: nestingDepth,
         position: { x, y },
         ...nestingProperties,
       };
     } else {
+      const parameterPortIds = node.ports.filter((port) => port instanceof ParameterPort).map((port) => port.portRef.portId);
+      const freeVarPortIds = node.ports.filter((port) => port instanceof FreeVarPort).map((port) => port.portRef.portId);
+
       return {
         id: nodeId,
         type: 'grouped',
         data: {
           label: node.label,
-          parameterCount: node.outputs.length,
-          inputCount: node.inputs.length,
+          parameterPortIds,
+          freeVarPortIds,
           width: width,
           height: height,
         },
+        zIndex: nestingDepth,
         position: { x, y },
         ...nestingProperties,
       }
@@ -207,7 +213,8 @@ export class LayoutTree {
           sourceHandle: conn.from.portId,
           targetHandle: conn.to.portId,
           zIndex: this.wireNestingDepth(conn),
-          type: 'invertedBezier',
+          style: { stroke: 'cornflowerblue' },
+          // type: 'invertedBezier',
         });
       } else {
         console.warn(`Skipping wire ${conn.id}: Source (${conn.from.nodeId}) or Target (${conn.to.nodeId}) node not found in diagram.`);

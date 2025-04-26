@@ -21,28 +21,32 @@ import { parameterHandleName, inputHandleName, outputHandleName, portOffsetPerce
 import { NODE_HEIGHT, NODE_WIDTH } from '../../../Config';
 
 export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>) => {
-  const boundVarCount = 2 // TODO
+  const freeVarCount = data.freeVarPortIds.length;
+  const parameterCount = data.parameterPortIds.length;
 
-  const boundVarHandles = []
+  const parameterHandles = []
 
-  const boundVarPortOffets = portOffsetPercentages(boundVarCount);
+  const parameterPortOffets = portOffsetPercentages(parameterCount);
 
-  for (let i = 0; i < boundVarCount; i++) {
-    const boundVarPortOffset = boundVarPortOffets[i]!
+  for (let i = 0; i < parameterCount; i++) {
+    const parameterPortOffset = parameterPortOffets[i]!
 
-    boundVarHandles.push(
+    parameterHandles.push(
       <Handle
         type="source"
-        position={Position.Right}
-        id={parameterHandleName(i)}
+        position={Position.Top}
+        id={parameterHandleName(parameterCount - i - 1)}
         key={i}
         style={{
-          top: boundVarPortOffset + '%',
+          left: parameterPortOffset + '%',
+          top: 10,
           // top: boundVarPortOffets[i] + '%',
         }}
       />
     );
   }
+
+  // TODO: Free var handles
 
   return (
     <div
@@ -61,11 +65,11 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
       //   // padding: '10px',
       // }}
     >
-      <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 5 }} />
+      {/* <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 5 }} /> */}
       <Handle type="source" id={outputHandleName(0)} position={Position.Bottom} style={{ bottom: 0 }} />
 
 
-      {boundVarHandles}
+      {parameterHandles}
       {/* <Handle type="source" id={boundVarHandleName(0)} position={Position.Left} style={{ bottom: 0 }} /> */}
     </div>
     );

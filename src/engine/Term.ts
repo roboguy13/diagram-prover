@@ -195,6 +195,8 @@ let plus: Term =
   );
 
 export let exampleTerm: Term = //idTerm(unitTyTerm());
+  // plus
+
   appTerm(
     lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
       lamTerm(unitTyTerm(),
