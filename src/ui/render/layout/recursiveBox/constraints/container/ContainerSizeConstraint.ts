@@ -13,8 +13,8 @@ import { LayoutTree } from "../../LayoutTree";
 
 // Constrain the size of a nested node based on the contained subgraph, and center the subgraph within the container.
 export class ContainerSizeConstraint implements Constraint {
-  private readonly _PADDING_HORIZONTAL = 20;
-  private readonly _PADDING_VERTICAL = 20;
+  private readonly _PADDING_HORIZONTAL = 30;
+  private readonly _PADDING_VERTICAL = 30;
 
   private verticalPadding: CellRef | null = null;
   private horizontalPadding: CellRef | null = null;
