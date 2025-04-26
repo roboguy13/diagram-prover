@@ -7,7 +7,11 @@ import React from 'react';
 // Adjust this value to control the visual effect
 const ATTACHMENT_OFFSET = 7; // pixels
 
-type WhichInvert = 'source' | 'target'
+type WhichInvert = 'source' | 'target' | 'both';
+
+export function BothInvertedBezierEdge(props: EdgeProps) {
+  return InvertedBezierEdge('both', props);
+}
 
 export function SourceInvertedBezierEdge(props: EdgeProps) {
   return InvertedBezierEdge('source', props);
@@ -17,7 +21,7 @@ export function TargetInvertedBezierEdge(props: EdgeProps) {
   return InvertedBezierEdge('target', props);
 }
 
-export function InvertedBezierEdge(whichInvert: WhichInvert, {
+function InvertedBezierEdge(whichInvert: WhichInvert, {
   id,
   sourceX,
   sourceY,
@@ -44,7 +48,7 @@ export function InvertedBezierEdge(whichInvert: WhichInvert, {
   let adjustedTargetY = targetY;
 
   // Offset the source coordinates based on the *original* handle position
-  if (whichInvert === 'source') {
+  if (whichInvert === 'source' || whichInvert === 'both') {
     switch (sourcePosition) {
       case Position.Top:
         adjustedSourceY += ATTACHMENT_OFFSET;
@@ -62,7 +66,7 @@ export function InvertedBezierEdge(whichInvert: WhichInvert, {
   }
 
   // Offset the target coordinates based on the *original* handle position
-  if (whichInvert === 'target') {
+  if (whichInvert === 'target' || whichInvert === 'both') {
     switch (targetPosition) {
       case Position.Top:
         adjustedTargetY += ATTACHMENT_OFFSET;
@@ -80,8 +84,8 @@ export function InvertedBezierEdge(whichInvert: WhichInvert, {
   }
 
   // --- 2. Calculate Opposite Positions (for curve direction) ---
-  const oppositeSourcePosition = whichInvert === 'source' ? getOppositePosition(sourcePosition) : sourcePosition;
-  const oppositeTargetPosition = whichInvert === 'target' ? getOppositePosition(targetPosition) : targetPosition;
+  const oppositeSourcePosition = (whichInvert === 'source' || whichInvert === 'both') ? getOppositePosition(sourcePosition) : sourcePosition;
+  const oppositeTargetPosition = (whichInvert === 'target' || whichInvert === 'both') ? getOppositePosition(targetPosition) : targetPosition;
 
   // --- 3. Generate Path ---
   // Use ADJUSTED coordinates and OPPOSITE positions

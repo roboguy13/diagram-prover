@@ -207,9 +207,14 @@ export class LayoutTree {
 
       let edgeType = 'default'
 
-      if (this._stringDiagram?.isNestedSourceInterfaceWire(conn)) {
+      const nestedSourceWire = this._stringDiagram?.isNestedSourceInterfaceWire(conn);
+      const nestedTargetWire = this._stringDiagram?.isNestedTargetInterfaceWire(conn);
+
+      if (nestedSourceWire && nestedTargetWire) {
+        edgeType = 'bothInvertedBezier'
+      } else if (nestedSourceWire) {
         edgeType = 'sourceInvertedBezier'
-      } else if (this._stringDiagram?.isNestedTargetInterfaceWire(conn)) {
+      } else if (nestedTargetWire) {
         edgeType = 'targetInvertedBezier'
       }
 
