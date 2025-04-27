@@ -66,9 +66,11 @@ function nodeChange(model: Model, change: NodeChange): Model {
   switch (change.type) {
     case 'position':
       return nodePositionChange(model, change);
+
     // TODO: Fix the issue with selection (apparently) changing the z-index
-    // case 'select':
-    //   return nodeSelectionChange(model, change);
+    case 'select':
+      return model //nodeSelectionChange(model, change);
+
     default: {
       const nodes = model.graph?.nodes;
       if (!nodes) {
