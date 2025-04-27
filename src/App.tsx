@@ -240,9 +240,9 @@ export default function App() {
         onEdgesChange={(changes) => dispatch({ kind: 'EditorMsg', msg: { type: 'EdgeChangeMsg', changes: changes } })}
         onConnect={(connection) => { }}
         colorMode='dark'
-        connectionMode={ConnectionMode.Loose}
-        elevateEdgesOnSelect={false}
-        elevateNodesOnSelect={false}
+        // connectionMode={ConnectionMode.Loose}
+        // elevateEdgesOnSelect={false}
+        // elevateNodesOnSelect={false}
         fitView
       >
         <Background />

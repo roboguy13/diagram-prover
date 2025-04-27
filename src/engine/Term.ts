@@ -231,8 +231,34 @@ let one = appTerm(succ, zero);
 let two = appTerm(succ, one);
 let three = appTerm(succ, two);
 
+let actualOne =
+  lamTerm(
+    unitTyTerm(),
+    lamTerm(
+      unitTyTerm(),
+      appTerm(
+        boundVarTerm(1),
+        boundVarTerm(0)
+      )
+    )
+  );
+
+let third =
+  lamTerm(
+    unitTyTerm(),
+    lamTerm(
+      unitTyTerm(),
+      lamTerm(
+        unitTyTerm(),
+        boundVarTerm(0)
+      )
+    )
+  )
+
 export let exampleTerm: Term = //idTerm(unitTyTerm());
-  plus
+  one
+  // actualOne
+  // plus
 
   // appTerm(
   //   lamTerm(piTerm(unitTyTerm(), unitTyTerm()),

@@ -7,8 +7,8 @@ export type TermNodeData =
     inputCount: number,
     inputPortIds: string[],
     outputPortIds: string[],
-    width?: number,
-    height?: number,
+    width: number,
+    height: number,
     portBarType?: PortBarType
   }
 
@@ -20,8 +20,8 @@ export type GroupedNode = Node<
   { label: string,
     parameterPortIds: string[],
     freeVarPortIds: string[],
-    width?: number,
-    height?: number,
+    width: number,
+    height: number,
     // nodeIds: string[],
     // x: number,
     // y: number,

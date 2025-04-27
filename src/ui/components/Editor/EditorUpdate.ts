@@ -1,8 +1,10 @@
 import { rollbackChange, advanceChange, applyModelUpdates, Model, setNode, updateCurrentTerm, getCurrentTerm, getNode } from '../../architecture/Model';
 import { EditorMsg } from './EditorMsg';
-import { NodeChange, NodePositionChange, NodeSelectionChange, EdgeChange } from '@xyflow/react';
+import { NodeChange, NodePositionChange, NodeSelectionChange, EdgeChange, applyNodeChanges } from '@xyflow/react';
 import { Cmd } from '../../architecture/Cmd';
 import { renderLayoutConflictInfo, renderLayoutDebugInfo, updateGraphLayout } from '../../render/layout/UpdateGraphLayout';
+import { ApplicationNode } from '../Nodes/nodeTypes';
+import { NodeListAndEdges } from '../../render/layout/LayoutEngine';
 
 export function editorUpdate(model: Model, msg: EditorMsg): [Model, Cmd | null] {
   switch (msg.type) {
@@ -67,8 +69,16 @@ function nodeChange(model: Model, change: NodeChange): Model {
     // TODO: Fix the issue with selection (apparently) changing the z-index
     // case 'select':
     //   return nodeSelectionChange(model, change);
-    default:
-      return model;
+    default: {
+      const nodes = model.graph?.nodes;
+      if (!nodes) {
+        return model
+      }
+
+      const newNodes = applyNodeChanges([change], nodes) as ApplicationNode[];
+      const newGraph: NodeListAndEdges = { ...model.graph, nodes: newNodes } as NodeListAndEdges;
+      return { ... model, graph: newGraph };
+    }
   }
 }
 

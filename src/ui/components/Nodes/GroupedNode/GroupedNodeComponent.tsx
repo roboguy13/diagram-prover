@@ -68,7 +68,7 @@ export const makeGroupedNode = ({ data, width, height }: NodeProps<GroupedNode>)
       // }}
     >
       {/* <Handle type="target" id={inputHandleName(0)} position={Position.Top} style={{ top: 5 }} /> */}
-      <Handle type="source" id={nestedOutputHandleName(0)} position={Position.Bottom} style={{ bottom: nestedHandleSpacing }} />
+      <Handle type="target" id={nestedOutputHandleName(0)} position={Position.Bottom} style={{ bottom: nestedHandleSpacing }} />
       <Handle type="source" id={outputHandleName(0)} position={Position.Bottom} className='custom-handle' style={{ bottom: 0 }} />
 
 
