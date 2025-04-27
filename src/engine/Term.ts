@@ -199,10 +199,7 @@ let zero =
     unitTyTerm(),
     lamTerm(
       unitTyTerm(),
-      lamTerm(
-        unitTyTerm(),
-        boundVarTerm(0)
-      )
+      boundVarTerm(0)
     )
   );
 
@@ -256,21 +253,21 @@ let third =
   )
 
 export let exampleTerm: Term = //idTerm(unitTyTerm());
-  one
+  // one
   // actualOne
   // plus
 
-  // appTerm(
-  //   lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
-  //     lamTerm(unitTyTerm(),
-  //       appTerm(
-  //         boundVarTerm(1),
-  //         boundVarTerm(0)
-  //       )
-  //     )
-  //   ),
-  //   idTerm(unitTyTerm())
-  // );
+  appTerm(
+    lamTerm(piTerm(unitTyTerm(), unitTyTerm()),
+      lamTerm(unitTyTerm(),
+        appTerm(
+          boundVarTerm(1),
+          boundVarTerm(0)
+        )
+      )
+    ),
+    idTerm(unitTyTerm())
+  );
 
   // lamTerm(
   //   unitTyTerm(),

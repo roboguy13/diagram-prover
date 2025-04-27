@@ -1,7 +1,9 @@
+import { prettyPrintTerm } from "../engine/PrettyPrint";
 import { Term, VarTerm, LamTerm, AppTerm, Type, Context as TermContext } from "../engine/Term"; // Renamed Context to TermContext
 import { Diagram, DiagramBuilder, OpenDiagram, OpenDiagramBuilder, PortRef } from "./StringDiagram";
 
 export function termToStringDiagram(term: Term): OpenDiagram {
+  console.log(`termToStringDiagram: ${prettyPrintTerm(term)}`);
   const builder = new TermDiagramBuilder(new OpenDiagramBuilder(), []);
   builder.build(term);
   return builder.finish()

@@ -102,7 +102,19 @@ export function oneStep(term: Term): [StepChange, Term] {
         case 'Pi':
           return [ { type: 'beta', ...(term.id !== undefined) ? { changedId: term.id } : {} }, subst1(term.func.body, term.arg) ];
         default:
-          return [ { type: 'no-change' }, { ...term, func: term.func, arg: term.arg } ]
+          let [funcChange, newFunc] = oneStep(term.func);
+
+          if (funcChange.type !== 'no-change') {
+            return [funcChange, { ...term, func: newFunc }];
+          }
+
+          let [argChange, newArg] = oneStep(term.arg);
+
+          if (argChange.type !== 'no-change') {
+            return [argChange, { ...term, arg: newArg }];
+          }
+
+          return [{ type: 'no-change' }, term];
       }
 
     case 'Ann':
