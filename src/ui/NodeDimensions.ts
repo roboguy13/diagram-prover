@@ -21,8 +21,6 @@ export function getNodeDimensions<A>(n: SemanticNode<A>): Dimensions {
 export function getStringNodeDimensions(node: DiagramNode): Dimensions {
   if (node.nodeKind === 'lam') {
     return { width: between(40, 800), height: between(40, 800) }
-  } else if (node.nodeKind === 'portBar') {
-    return { width: exactly(60), height: exactly(10) }
   }
   return { width: exactly(30), height: exactly(30) }
 }

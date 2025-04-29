@@ -71,8 +71,25 @@ export abstract class BoundingBox {
       this.bottom,
       box.bottom
     );
+
+    net.equalPropagator(
+      `${this._typePrefix} width = box.width`,
+      this.width,
+      box.width
+    );
+
+    net.equalPropagator(
+      `${this._typePrefix} height = box.height`,
+      this.height,
+      box.height
+    );
+
+    net.equalPropagator(
+      `${this._typePrefix} centerX = box.centerX`,
+      this.centerX,
+      box.centerX
+    );
   }
-  // getDebugInfo(net: PropagatorNetwork<NumericRange>): string
 }
 
 export class SimpleBoundingBox extends BoundingBox {

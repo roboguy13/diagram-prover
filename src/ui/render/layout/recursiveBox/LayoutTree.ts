@@ -17,6 +17,7 @@ import { Graph, GraphEdge, spanningForest } from "../../../../utils/SpanningFore
 import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedHierarchy";
 import { DiagramBuilder, DiagramNode, DiagramNodeKind, FreeVarPort, NestedNode, NodeId, NodeKind, OpenDiagram, ParameterPort, PortRef, Wire } from "../../../../ir/StringDiagram";
 import { ElkRouter } from "../../routing/ElkRouter";
+import { max } from "lodash";
 
 export class LayoutTree {
   private _nodeLayouts: Map<string, NodeLayout> = new Map();
@@ -121,6 +122,12 @@ export class LayoutTree {
     return this._nestingChildren.get(parentId) ?? [];
   }
 
+  logChildren() {
+    for (const [parentId, childrenIds] of this._children.entries()) {
+      console.log(`  Parent: ${parentId}, Children: [${childrenIds.join(', ')}]`);
+    }
+  }
+
   nodeToApplicationNode(nodeId: string): ApplicationNode {
     const nodeLayout = this.getNodeLayout(nodeId);
 
@@ -133,10 +140,10 @@ export class LayoutTree {
       throw new Error(`Node not found in string diagram for node ID: ${nodeId}`);
     }
 
-    const width = this.extractRangeValue(nodeLayout.intrinsicBox.width, 'width');
-    const height = this.extractRangeValue(nodeLayout.intrinsicBox.height, 'height');
-    const x = this.extractRangeValue(nodeLayout.intrinsicBox.left, 'left');
-    const y = this.extractRangeValue(nodeLayout.intrinsicBox.top, 'top');
+    const width = this.extractRangeValue(nodeLayout.intrinsicBox.width, `${nodeLayout.label} width`);
+    const height = this.extractRangeValue(nodeLayout.intrinsicBox.height, `height`);
+    const x = this.extractRangeValue(nodeLayout.intrinsicBox.left, `${nodeLayout.label} left`);
+    const y = this.extractRangeValue(nodeLayout.intrinsicBox.top, `top`);
 
     const isNested = nodeLayout.nestingParentId !== null;
     const nestingProperties: { parentId: string, extent: 'parent' } | {} =
@@ -267,11 +274,19 @@ export class LayoutTree {
 
   private extractRangeValue(cell: CellRef, name: string): number {
     const range = this._net.readKnownOrError(cell, name);
+    let minValue = getMin(range);
+    let maxValue = getMax(range);
 
-    // if (getMin(range) <= -Infinity) {
-    //   return getMax(range)
-    // }
-    return getMin(range)
+    if (isFinite(minValue)) {
+      return minValue
+    }
+
+    if (isFinite(maxValue)) {
+      return maxValue
+    }
+
+    console.warn(`LayoutTree.extractRangeValue: Cell ${name} has no finite value.`);
+    return 0
   }
 
   public async renderDebugInfo(): Promise<NodeListAndEdges> {
@@ -352,13 +367,13 @@ export class LayoutTree {
     const wires = Array.from(diagram.wires.values());
     for (const wire of wires) {
       if (diagram.isNestedInterfaceWire(wire)) {
-        console.log(`Skipping nested interface wire from ${wire.from.nodeId} to ${wire.to.nodeId}`);
+        // console.log(`Skipping nested interface wire from ${wire.from.nodeId} to ${wire.to.nodeId}`);
         continue
       }
-      console.log(`Adding wire from ${wire.from.nodeId} to ${wire.to.nodeId}`);
+      // console.log(`Adding wire from ${wire.from.nodeId} to ${wire.to.nodeId}`);
 
-      const sourceNodeId = wire.from.nodeId; // Node providing output (Child in inverted layout)
-      const targetNodeId = wire.to.nodeId;   // Node receiving input (Parent in inverted layout)
+      const sourceNodeId = wire.from.nodeId;
+      const targetNodeId = wire.to.nodeId;
 
       // Ensure both nodes exist in the layout map before adding relationship
       if (layoutTree.getNodeLayout(sourceNodeId) && layoutTree.getNodeLayout(targetNodeId)) {
@@ -380,13 +395,12 @@ export class LayoutTree {
     return rootIds.map(id => this.getNodeLayout(id)).filter((l): l is NodeLayout => l != null);
   }
 
-  // Keep original 'roots' getter if it refers to nesting roots and is used elsewhere
   public get nestingRoots(): NodeLayout[] {
     const nodeLayouts = Array.from(this._nodeLayouts.values());
     return nodeLayouts.filter(layout => layout.nestingParentId === null);
   }
 
-  // Roots are nodes without parents
+  // Roots are nodes without hierarchical parents
   getHierarchyRoots(edges: GraphEdge<string>[]): string[] {
     const nodeIds = Array.from(this._stringDiagram!.nodes.keys());
 

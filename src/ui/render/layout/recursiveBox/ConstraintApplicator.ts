@@ -18,6 +18,7 @@ import { HorizontalSeparationConstraint } from "./constraints/HorizontalSeparati
 import { NodeId } from "../../../../ir/StringDiagram";
 import { VerticalSeparationConstraint } from "./constraints/VerticalSeparationConstraint";
 import { VerticalAlignmentConstraint } from "./constraints/VerticalAlignmentConstraint";
+import { ParentHorizontalCenteringConstraint } from "./constraints/ParentHorizontalCenteringConstraint";
 
 export class ConstraintApplicator {
   private _constraints: Constraint[] = [];
@@ -28,6 +29,9 @@ export class ConstraintApplicator {
     const roots = layoutTree.layoutRoots;
 
     this.horizontalConstraints(layoutTree, roots);
+
+    console.log("Layout Hierarchy Check:");
+    layoutTree.logChildren()
 
     for (const layout of layouts) {
       ConstraintApplicator.debugLeaves(layoutTree, layout.nodeId);
@@ -58,6 +62,9 @@ export class ConstraintApplicator {
         this.verticalConstraints(layoutTree, children, layout.nodeId);
         const childLayouts = children.map(childId => layoutTree.getNodeLayout(childId)).filter((l): l is NonNullable<typeof l> => l != null);
         this.horizontalConstraints(layoutTree, childLayouts);
+
+        const centeringConstraint = new ParentHorizontalCenteringConstraint(layout.nodeId, children);
+        this.applyConstraint(centeringConstraint, layoutTree);
       }
     }
 

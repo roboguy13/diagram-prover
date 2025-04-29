@@ -67,7 +67,7 @@ const ext = (rho: IndexRenaming) => (x: number): number => {
   if (x === 0) {
     return x;
   } else {
-    let newId = rho(x);
+    let newId = rho(x - 1);
     return newId + 1
   }
 }

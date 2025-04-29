@@ -167,6 +167,7 @@ export class FreeVarPort implements PortSpec {
     nodeId: NodeId,
     portIndex: number,
   ) {
+    console.log(`FreeVarPort: nodeId: ${nodeId}, portIndex: ${portIndex}`);
     this._portRef = new PortRef({ nodeId, portId: freeVarHandleName(portIndex) });
   }
 
@@ -269,8 +270,6 @@ export class Diagram {
 
     const toNode = this.getNode(wire.to.nodeId);
     const fromNode = this.getNode(wire.from.nodeId);
-
-    console.log(`isNestedInterfaceWire: ${toPort.nestedInterfacePort}, ${fromPort.nestedInterfacePort}, ${toNode.nodeId}, ${fromNode.nodeId}`)
 
     if ((toPort.nestedInterfacePort || fromPort.nestedInterfacePort)
            && toNode.nodeId === fromNode.nodeId) {

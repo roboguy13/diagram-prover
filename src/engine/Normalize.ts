@@ -66,19 +66,20 @@ export function oneStep(term: Term): [StepChange, Term] {
       return [{ type: 'no-change' }, term];
 
     case 'Pi': {
-      let [paramChange, newParamTy] = oneStep(term.paramTy);
+      return [{ type: 'no-change' }, term ]
+      // let [paramChange, newParamTy] = oneStep(term.paramTy);
 
-      if (paramChange.type !== 'no-change') {
-        return [paramChange, { ...term, paramTy: newParamTy }];
-      } else {
-        let [bodyChange, newBody] = oneStep(term.body);
+      // if (paramChange.type !== 'no-change') {
+      //   return [paramChange, { ...term, paramTy: newParamTy }];
+      // } else {
+      //   let [bodyChange, newBody] = oneStep(term.body);
 
-        if (bodyChange.type !== 'no-change') {
-          return [bodyChange, { ...term, body: newBody }];
-        } else {
-          return [{ type: 'no-change' }, term];
-        }
-      }
+      //   if (bodyChange.type !== 'no-change') {
+      //     return [bodyChange, { ...term, body: newBody }];
+      //   } else {
+      //     return [{ type: 'no-change' }, term];
+      //   }
+      // }
     }
     case 'Lam': {
       let [paramChange, newParamTy] = oneStep(term.paramTy);

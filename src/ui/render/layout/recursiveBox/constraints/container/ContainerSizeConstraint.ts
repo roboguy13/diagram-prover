@@ -30,7 +30,6 @@ export class ContainerSizeConstraint implements Constraint {
     const containerLayout = layoutTree.getNodeLayout(this._containerId);
 
     console.log(`ContainerSizeConstraint: Applying for container ${this._containerId}`);
-
     if (!containerLayout) {
       console.warn(`Container layout not found for ID: ${this._containerId}`);
       return;
@@ -55,6 +54,11 @@ export class ContainerSizeConstraint implements Constraint {
     console.log(`ContainerSizeConstraint: Container ${this._containerId} has nested children [${nestedChildrenIds.join(', ')}]`);
 
     const containerBox = containerLayout.intrinsicBox;
+
+    net.addDebugCell(
+      `ContainerSizeConstraint (${this._containerId}): Width`,
+      containerBox.width
+    );
 
     const collectiveLeft = collectiveBoundingBox.left;
     const collectiveRight = collectiveBoundingBox.right;
