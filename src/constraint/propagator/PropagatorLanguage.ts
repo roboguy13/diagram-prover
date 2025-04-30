@@ -1,7 +1,7 @@
 import { alt, apply, buildLexer, expectSingleResult, kmid, Lexer, list_sc, lrec_sc, Parser, rule, seq, str, tok, Token, TokenPosition } from "typescript-parsec"; // Added kmid
 import { CellRef, known, PropagatorNetwork } from "./Propagator";
 import { add, addList, divNumber, equal, getCellRef, maxList, minList, multNumber, negate, PExpr, sub } from "./PropagatorExpr";
-import { addRangePropagator, between, divNumericRangeNumberPropagator, exactly, multNumericRangeNumber, multNumericRangeNumberPropagator, NumericRange, subtractRangePropagator } from "./NumericRange";
+import { addRangePropagator, between, divNumericRangeNumberPropagator, exactly, lessThanEqualPropagator, multNumericRangeNumber, multNumericRangeNumberPropagator, NumericRange, subtractRangePropagator } from "./NumericRange";
 import { subtract, toNumber } from "lodash";
 
 enum TokenKind {
@@ -9,6 +9,7 @@ enum TokenKind {
   Add,
   Sub,
   Equal,
+  LessThanEqual,
   AddList,
   MaxList,
   MinList,
@@ -42,21 +43,22 @@ const basicLexer = buildLexer<TokenKind>([
   [true, /^[0-9]+/g, TokenKind.Number],
   [true, /^\+/g, TokenKind.Add],
   [true, /^=/g, TokenKind.Equal],
+  [true, /^<=/g, TokenKind.LessThanEqual],
   [true, /^\-/g, TokenKind.Sub],
   [true, /^\(/g, TokenKind.LParen],
   [true, /^\)/g, TokenKind.RParen],
   [true, /^max/g, TokenKind.MaxList],
   [true, /^min/g, TokenKind.MinList],
   [true, /^add/g, TokenKind.AddList],
-  [true, /^mul/g, TokenKind.MulNum],
-  [true, /^div/g, TokenKind.DivNum],
+  [true, /^\*/g, TokenKind.MulNum],
+  [true, /^\//g, TokenKind.DivNum],
   [true, /^\[/g, TokenKind.LBracket],
   [true, /^\]/g, TokenKind.RBracket],
   [true, /^,/g, TokenKind.Comma],
 ])
 
 interface VarIdentifierToken extends Token<TokenKind.VarIdentifier> {
-  cellRef?: CellRef
+  cellRef?: CellRefs
 }
 
 class Tokenizer {
@@ -65,10 +67,10 @@ class Tokenizer {
 
   constructor(
     private _inputStrings: string[],
-    private _inputCells: CellRef[],
+    private _inputCells: CellRefs[],
   ) { }
 
-  private buildCellToken(cell: CellRef, index: number): VarIdentifierToken {
+  private buildCellToken(cell: CellRefs, index: number): VarIdentifierToken {
     const pos: TokenPosition = { index, rowBegin: 0, columnBegin: 0, rowEnd: 0, columnEnd: 0 };
     const text = `$${index}`
     return { kind: TokenKind.VarIdentifier, text, pos, next: undefined, cellRef: cell };
@@ -105,6 +107,7 @@ class Tokenizer {
 type TokenData =
   | { kind: 'PExprData'; pExpr: PExpr}
   | { kind: 'NumberData'; number: number }
+  | { kind: 'ListData'; pExprList: PExpr[] }
   | { kind: 'RangeData'; range: [number, number] }
 
 function applyCellRef(token: Token<TokenKind.VarIdentifier>): TokenData {
@@ -112,6 +115,9 @@ function applyCellRef(token: Token<TokenKind.VarIdentifier>): TokenData {
     if (varToken.cellRef !== undefined) {
         // If the tokenizer attached a CellRef, create a PExpr function that returns it.
         const knownCellRef = varToken.cellRef;
+        if (Array.isArray(knownCellRef)) {
+          return { kind: 'ListData', pExprList: knownCellRef.map((cell) => (net) => cell) };
+        }
         const pExprFunc: PExpr = (net) => knownCellRef; // Wrap the known CellRef in a function
         return { kind: 'PExprData', pExpr: pExprFunc };
     } else {
@@ -140,6 +146,8 @@ function getPExpr(tokenData: TokenData): PExpr {
       return (net) => {
         return net.newCell(`[${tokenData.range[0]},${tokenData.range[1]}]`, known(between(tokenData.range[0], tokenData.range[1])));
       }
+    case 'ListData':
+      throw new Error(`ListData is not supported in this context`);
     default:
        const exhaustiveCheck: never = tokenData;
        throw new Error(`Unsupported token data kind: ${(exhaustiveCheck as any)?.kind}`);
@@ -162,6 +170,22 @@ function applyRangeLiteral(
         throw new Error(`Invalid range: minimum ${min} is greater than maximum ${max}`);
     }
     return { kind: 'RangeData', range: [min, max] };
+}
+
+function applyLessThanEqual(sequence: [TokenData, Token<TokenKind.LessThanEqual>, TokenData]): PropagatorRelation {
+  const [first, token, second] = sequence;
+
+  const firstPExpr = getPExpr(first);
+  const secondPExpr = getPExpr(second);
+
+  return (net: PropagatorNetwork<NumericRange>) => {
+    return lessThanEqualPropagator(
+      `lessThanEqual`,
+      net,
+      getCellRef(net, firstPExpr),
+      getCellRef(net, secondPExpr),
+    );
+  }
 }
 
 function applyEqual(sequence: [TokenData, Token<TokenKind.Equal>, TokenData]): PropagatorRelation {
@@ -192,6 +216,7 @@ function applyEqualBinary(sequence: [TokenData, Token<TokenKind.Equal>, TokenDat
 
   switch (opToken.kind) {
     case TokenKind.Add:
+      console.log(`Add: ${opToken.kind}`);
       return (net: PropagatorNetwork<NumericRange>) => {
         const op2PExpr = getPExpr(op2Data);
 
@@ -216,9 +241,10 @@ function applyEqualBinary(sequence: [TokenData, Token<TokenKind.Equal>, TokenDat
         )
       }
     case TokenKind.MulNum: {
+      console.log(`MulNum: ${opToken.kind}`);
       if (op2Data.kind !== 'NumberData') {
         throw new Error(`Unsupported second operand for MulNum: ${op2Data.kind}`);
-     }
+      }
 
       const op2 = op2Data.number
 
@@ -233,6 +259,7 @@ function applyEqualBinary(sequence: [TokenData, Token<TokenKind.Equal>, TokenDat
       }
     }
     case TokenKind.DivNum:
+      console.log('DivNum', op2Data);
       if (op2Data.kind !== 'NumberData') {
         throw new Error(`Unsupported second operand for DivNum: ${op2Data.kind}`);
       }
@@ -279,29 +306,41 @@ function applyBinary(first: TokenData, second: [Token<TokenKind>, TokenData]): T
   }
 }
 
-function applyUnary(token: Token<TokenKind>, data: TokenData | TokenData[]): TokenData {
+function applyUnary(token: Token<TokenKind>, data: TokenData): TokenData {
   switch (token.kind) {
+    case TokenKind.Sub: // Negation
+      // getPExpr will handle PExprData, NumberData, RangeData and throw for ListData
+      return pExprTokenData(negate(getPExpr(data)));
+
+    // Handle list-based functions (add, max, min)
     case TokenKind.AddList:
     case TokenKind.MaxList:
     case TokenKind.MinList:
-      if (!Array.isArray(data)) {
-        throw new Error(`Expected TokenData[] for list operation ${token.kind}`);
+      // Expecting data to be the result of applyCellRef($placeholder)
+      if (data.kind !== 'ListData') {
+        // This means the placeholder $N didn't correspond to a CellRef[] argument
+        throw new Error(`Argument for ${token.text}() must be a list placeholder (like $1 representing CellRef[]), but received a single value/expression.`);
       }
-      const pExprList = data.map(getPExpr);
-      if (token.kind === TokenKind.AddList) return pExprTokenData(addList(pExprList));
-      if (token.kind === TokenKind.MaxList) return pExprTokenData(maxList(pExprList));
-      if (token.kind === TokenKind.MinList) return pExprTokenData(minList(pExprList));
-      break; // Should be unreachable
-    case TokenKind.Sub:
-      if (Array.isArray(data)) {
-         throw new Error(`Expected single TokenData for negation`);
-      }
-      return pExprTokenData(negate(getPExpr(data)));
-    default:
-      throw new Error(`Unsupported unary operation: ${token.kind}`);
-  }
+      // data is { kind: 'ListData', pExprList: [...] }
+      const pExprArgs = data.pExprList; // Extract the list
 
-  throw new Error(`Unhandled unary operation case for token: ${token.kind}`);
+      if (pExprArgs.length === 0) {
+         // This could happen if an empty array was passed as argument
+         throw new Error(`List argument for ${token.text}() cannot be empty.`);
+      }
+
+      // Call the corresponding programmatic PExpr function
+      switch (token.kind) {
+        case TokenKind.AddList: return pExprTokenData(addList(pExprArgs));
+        case TokenKind.MaxList: return pExprTokenData(maxList(pExprArgs));
+        case TokenKind.MinList: return pExprTokenData(minList(pExprArgs));
+      }
+      break; // Unreachable
+
+    default:
+      throw new Error(`Unsupported token kind passed to applyUnary: ${token.kind}`);
+  }
+  throw new Error(`Internal error: Unhandled case in applyUnary for token kind: ${token.kind}`);
 }
 
 function pExprTokenData(pExpr: PExpr): TokenData {
@@ -310,8 +349,7 @@ function pExprTokenData(pExpr: PExpr): TokenData {
 
 const ATOM = rule<TokenKind, TokenData>();
 const EXPR = rule<TokenKind, TokenData>();
-const REL = rule<TokenKind, PropagatorRelation>()
-const ARG_LIST = list_sc(EXPR, str(','));
+const REL = rule<TokenKind, PropagatorRelation>();
 
 const binOp: Parser<TokenKind, Token<TokenKind>> =
   alt(
@@ -324,19 +362,21 @@ const binOp: Parser<TokenKind, Token<TokenKind>> =
 // REL =
 // | COMPOUND_EXPR '=' EXPR
 // | EXPR '=' COMPOUND_EXPR
+// | EXPR '<=' EXPR
 REL.setPattern(
   alt(
     apply(seq(EXPR, tok(TokenKind.Equal), EXPR, binOp, EXPR), applyEqualBinary),
     apply(seq(EXPR, tok(TokenKind.Equal), EXPR), applyEqual),
+    apply(seq(EXPR, tok(TokenKind.LessThanEqual), EXPR), applyLessThanEqual),
   )
 )
 
-// ATOM = CELLREF | NUMBER | RANGE_LITERAL | '-' ATOM | FUNCTION_CALL(...) | '(' EXPR ')'
+const varIdentifierParser: Parser<TokenKind, Token<TokenKind.VarIdentifier>> = tok(TokenKind.VarIdentifier);
+
 ATOM.setPattern(
   alt(
-    apply(tok(TokenKind.VarIdentifier), applyCellRef),
+    apply(varIdentifierParser, applyCellRef),
     apply(tok(TokenKind.Number), applyNumber),
-
     apply(
         seq(
             tok(TokenKind.LBracket),
@@ -347,16 +387,17 @@ ATOM.setPattern(
         ),
         applyRangeLiteral
     ),
-
     // Unary negation
     apply(seq(tok(TokenKind.Sub), ATOM), ([op, data]) => applyUnary(op, data)),
 
-    // Function calls: func(arg1, arg2, ...)
-    apply(seq(tok(TokenKind.AddList), kmid(str('('), ARG_LIST, str(')'))), ([op, args]) => applyUnary(op, args)),
-    apply(seq(tok(TokenKind.MaxList), kmid(str('('), ARG_LIST, str(')'))), ([op, args]) => applyUnary(op, args)),
-    apply(seq(tok(TokenKind.MinList), kmid(str('('), ARG_LIST, str(')'))), ([op, args]) => applyUnary(op, args)),
+    apply(seq(tok(TokenKind.AddList), kmid(tok(TokenKind.LParen), varIdentifierParser, tok(TokenKind.RParen))),
+          ([op, placeholderToken]) => applyUnary(op, applyCellRef(placeholderToken))),
+    apply(seq(tok(TokenKind.MaxList), kmid(tok(TokenKind.LParen), varIdentifierParser, tok(TokenKind.RParen))),
+          ([op, placeholderToken]) => applyUnary(op, applyCellRef(placeholderToken))),
+    apply(seq(tok(TokenKind.MinList), kmid(tok(TokenKind.LParen), varIdentifierParser, tok(TokenKind.RParen))),
+          ([op, placeholderToken]) => applyUnary(op, applyCellRef(placeholderToken))),
 
-    // Parentheses
+    // Parentheses for grouping expressions
     kmid(tok(TokenKind.LParen), EXPR, tok(TokenKind.RParen))
   )
 );
@@ -376,26 +417,30 @@ export function parsePropagatorExpr(input: string): PExpr {
     return getPExpr(expectSingleResult(parseResult));
 }
 
-export function runPropagatorExpr(input: TemplateStringsArray, ...inputCells: CellRef[]) {
-  const tokenizer = new Tokenizer(Array.from(input.values()), inputCells);
-  const tokens = tokenizer.tokenize();
-  if (!tokens) {
-    throw new Error("Lexing failed: No tokens produced.");
-  }
-  const parseResult = EXPR.parse(tokens);
+export type CellRefs = CellRef | CellRef[];
 
-  return (net: PropagatorNetwork<NumericRange>) => runPExpr(net, getPExpr(expectSingleResult(parseResult)));
+export function runPropagatorExpr(net: PropagatorNetwork<NumericRange>) {
+  return (input: TemplateStringsArray, ...inputCells: CellRefs[]) => {
+    const tokenizer = new Tokenizer(Array.from(input.values()), inputCells);
+    const tokens = tokenizer.tokenize();
+    if (!tokens) {
+      throw new Error("Lexing failed: No tokens produced.");
+    }
+    const parseResult = EXPR.parse(tokens);
+
+    return runPExpr(net, getPExpr(expectSingleResult(parseResult)));
+  }
 }
 
-export function runPropagatorRelation(input: TemplateStringsArray, ...inputCells: CellRef[]) {
-  const tokenizer = new Tokenizer(Array.from(input.values()), inputCells);
-  const tokens = tokenizer.tokenize();
-  if (!tokens) {
-    throw new Error("Lexing failed: No tokens produced.");
-  }
-  const parseResult = REL.parse(tokens);
+export function runPropagatorRelation(net: PropagatorNetwork<NumericRange>) {
+  return (input: TemplateStringsArray, ...inputCells: CellRefs[]) => {
+    const tokenizer = new Tokenizer(Array.from(input.values()), inputCells);
+    const tokens = tokenizer.tokenize();
+    if (!tokens) {
+      throw new Error("Lexing failed: No tokens produced.");
+    }
+    const parseResult = REL.parse(tokens);
 
-  return (net: PropagatorNetwork<NumericRange>) => {
     return expectSingleResult(parseResult)(net);
   }
 }

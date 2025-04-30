@@ -6,6 +6,7 @@ import { LayoutTree } from "../LayoutTree";
 import { NodeLayout } from "../NodeLayout";
 import { BoundingBox } from "../BoundingBox";
 import { lessThanEqual, add } from "../../../../../constraint/propagator/PropagatorExpr";
+import { runPropagatorExpr, runPropagatorRelation } from "../../../../../constraint/propagator/PropagatorLanguage";
 
 // Separate adjacent nodes by their subtree extents
 export class HorizontalSeparationConstraint implements Constraint {
@@ -32,28 +33,7 @@ export class HorizontalSeparationConstraint implements Constraint {
 
     this.paddingCell = net.newCell(`padding`, known(between(this._PADDING, this._PADDING * 3)));
 
-    lessThanEqual(
-      add(leftBox.right, this.paddingCell),
-      rightBox.left,
-      `HorizontalSeparationConstraint`,
-    )(net)
-
-    // // requiredRightBoxLeft = leftBox.right + this.paddingCell
-    // addRangePropagator(
-    //   `HorizontalSeparationConstraint`,
-    //   net,
-    //   leftBox.right,
-    //   this.paddingCell,
-    //   requiredRightBoxLeft,
-    // )
-
-    // // requireRightBoxLeft <= rightBox.left
-    // lessThanEqualPropagator(
-    //   `HorizontalSeparationConstraint`,
-    //   net,
-    //   requiredRightBoxLeft,
-    //   rightBox.left
-    // );
+    runPropagatorRelation(net)`${leftBox.right} + ${this.paddingCell} <= ${rightBox.left}`;
   }
 
   cellsToMinimize(): CellRef[] {
