@@ -4,6 +4,7 @@ import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
 import { NodeId } from "../../../../../ir/StringDiagram";
 import { BoundingBox } from "../BoundingBox";
+import { runPropagatorRelation } from "../../../../../constraint/propagator/PropagatorLanguage";
 // Removed HorizontalSeparationConstraint import for now
 
 export class SubtreeExtentChildrenConstraint implements Constraint {
@@ -39,43 +40,29 @@ export class SubtreeExtentChildrenConstraint implements Constraint {
 
     const cellsToSumForWidth: CellRef[] = [...childSubtreeWidths, totalPaddingWidth];
     const childrenTotalSpan = net.newCell(`childrenTotalSpan_${this._parentId}`, unknown());
-    addRangeListPropagator(
-        `childrenTotalSpan_${this._parentId}`,
-        net,
-        cellsToSumForWidth,
-        childrenTotalSpan
-    );
 
-    // parentSubtree.width = max(parentIntrinsic.width, childrenTotalSpan)
-    maxRangeListPropagator(
-        `parentSubtree.width >= max(intrinsic, childrenSpan) for ${this._parentId}`,
-        net,
-        [parentIntrinsicBox.width, childrenTotalSpan],
-        parentSubtreeExtent.width // Constrain the width based on sum
-    );
-    // We might need an equality constraint here if max isn't sufficient,
-    // depending on how minimization interacts. Let's assume max is okay for now.
+    runPropagatorRelation(net)`${childrenTotalSpan} = add(${cellsToSumForWidth})`;
+
+    runPropagatorRelation(net)`${parentSubtreeExtent.width} = max(${[parentIntrinsicBox.width, childrenTotalSpan]})`;
 
     net.addDebugCell(`SubtreeExtent (${this._parentId}): Width (Explicit Calc)`, parentSubtreeExtent.width); // Debug new width calculation
 
     // --- Position Calculation (Min/Max of the group including parent) ---
     // These define the bounding box based on actual positions
     const boxesToBound: BoundingBox[] = [parentIntrinsicBox, ...childrenLayouts.map(l => l.subtreeExtentBox)];
+    const boxesToBoundTops = boxesToBound.map(b => b.top);
+    const boxesToBoundBottoms = boxesToBound.map(b => b.bottom);
+    const boxesToBoundLefts = boxesToBound.map(b => b.left);
+    const boxesToBoundRights = boxesToBound.map(b => b.right);
 
-    minRangeListPropagator(`parentSubtree.top <= min(tops) for ${this._parentId}`, net, boxesToBound.map(b => b.top), parentSubtreeExtent.top);
-    maxRangeListPropagator(`parentSubtree.bottom >= max(bottoms) for ${this._parentId}`, net, boxesToBound.map(b => b.bottom), parentSubtreeExtent.bottom);
-    minRangeListPropagator(`parentSubtree.left <= min(lefts) for ${this._parentId}`, net, boxesToBound.map(b => b.left), parentSubtreeExtent.left);
-    maxRangeListPropagator(`parentSubtree.right >= max(rights) for ${this._parentId}`, net, boxesToBound.map(b => b.right), parentSubtreeExtent.right);
+    runPropagatorRelation(net)`${parentSubtreeExtent.top} = min(${boxesToBoundTops})`;
+    runPropagatorRelation(net)`${parentSubtreeExtent.bottom} = max(${boxesToBoundBottoms})`;
+    runPropagatorRelation(net)`${parentSubtreeExtent.left} = min(${boxesToBoundLefts})`;
+    runPropagatorRelation(net)`${parentSubtreeExtent.right} = max(${boxesToBoundRights})`;
 
-    // --- Ensure Consistency ---
-    // Link left, width, right using the explicitly calculated width
-    addRangePropagator(
-        `parentSubtree.right = left + width for ${this._parentId}`,
-        net,
-        parentSubtreeExtent.left,
-        parentSubtreeExtent.width, // Use the width calculated above
-        parentSubtreeExtent.right
-    );
+    // // --- Ensure Consistency ---
+    // // Link left, width, right using the explicitly calculated width
+    // runPropagatorRelation(net)`${parentSubtreeExtent.left} + ${parentSubtreeExtent.width} = ${parentSubtreeExtent.right}`;
   }
 
   cellsToMinimize(): CellRef[] {

@@ -1,5 +1,6 @@
 import { addRangePropagator, between, lessThanEqualPropagator } from "../../../../../constraint/propagator/NumericRange";
 import { CellRef, known, unknown } from "../../../../../constraint/propagator/Propagator";
+import { runPropagatorRelation } from "../../../../../constraint/propagator/PropagatorLanguage";
 import { Constraint } from "../Constraint";
 
 export class VerticalSeparationConstraint  implements Constraint {
@@ -28,22 +29,8 @@ export class VerticalSeparationConstraint  implements Constraint {
 
     const requiredBottomBoxTop = net.newCell(`requiredBottomBoxTop`, unknown());
 
-    // requiredBottomBoxTop = topBox.bottom + paddingCell
-    addRangePropagator(
-      `VerticalSeparationConstraint`,
-      net,
-      topBox.bottom,
-      this._paddingCell!,
-      requiredBottomBoxTop,
-    );
-
-    // requireBottomBoxTop <= bottomBox.top
-    lessThanEqualPropagator(
-      `VerticalSeparationConstraint`,
-      net,
-      requiredBottomBoxTop,
-      bottomBox.top,
-    );
+    runPropagatorRelation(net)`${requiredBottomBoxTop} = ${topBox.bottom} + ${this._paddingCell!}`;
+    runPropagatorRelation(net)`${requiredBottomBoxTop} <= ${bottomBox.top}`;
   }
 
   cellsToMinimize(): CellRef[] {

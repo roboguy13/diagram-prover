@@ -34,20 +34,6 @@ export class ParentHorizontalCenteringConstraint implements Constraint {
     const firstChildLayout = childrenLayouts[0]!;
     const firstChildIntrinsicBox = firstChildLayout.intrinsicBox; // We position the node's own box
 
-    // // targetFirstChildLeft = parentBox.centerX - halfCollectiveWidth
-    // const targetFirstChildLeftExpr =
-    //   sub(parentBox.centerX,
-    //     divNumber(collectiveWidthExpr, 2),
-    //     `targetFirstChildLeft_${firstChildLayout.nodeId}`
-    //   );
-
-    // // firstChildIntrinsicBox.left = parentBox.centerX - halfCollectiveWidth
-    // equal(
-    //     firstChildIntrinsicBox.left,
-    //     targetFirstChildLeftExpr,
-    //     `ParentHCenterAnchor: ${firstChildLayout.nodeId}.left = target`
-    // )(net);
-
     runPropagatorRelation(net)`${firstChildIntrinsicBox.left} = ${parentBox.centerX} - (add(${childSubtreeWidths}) / 2)`;
 
     const debugPrefix = `ParentHCenter (${this._parentId} -> ${firstChildLayout.nodeId},...)`;

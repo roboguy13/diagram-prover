@@ -1,7 +1,7 @@
 import { alt, apply, buildLexer, expectSingleResult, kmid, Lexer, list_sc, lrec_sc, Parser, rule, seq, str, tok, Token, TokenPosition } from "typescript-parsec"; // Added kmid
 import { CellRef, known, PropagatorNetwork } from "./Propagator";
 import { add, addList, divNumber, equal, getCellRef, maxList, minList, multNumber, negate, PExpr, sub } from "./PropagatorExpr";
-import { addRangePropagator, between, divNumericRangeNumberPropagator, exactly, lessThanEqualPropagator, multNumericRangeNumber, multNumericRangeNumberPropagator, NumericRange, subtractRangePropagator } from "./NumericRange";
+import { addRangePropagator, between, divNumericRangeNumberPropagator, exactly, lessThanEqualPropagator, maxRangeListPropagator, minRangeListPropagator, multNumericRangeNumber, multNumericRangeNumberPropagator, NumericRange, subtractRangePropagator } from "./NumericRange";
 import { subtract, toNumber } from "lodash";
 
 enum TokenKind {
@@ -201,85 +201,6 @@ function applyEqual(sequence: [TokenData, Token<TokenKind.Equal>, TokenData]): P
   return equal(firstPExpr, secondPExpr);
 }
 
-// TODO
-// // expr = OP expr
-// function applyEqualUnary(first: TokenData, second: [Token<TokenKind>, TokenData]): PropagatorRelation {
-//   const [token, secondData] = second;
-// }
-
-// expr = expr OP expr
-function applyEqualBinary(sequence: [TokenData, Token<TokenKind.Equal>, TokenData, Token<TokenKind>, TokenData]): PropagatorRelation {
-  const [lhsData, op, op1Data, opToken, op2Data] = sequence;
-
-  const lhsPExpr = getPExpr(lhsData);
-  const op1PExpr = getPExpr(op1Data);
-
-  switch (opToken.kind) {
-    case TokenKind.Add:
-      console.log(`Add: ${opToken.kind}`);
-      return (net: PropagatorNetwork<NumericRange>) => {
-        const op2PExpr = getPExpr(op2Data);
-
-        return addRangePropagator(
-          `${lhsPExpr} = ${op1PExpr} + ${op2PExpr}`,
-          net,
-          getCellRef(net, op1PExpr),
-          getCellRef(net, op2PExpr),
-          getCellRef(net, lhsPExpr)
-        )
-      }
-    case TokenKind.Sub:
-      return (net: PropagatorNetwork<NumericRange>) => {
-        const op2PExpr = getPExpr(op2Data);
-
-        return subtractRangePropagator(
-          `${lhsPExpr} = ${op1PExpr} - ${op2PExpr}`,
-          net,
-          getCellRef(net, op1PExpr),
-          getCellRef(net, op2PExpr),
-          getCellRef(net, lhsPExpr)
-        )
-      }
-    case TokenKind.MulNum: {
-      console.log(`MulNum: ${opToken.kind}`);
-      if (op2Data.kind !== 'NumberData') {
-        throw new Error(`Unsupported second operand for MulNum: ${op2Data.kind}`);
-      }
-
-      const op2 = op2Data.number
-
-      return (net: PropagatorNetwork<NumericRange>) => {
-        return multNumericRangeNumberPropagator(
-          `${lhsPExpr} = ${op1PExpr} * ${op2}`,
-          net,
-          getCellRef(net, op1PExpr),
-          op2,
-          getCellRef(net, lhsPExpr),
-        )
-      }
-    }
-    case TokenKind.DivNum:
-      console.log('DivNum', op2Data);
-      if (op2Data.kind !== 'NumberData') {
-        throw new Error(`Unsupported second operand for DivNum: ${op2Data.kind}`);
-      }
-
-      const op2 = op2Data.number
-
-      return (net: PropagatorNetwork<NumericRange>) => {
-        return divNumericRangeNumberPropagator(
-          `${lhsPExpr} = ${op1PExpr} / ${op2}`,
-          net,
-          getCellRef(net, op1PExpr),
-          op2,
-          getCellRef(net, lhsPExpr),
-        )
-      }
-    default:
-      throw new Error(`Unsupported ternary operation token: ${opToken.kind}`);
-  }
-}
-
 function applyBinary(first: TokenData, second: [Token<TokenKind>, TokenData]): TokenData {
   const [token, secondData] = second;
 
@@ -359,19 +280,20 @@ const binOp: Parser<TokenKind, Token<TokenKind>> =
     tok(TokenKind.DivNum)
   );
 
+const varIdentifierParser: Parser<TokenKind, Token<TokenKind.VarIdentifier>> = tok(TokenKind.VarIdentifier);
+
+const argParser = kmid(tok(TokenKind.LParen), varIdentifierParser, tok(TokenKind.RParen))
+
 // REL =
 // | COMPOUND_EXPR '=' EXPR
 // | EXPR '=' COMPOUND_EXPR
 // | EXPR '<=' EXPR
 REL.setPattern(
   alt(
-    apply(seq(EXPR, tok(TokenKind.Equal), EXPR, binOp, EXPR), applyEqualBinary),
     apply(seq(EXPR, tok(TokenKind.Equal), EXPR), applyEqual),
     apply(seq(EXPR, tok(TokenKind.LessThanEqual), EXPR), applyLessThanEqual),
   )
 )
-
-const varIdentifierParser: Parser<TokenKind, Token<TokenKind.VarIdentifier>> = tok(TokenKind.VarIdentifier);
 
 ATOM.setPattern(
   alt(
@@ -390,11 +312,12 @@ ATOM.setPattern(
     // Unary negation
     apply(seq(tok(TokenKind.Sub), ATOM), ([op, data]) => applyUnary(op, data)),
 
-    apply(seq(tok(TokenKind.AddList), kmid(tok(TokenKind.LParen), varIdentifierParser, tok(TokenKind.RParen))),
+    // Keep function calls in ATOM so they can be part of expressions
+    apply(seq(tok(TokenKind.AddList), argParser),
           ([op, placeholderToken]) => applyUnary(op, applyCellRef(placeholderToken))),
-    apply(seq(tok(TokenKind.MaxList), kmid(tok(TokenKind.LParen), varIdentifierParser, tok(TokenKind.RParen))),
+    apply(seq(tok(TokenKind.MaxList), argParser),
           ([op, placeholderToken]) => applyUnary(op, applyCellRef(placeholderToken))),
-    apply(seq(tok(TokenKind.MinList), kmid(tok(TokenKind.LParen), varIdentifierParser, tok(TokenKind.RParen))),
+    apply(seq(tok(TokenKind.MinList), argParser),
           ([op, placeholderToken]) => applyUnary(op, applyCellRef(placeholderToken))),
 
     // Parentheses for grouping expressions

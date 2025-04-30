@@ -253,10 +253,10 @@ let third =
   )
 
 export let exampleTerm: Term = //idTerm(unitTyTerm());
-  two
+  // two
   // one
   // actualOne
-  // plus
+  plus
 
   // appTerm(
   //   lamTerm(piTerm(unitTyTerm(), unitTyTerm()),

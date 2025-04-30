@@ -1,4 +1,4 @@
-import { addRangeListPropagator, addRangePropagator, between, divNumericRangeNumberPropagator, exactly, lessThanEqualPropagator, maxNumericRange, maxRangeListPropagator, multNumericRangeNumberPropagator, negateNumericRangePropagator, NumericRange, subtractRangePropagator } from "./NumericRange";
+import { addRangeListPropagator, addRangePropagator, between, divNumericRangeNumberPropagator, exactly, lessThanEqualPropagator, maxNumericRange, maxRangeListPropagator, minRangeListPropagator, multNumericRangeNumberPropagator, negateNumericRangePropagator, NumericRange, subtractRangePropagator } from "./NumericRange";
 import { CellRef, known, PropagatorNetwork, unknown } from "./Propagator";
 
 export type PExpr =
@@ -255,7 +255,7 @@ export function minList(
 
     const cells = list.map((expr) => getCellRef(net, expr));
 
-    maxRangeListPropagator(
+    minRangeListPropagator(
       description,
       net,
       cells,
