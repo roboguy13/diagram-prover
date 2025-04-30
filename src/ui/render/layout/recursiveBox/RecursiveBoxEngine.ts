@@ -28,6 +28,7 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
 
   toReactFlow(layoutTree: LayoutTree): Promise<NodeListAndEdges> {
     console.log("Layout tree:", layoutTree);
+    layoutTree.logDiagram()
     const constraintApplicator = new ConstraintApplicator();
 
     try {

@@ -442,7 +442,9 @@ export class DiagramBuilder {
     this.addNestedDiagram(bodyDiagram);
 
     for (const bodyNode of bodyDiagram.nodes.values()) {
-      this._nestingParents.set(bodyNode.nodeId, lamId);
+      if (!bodyDiagram.nestingParents.has(bodyNode.nodeId)) {
+        this._nestingParents.set(bodyNode.nodeId, lamId);
+      }
     }
 
     this.wire(bodyResultRef, nestedOutPort.portRef);
@@ -471,6 +473,13 @@ export class DiagramBuilder {
         throw new Error(`Wire with ID ${wireId} already exists`);
       }
       this._wires.set(wireId, wire);
+    }
+
+    for (const [childId, parentId] of diagram.nestingParents) {
+      if (this._nestingParents.has(childId)) {
+        throw new Error(`Nesting parent with ID ${childId} already exists`);
+      }
+      this._nestingParents.set(childId, parentId);
     }
   }
 

@@ -128,6 +128,11 @@ export class LayoutTree {
     }
   }
 
+  logDiagram() {
+    console.log(`wires: ${JSON.stringify(this._originalConnections)}`);
+    console.log(`nodes layouts: ${JSON.stringify(Array.from(this._nodeLayouts))}`);
+  }
+
   nodeToApplicationNode(nodeId: string): ApplicationNode {
     const nodeLayout = this.getNodeLayout(nodeId);
 
