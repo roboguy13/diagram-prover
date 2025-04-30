@@ -2,7 +2,25 @@ import { addRangeListPropagator, addRangePropagator, between, divNumericRangeNum
 import { CellRef, known, PropagatorNetwork, unknown } from "./Propagator";
 
 export type PExpr =
-  (net: PropagatorNetwork<NumericRange>) => CellRef
+  CellRef | ((net: PropagatorNetwork<NumericRange>) => CellRef)
+
+export function getCellRef(net: PropagatorNetwork<NumericRange>, expr: PExpr): CellRef {
+  if (typeof expr === "function") {
+    console.log('getCellRef fn', expr);
+    return expr(net);
+  } else {
+    console.log('getCellRef', expr);
+    return expr;
+  }
+}
+
+export function addDebugPExpr(
+  net: PropagatorNetwork<NumericRange>,
+  description: string, 
+  expr: PExpr
+): void {
+  net.addDebugCell(description, getCellRef(net, expr));
+}
 
 export function litRange(
   min: number,
@@ -37,8 +55,8 @@ export function add(
   description: string | null = null
 ): PExpr {
   return (net) => {
-    const aCell = a(net);
-    const bCell = b(net);
+    const aCell = getCellRef(net, a);
+    const bCell = getCellRef(net, b);
     if (!description) {
       description = `add`;
     }
@@ -63,8 +81,8 @@ export function sub(
   description: string | null = null
 ): PExpr {
   return (net) => {
-    const aCell = a(net);
-    const bCell = b(net);
+    const aCell = getCellRef(net, a);
+    const bCell = getCellRef(net, b);
     if (!description) {
       description = `sub`;
     }
@@ -89,8 +107,8 @@ export function lessThanEqual(
   description: string | null = null
 ) {
   return (net: PropagatorNetwork<NumericRange>) => {
-    const aCell = a(net);
-    const bCell = b(net);
+    const aCell = getCellRef(net, a);
+    const bCell = getCellRef(net, b);
     if (!description) {
       description = `lessThan`;
     }
@@ -114,21 +132,17 @@ export function equal(
   description: string | null = null
 ) {
   return (net: PropagatorNetwork<NumericRange>) => {
-    const aCell = a(net);
-    const bCell = b(net);
+    const aCell = getCellRef(net, a);
+    const bCell = getCellRef(net, b);
     if (!description) {
       description = `equal`;
     }
-
-    const cell = net.newCell(description, unknown())
 
     net.equalPropagator(
       description,
       aCell,
       bCell
     );
-
-    return cell;
   };
 }
 
@@ -143,7 +157,7 @@ export function addList(
 
     const cell = net.newCell(description, unknown())
 
-    const cells = list.map((expr) => expr(net));
+    const cells = list.map((expr) => getCellRef(net, expr));
 
     addRangeListPropagator(
       description,
@@ -162,7 +176,7 @@ export function multNumber(
   description: string | null = null
 ): PExpr {
   return (net) => {
-    const aCell = a(net);
+    const aCell = getCellRef(net, a);
     if (!description) {
       description = `mult`;
     }
@@ -186,7 +200,7 @@ export function negate(
   description: string | null = null
 ): PExpr {
   return (net) => {
-    const aCell = a(net);
+    const aCell = getCellRef(net, a);
     if (!description) {
       description = `negate`;
     }
@@ -215,7 +229,7 @@ export function maxList(
 
     const cell = net.newCell(description, unknown())
 
-    const cells = list.map((expr) => expr(net));
+    const cells = list.map((expr) => getCellRef(net, expr));
 
     maxRangeListPropagator(
       description,
@@ -239,7 +253,7 @@ export function minList(
 
     const cell = net.newCell(description, unknown())
 
-    const cells = list.map((expr) => expr(net));
+    const cells = list.map((expr) => getCellRef(net, expr));
 
     maxRangeListPropagator(
       description,
@@ -258,7 +272,7 @@ export function divNumber(
   description: string | null = null
 ): PExpr {
   return (net) => {
-    const aCell = a(net);
+    const aCell = getCellRef(net, a);
     if (!description) {
       description = `div`;
     }

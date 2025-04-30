@@ -1,4 +1,3 @@
-import { add } from "lodash";
 import { addRangePropagator, atLeast, between, exactly, lessThanEqualPropagator } from "../../../../../constraint/propagator/NumericRange";
 import { CellRef, known, unknown } from "../../../../../constraint/propagator/Propagator";
 import { NodeId } from "../../../../../ir/StringDiagram";
@@ -6,6 +5,7 @@ import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
 import { NodeLayout } from "../NodeLayout";
 import { BoundingBox } from "../BoundingBox";
+import { lessThanEqual, add } from "../../../../../constraint/propagator/PropagatorExpr";
 
 // Separate adjacent nodes by their subtree extents
 export class HorizontalSeparationConstraint implements Constraint {
@@ -32,24 +32,28 @@ export class HorizontalSeparationConstraint implements Constraint {
 
     this.paddingCell = net.newCell(`padding`, known(between(this._PADDING, this._PADDING * 3)));
 
-    const requiredRightBoxLeft = net.newCell(`requiredRightBoxLeft`, unknown());
-
-    // requiredRightBoxLeft = leftBox.right + this.paddingCell
-    addRangePropagator(
+    lessThanEqual(
+      add(leftBox.right, this.paddingCell),
+      rightBox.left,
       `HorizontalSeparationConstraint`,
-      net,
-      leftBox.right,
-      this.paddingCell,
-      requiredRightBoxLeft,
-    )
+    )(net)
 
-    // requireRightBoxLeft <= rightBox.left
-    lessThanEqualPropagator(
-      `HorizontalSeparationConstraint`,
-      net,
-      requiredRightBoxLeft,
-      rightBox.left
-    );
+    // // requiredRightBoxLeft = leftBox.right + this.paddingCell
+    // addRangePropagator(
+    //   `HorizontalSeparationConstraint`,
+    //   net,
+    //   leftBox.right,
+    //   this.paddingCell,
+    //   requiredRightBoxLeft,
+    // )
+
+    // // requireRightBoxLeft <= rightBox.left
+    // lessThanEqualPropagator(
+    //   `HorizontalSeparationConstraint`,
+    //   net,
+    //   requiredRightBoxLeft,
+    //   rightBox.left
+    // );
   }
 
   cellsToMinimize(): CellRef[] {

@@ -7,6 +7,8 @@ import {
   between
 } from "../../../../../../constraint/propagator/NumericRange";
 import { CellRef, known, unknown } from "../../../../../../constraint/propagator/Propagator";
+import { equal } from "../../../../../../constraint/propagator/PropagatorExpr";
+import { runPropagatorExpr, runPropagatorRelation } from "../../../../../../constraint/propagator/PropagatorLanguage";
 import { CollectiveBoundingBox } from "../../CollectiveBoundingBox";
 import { Constraint } from "../../Constraint";
 import { LayoutTree } from "../../LayoutTree";
@@ -68,17 +70,19 @@ export class ContainerSizeConstraint implements Constraint {
     this.verticalPadding = net.newCell(`verticalPadding`, known(between(this._PADDING_VERTICAL, this._PADDING_VERTICAL * 3)));
     this.horizontalPadding = net.newCell(`horizontalPadding`, known(between(this._PADDING_HORIZONTAL, this._PADDING_HORIZONTAL * 3)));
 
-    net.equalPropagator(
-      `Collective left = horizontalPadding`,
-      collectiveLeft,
-      this.horizontalPadding,
-    );
+    runPropagatorRelation`${collectiveLeft} = ${this.horizontalPadding}`(net);
 
-    net.equalPropagator(
-      `Collective top = verticalPadding`,
+    // equal(
+    //   collectiveLeft,
+    //   this.horizontalPadding,
+    //   `Collective left = horizontalPadding`,
+    // )(net);
+
+    equal(
       collectiveTop,
       this.verticalPadding,
-    );
+      `Collective top = verticalPadding`,
+    )(net);
 
     console.log(`ContainerSizeConstraint: Applying padWith for container ${this._containerId} and ${nestedChildrenIds.length} children.`);
     this.padWith(layoutTree, collectiveRight, containerBox.width, this.horizontalPadding);
