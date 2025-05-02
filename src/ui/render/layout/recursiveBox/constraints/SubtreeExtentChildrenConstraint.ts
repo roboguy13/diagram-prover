@@ -4,17 +4,18 @@ import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
 import { NodeId } from "../../../../../ir/StringDiagram";
 import { BoundingBox } from "../BoundingBox";
-import { runPropagatorRelation } from "../../../../../constraint/propagator/PropagatorLanguage";
-// Removed HorizontalSeparationConstraint import for now
+import { PropagatorInterpreter } from "../../../../../constraint/propagator/PropagatorLanguage";
 
 export class SubtreeExtentChildrenConstraint implements Constraint {
-  // Removed _VERTICAL_PADDING and verticalPadding as they weren't used for width
 
   constructor(private _parentId: NodeId) {}
 
   apply(layoutTree: LayoutTree): void {
     const net = layoutTree.net;
+    const solver = new PropagatorInterpreter(net, 'SubtreeExtentChildrenConstraint');
+
     const parentLayout = layoutTree.getNodeLayout(this._parentId);
+
     if (!parentLayout) throw new Error(`Layout for node ${this._parentId} not found`);
 
     const childrenIds = layoutTree.getChildren(this._parentId);
@@ -30,43 +31,33 @@ export class SubtreeExtentChildrenConstraint implements Constraint {
         return;
     }
 
-    // --- Explicit Width Calculation ---
     const childSubtreeWidths = childrenLayouts.map(l => l.subtreeExtentBox.width);
 
-    // **Simplification: Use fixed padding values**
-    const PADDING_BETWEEN_CHILDREN = 20; // Use the constant from HorizontalSeparationConstraint
+    const PADDING_BETWEEN_CHILDREN = 20;
     const numPaddings = childrenLayouts.length - 1;
-    const totalPaddingWidth = net.newCell("totalPaddingWidth", known(between(PADDING_BETWEEN_CHILDREN * numPaddings, PADDING_BETWEEN_CHILDREN * 3 * numPaddings))); // Estimate range
+    const totalPaddingWidth = net.newCell("totalPaddingWidth", known(between(PADDING_BETWEEN_CHILDREN * numPaddings, PADDING_BETWEEN_CHILDREN * 3 * numPaddings)));
 
     const cellsToSumForWidth: CellRef[] = [...childSubtreeWidths, totalPaddingWidth];
     const childrenTotalSpan = net.newCell(`childrenTotalSpan_${this._parentId}`, unknown());
 
-    runPropagatorRelation(net)`${childrenTotalSpan} = add(${cellsToSumForWidth})`;
+    net.addDebugCell(`SubtreeExtent (${this._parentId}): Width (Explicit Calc)`, parentSubtreeExtent.width);
 
-    runPropagatorRelation(net)`${parentSubtreeExtent.width} = max(${[parentIntrinsicBox.width, childrenTotalSpan]})`;
-
-    net.addDebugCell(`SubtreeExtent (${this._parentId}): Width (Explicit Calc)`, parentSubtreeExtent.width); // Debug new width calculation
-
-    // --- Position Calculation (Min/Max of the group including parent) ---
-    // These define the bounding box based on actual positions
     const boxesToBound: BoundingBox[] = [parentIntrinsicBox, ...childrenLayouts.map(l => l.subtreeExtentBox)];
     const boxesToBoundTops = boxesToBound.map(b => b.top);
     const boxesToBoundBottoms = boxesToBound.map(b => b.bottom);
     const boxesToBoundLefts = boxesToBound.map(b => b.left);
     const boxesToBoundRights = boxesToBound.map(b => b.right);
 
-    runPropagatorRelation(net)`${parentSubtreeExtent.top} = min(${boxesToBoundTops})`;
-    runPropagatorRelation(net)`${parentSubtreeExtent.bottom} = max(${boxesToBoundBottoms})`;
-    runPropagatorRelation(net)`${parentSubtreeExtent.left} = min(${boxesToBoundLefts})`;
-    runPropagatorRelation(net)`${parentSubtreeExtent.right} = max(${boxesToBoundRights})`;
+    solver.addRelation`${childrenTotalSpan} = add(${cellsToSumForWidth})`;
+    solver.addRelation`${parentSubtreeExtent.width} = max(${[parentIntrinsicBox.width, childrenTotalSpan]})`;
 
-    // // --- Ensure Consistency ---
-    // // Link left, width, right using the explicitly calculated width
-    // runPropagatorRelation(net)`${parentSubtreeExtent.left} + ${parentSubtreeExtent.width} = ${parentSubtreeExtent.right}`;
+    solver.addRelation`${parentSubtreeExtent.top} = min(${boxesToBoundTops})`;
+    solver.addRelation`${parentSubtreeExtent.bottom} = max(${boxesToBoundBottoms})`;
+    solver.addRelation`${parentSubtreeExtent.left} = min(${boxesToBoundLefts})`;
+    solver.addRelation`${parentSubtreeExtent.right} = max(${boxesToBoundRights})`;
   }
 
   cellsToMinimize(): CellRef[] {
-    // No cells to minimize directly from this version
     return [];
   }
 }

@@ -2,6 +2,7 @@ import { CellRef } from "../../../../../constraint/propagator/Propagator";
 import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
 import { NodeId } from "../../../../../ir/StringDiagram";
+import { PropagatorInterpreter } from "../../../../../constraint/propagator/PropagatorLanguage";
 
 // Aligns the top edges of sibling nodes' subtree extents.
 export class VerticalAlignmentConstraint implements Constraint {
@@ -13,6 +14,7 @@ export class VerticalAlignmentConstraint implements Constraint {
     }
 
     const net = layoutTree.net;
+    const solver = new PropagatorInterpreter(net, 'VerticalAlignmentConstraint');
     const layouts = this._siblingNodeIds.map(id => layoutTree.getNodeLayout(id));
 
     if (layouts.some(l => !l)) {
@@ -24,11 +26,8 @@ export class VerticalAlignmentConstraint implements Constraint {
 
     for (let i = 1; i < layouts.length; i++) {
       const siblingTop = layouts[i]!.subtreeExtentBox.top;
-      net.equalPropagator(
-        `VAlign: ${this._siblingNodeIds[0]} == ${this._siblingNodeIds[i]}`,
-        firstSiblingTop,
-        siblingTop
-      );
+
+      solver.addRelation`${siblingTop} = ${firstSiblingTop}`;
     }
   }
 

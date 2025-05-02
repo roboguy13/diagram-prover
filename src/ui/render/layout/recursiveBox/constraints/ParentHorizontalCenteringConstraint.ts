@@ -3,7 +3,7 @@ import { Constraint } from "../Constraint";
 import { LayoutTree } from "../LayoutTree";
 import { addList, divNumber, sub, equal, addDebugPExpr } from "../../../../../constraint/propagator/PropagatorExpr";
 import { NumericRange } from "../../../../../constraint/propagator/NumericRange";
-import { runPropagatorExpr, runPropagatorRelation } from "../../../../../constraint/propagator/PropagatorLanguage";
+import { PropagatorInterpreter } from "../../../../../constraint/propagator/PropagatorLanguage";
 
 // 
 export class ParentHorizontalCenteringConstraint implements Constraint {
@@ -14,6 +14,7 @@ export class ParentHorizontalCenteringConstraint implements Constraint {
 
   apply(layoutTree: LayoutTree) {
     const net = layoutTree.net;
+    const solver = new PropagatorInterpreter(net, 'ParentHorizontalCenteringConstraint');
 
     const parentLayout = layoutTree.getNodeLayout(this._parentId);
     if (!parentLayout) throw new Error(`Layout for node ${this._parentId} not found`);
@@ -24,7 +25,6 @@ export class ParentHorizontalCenteringConstraint implements Constraint {
     const parentBox = parentLayout.intrinsicBox;
     const childSubtreeWidths = childrenLayouts.map(l => l.subtreeExtentBox.width);
 
-    // collectiveWidth = addList(childSubtreeWidths)
     const collectiveWidthExpr = addList(
         childSubtreeWidths,
         `collectiveWidth_${this._parentId}`
@@ -34,7 +34,7 @@ export class ParentHorizontalCenteringConstraint implements Constraint {
     const firstChildLayout = childrenLayouts[0]!;
     const firstChildIntrinsicBox = firstChildLayout.intrinsicBox; // We position the node's own box
 
-    runPropagatorRelation(net)`${firstChildIntrinsicBox.left} = ${parentBox.centerX} - (add(${childSubtreeWidths}) / 2)`;
+    solver.addRelation`${firstChildIntrinsicBox.left} = ${parentBox.centerX} - (add(${childSubtreeWidths}) / 2)`;
 
     const debugPrefix = `ParentHCenter (${this._parentId} -> ${firstChildLayout.nodeId},...)`;
     addDebugPExpr(net, `${debugPrefix}: Parent CenterX`, parentBox.centerX);

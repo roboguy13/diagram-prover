@@ -6,10 +6,8 @@ export type PExpr =
 
 export function getCellRef(net: PropagatorNetwork<NumericRange>, expr: PExpr): CellRef {
   if (typeof expr === "function") {
-    console.log('getCellRef fn', expr);
     return expr(net);
   } else {
-    console.log('getCellRef', expr);
     return expr;
   }
 }
@@ -25,7 +23,7 @@ export function addDebugPExpr(
 export function litRange(
   min: number,
   max: number,
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     if (!description) {
@@ -38,7 +36,7 @@ export function litRange(
 
 export function litExact(
   value: number,
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     if (!description) {
@@ -52,7 +50,7 @@ export function litExact(
 export function add(
   a: PExpr,
   b: PExpr,
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     const aCell = getCellRef(net, a);
@@ -78,7 +76,7 @@ export function add(
 export function sub(
   a: PExpr,
   b: PExpr,
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     const aCell = getCellRef(net, a);
@@ -104,7 +102,7 @@ export function sub(
 export function lessThanEqual(
   a: PExpr,
   b: PExpr,
-  description: string | null = null
+  description: string
 ) {
   return (net: PropagatorNetwork<NumericRange>) => {
     const aCell = getCellRef(net, a);
@@ -129,14 +127,14 @@ export function lessThanEqual(
 export function equal(
   a: PExpr,
   b: PExpr,
-  description: string | null = null
+  description: string
 ) {
   return (net: PropagatorNetwork<NumericRange>) => {
     const aCell = getCellRef(net, a);
     const bCell = getCellRef(net, b);
-    if (!description) {
-      description = `equal`;
-    }
+    // if (!description) {
+    //   description = `equal`;
+    // }
 
     net.equalPropagator(
       description,
@@ -148,7 +146,7 @@ export function equal(
 
 export function addList(
   list: PExpr[],
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     if (!description) {
@@ -173,7 +171,7 @@ export function addList(
 export function multNumber(
   a: PExpr,
   b: number,
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     const aCell = getCellRef(net, a);
@@ -197,7 +195,7 @@ export function multNumber(
 
 export function negate(
   a: PExpr,
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     const aCell = getCellRef(net, a);
@@ -220,7 +218,7 @@ export function negate(
 
 export function maxList(
   list: PExpr[],
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     if (!description) {
@@ -244,7 +242,7 @@ export function maxList(
 
 export function minList(
   list: PExpr[],
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     if (!description) {
@@ -269,7 +267,7 @@ export function minList(
 export function divNumber(
   a: PExpr,
   b: number,
-  description: string | null = null
+  description: string
 ): PExpr {
   return (net) => {
     const aCell = getCellRef(net, a);

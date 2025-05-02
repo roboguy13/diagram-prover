@@ -8,7 +8,7 @@ import {
 } from "../../../../../../constraint/propagator/NumericRange";
 import { CellRef, known, unknown } from "../../../../../../constraint/propagator/Propagator";
 import { equal } from "../../../../../../constraint/propagator/PropagatorExpr";
-import { runPropagatorExpr, runPropagatorRelation } from "../../../../../../constraint/propagator/PropagatorLanguage";
+import { PropagatorInterpreter, } from "../../../../../../constraint/propagator/PropagatorLanguage";
 import { CollectiveBoundingBox } from "../../CollectiveBoundingBox";
 import { Constraint } from "../../Constraint";
 import { LayoutTree } from "../../LayoutTree";
@@ -28,6 +28,7 @@ export class ContainerSizeConstraint implements Constraint {
 
   apply(layoutTree: LayoutTree) {
     const net = layoutTree.net;
+    const solver = new PropagatorInterpreter(net, 'ContainerSizeConstraint');
 
     const containerLayout = layoutTree.getNodeLayout(this._containerId);
 
@@ -56,11 +57,11 @@ export class ContainerSizeConstraint implements Constraint {
     this.verticalPadding = net.newCell(`verticalPadding`, known(between(this._PADDING_VERTICAL, this._PADDING_VERTICAL * 3)));
     this.horizontalPadding = net.newCell(`horizontalPadding`, known(between(this._PADDING_HORIZONTAL, this._PADDING_HORIZONTAL * 3)));
 
-    runPropagatorRelation(net)`${collectiveLeft} = ${this.horizontalPadding}`;
-    runPropagatorRelation(net)`${collectiveTop} = ${this.verticalPadding}`;
+    solver.addRelation`${collectiveLeft} = ${this.horizontalPadding}`;
+    solver.addRelation`${collectiveTop} = ${this.verticalPadding}`;
 
-    this.padWith(layoutTree, collectiveRight, containerBox.width, this.horizontalPadding);
-    this.padWith(layoutTree, collectiveBottom, containerBox.height, this.verticalPadding);
+    this.padWith(solver, collectiveRight, containerBox.width, this.horizontalPadding);
+    this.padWith(solver, collectiveBottom, containerBox.height, this.verticalPadding);
   }
 
   cellsToMinimize(): CellRef[] {
@@ -75,14 +76,13 @@ export class ContainerSizeConstraint implements Constraint {
   }
 
   private padWith(
-    layoutTree: LayoutTree,
+    solver: PropagatorInterpreter,
     smallerEdge: CellRef,
     largerEdge: CellRef,
     padding: CellRef
   ): void {
-    const net = layoutTree.net;
-    console.log(`padWith: Relating smallerEdge (${layoutTree.net.cellDescription(smallerEdge)}), largerEdge (${layoutTree.net.cellDescription(largerEdge)}), padding (${layoutTree.net.cellDescription(padding)})`);
+    // console.log(`padWith: Relating smallerEdge (${layoutTree.net.cellDescription(smallerEdge)}), largerEdge (${layoutTree.net.cellDescription(largerEdge)}), padding (${layoutTree.net.cellDescription(padding)})`);
 
-    runPropagatorRelation(net)`${padding} = ${largerEdge} - ${smallerEdge}`;
+    solver.addRelation`${padding} = ${largerEdge} - ${smallerEdge}`;
   }
 }

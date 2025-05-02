@@ -1,6 +1,6 @@
 import { addRangePropagator, between, lessThanEqualPropagator } from "../../../../../constraint/propagator/NumericRange";
 import { CellRef, known, unknown } from "../../../../../constraint/propagator/Propagator";
-import { runPropagatorRelation } from "../../../../../constraint/propagator/PropagatorLanguage";
+import { PropagatorInterpreter, } from "../../../../../constraint/propagator/PropagatorLanguage";
 import { Constraint } from "../Constraint";
 
 export class VerticalSeparationConstraint  implements Constraint {
@@ -14,6 +14,7 @@ export class VerticalSeparationConstraint  implements Constraint {
 
   apply(layoutTree: any): void {
     const net = layoutTree.net;
+    const solver = new PropagatorInterpreter(net, 'VerticalSeparationConstraint');
 
     const topLayout = layoutTree.nodeLayouts.get(this._topNodeId);
     const bottomLayout = layoutTree.nodeLayouts.get(this._bottomNodeId);
@@ -27,10 +28,11 @@ export class VerticalSeparationConstraint  implements Constraint {
 
     this._paddingCell = net.newCell(`padding`, known(between(this._PADDING, this._PADDING*3)));
 
-    const requiredBottomBoxTop = net.newCell(`requiredBottomBoxTop`, unknown());
+    if (!this._paddingCell) {
+      throw new Error(`Padding cell not found`);
+    }
 
-    runPropagatorRelation(net)`${requiredBottomBoxTop} = ${topBox.bottom} + ${this._paddingCell!}`;
-    runPropagatorRelation(net)`${requiredBottomBoxTop} <= ${bottomBox.top}`;
+    solver.addRelation`${topBox.bottom} + ${this._paddingCell} <= ${bottomBox.top}`;
   }
 
   cellsToMinimize(): CellRef[] {

@@ -6,7 +6,7 @@ import { LayoutTree } from "../LayoutTree";
 import { NodeLayout } from "../NodeLayout";
 import { BoundingBox } from "../BoundingBox";
 import { lessThanEqual, add } from "../../../../../constraint/propagator/PropagatorExpr";
-import { runPropagatorExpr, runPropagatorRelation } from "../../../../../constraint/propagator/PropagatorLanguage";
+import { PropagatorInterpreter, } from "../../../../../constraint/propagator/PropagatorLanguage";
 
 // Separate adjacent nodes by their subtree extents
 export class HorizontalSeparationConstraint implements Constraint {
@@ -20,6 +20,7 @@ export class HorizontalSeparationConstraint implements Constraint {
 
   apply(layoutTree: LayoutTree): void {
     const net = layoutTree.net;
+    const solver = new PropagatorInterpreter(net, 'HorizontalSeparationConstraint');
 
     const leftLayout = layoutTree.nodeLayouts.get(this._leftNodeId);
     const rightLayout = layoutTree.nodeLayouts.get(this._rightNodeId);
@@ -33,7 +34,7 @@ export class HorizontalSeparationConstraint implements Constraint {
 
     this.paddingCell = net.newCell(`padding`, known(between(this._PADDING, this._PADDING * 3)));
 
-    runPropagatorRelation(net)`${leftBox.right} + ${this.paddingCell} <= ${rightBox.left}`;
+    solver.addRelation`${leftBox.right} + ${this.paddingCell} = ${rightBox.left}`;
   }
 
   cellsToMinimize(): CellRef[] {
@@ -42,7 +43,8 @@ export class HorizontalSeparationConstraint implements Constraint {
   }
 
   private getBox(layout: NodeLayout): BoundingBox {
-    if (!layout.nestingParentId) {
+    // if (!layout.nestingParentId) {
+    if (false) {
       return layout.intrinsicBox;
     } else {
       return layout.subtreeExtentBox;
