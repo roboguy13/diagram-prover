@@ -62,7 +62,7 @@
 .propagator-node {
   padding: 10px;
   border: 1px solid #1a192b;
-  background: #fff;
+  background: #6c6c6c;
   text-align: center;
   width: 95px;
   height: 95px;
@@ -83,7 +83,7 @@
   padding: 10px;
   border: 1px solid #1a192b;
   border-radius: 80%;
-  background: #fff;
+  background: #6c6c6c;
   text-align: center;
   width: 50px;
   height: 50px;

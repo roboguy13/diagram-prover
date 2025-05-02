@@ -23,6 +23,8 @@ const elkOptions = {
   'elk.randomizationSeed': '1'
 };
 
+const textColor = 'white'
+
 export function conflictToElkNode<A>(aPrinter: (a: A) => string, net: PropagatorNetwork<A>, conflict: Conflict<A>): ElkNode {
   let elkList = conflictToElkNodeList(net, conflict)
   let contentIds: [string, Content<A>][] = elkList.map(([node, content]) => [node.id, content])
@@ -188,7 +190,7 @@ function propagatorDescriptionToElkNode<A>(net: PropagatorNetwork<A>) { return (
       width: PROPAGATOR_NODE_WIDTH,
       height: PROPAGATOR_NODE_HEIGHT,
       // layoutOptions: elkOptions,
-      labels: [{ text: 'propagator-node' }, { text: propagator.description }],
+      labels: [{ text: 'propagator-node' }, { text: propagator.description }, new ElkColorLabel(textColor) ],
       // labels: [{ text: 'propagator-node' }, { text: propagator.description }, new ElkNoHandlesLabel()],
       edges: outputEdges.concat(inputEdges),
     }
@@ -201,7 +203,7 @@ function cellToElkNode<A>(net: PropagatorNetwork<A>) { return (cell: CellRef): E
       width: PROPAGATOR_CELL_NODE_WIDTH,
       height: PROPAGATOR_CELL_NODE_HEIGHT,
       // layoutOptions: elkOptions,
-      labels: [{ text: 'propagator-cell-node' }, { text: net.cellDescription(cell) }],
+      labels: [{ text: 'propagator-cell-node' }, { text: net.cellDescription(cell) }, new ElkColorLabel(textColor) ],
       // labels: [{ text: 'propagator-cell-node' }, { text: net.cellDescription(cell) }, new ElkNoHandlesLabel()],
     }
   }

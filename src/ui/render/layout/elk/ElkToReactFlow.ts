@@ -49,6 +49,9 @@ function flattenElkNodes(node: ElkNode, parentId?: string): ApplicationNode[] {
 
   const label = theLabel?.text ? theLabel.text : '';
 
+  let colorLabel: ElkColorLabel | undefined = node.labels?.find(label => label instanceof ElkColorLabel)
+  let colorStyle = colorLabel ? { color: colorLabel.text } : {}
+
   switch (kindLabel!.text) {
     case 'propagator-node': {
       const current: PropagatorNode = {
@@ -57,6 +60,7 @@ function flattenElkNodes(node: ElkNode, parentId?: string): ApplicationNode[] {
         type: 'propagator',
         position: { x: node.x || 0, y: node.y || 0 },
         ...parentId && { parentId: parentId, extent: 'parent' },
+        style: { ...colorStyle },
       }
       return [current];
     }
@@ -68,6 +72,7 @@ function flattenElkNodes(node: ElkNode, parentId?: string): ApplicationNode[] {
         type: 'propagator-cell',
         position: { x: node.x || 0, y: node.y || 0 },
         ...parentId && { parentId: parentId, extent: 'parent' },
+        style: { ...colorStyle },
       }
       return [current];
     }
