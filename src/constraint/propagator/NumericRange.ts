@@ -53,19 +53,15 @@ export function getMidpoint(range: NumericRange): number {
     case 'Exact':
       return range.value
     case 'Range':
-      if (!range.min) {
-        if (!range.max) {
-          return -Infinity
-        } else {
-          return range.max
-        }
-      }
-
-      if (!range.max) {
+      if (!isFinite(range.min) && !isFinite(range.max)) {
+        return 0
+      } else if (!isFinite(range.min)) {
+        return range.max
+      } else if (!isFinite(range.max)) {
         return range.min
+      } else {
+        return (range.min + range.max) / 2
       }
-
-      return (range.min + range.max) / 2
   }
 }
 
@@ -133,13 +129,32 @@ export function splitRange(range: NumericRange): [NumericRange, NumericRange] {
   let min = getMin(range)
   let max = getMax(range)
 
-  if (min === max) {
-    return [exactly(min), exactly(max)]
+  // If the range is already exact or invalid (min > max), don't split further
+  if (min >= max) {
+    return [exactly(min), exactly(max)]; // Or handle invalid range appropriately
   }
 
-  let midpoint = getMidpoint(range)
+  let midpoint = getMidpoint(range);
+  console.log(`[splitRange DEBUG]: midpoint: ${midpoint}`);
 
-  return [between(min, midpoint), between(midpoint + EPSILON, max)]
+  // Ensure midpoint doesn't somehow exceed max (due to floating point issues)
+  midpoint = Math.min(midpoint, max);
+  // Ensure midpoint is not less than min
+  midpoint = Math.max(midpoint, min);
+
+  console.log(`[splitRange DEBUG]: clamped midpoint: ${midpoint}`);
+
+  const lower = between(min, midpoint);
+
+  // Calculate the start of the upper range, but ensure it doesn't exceed the original max
+  const upperMin = Math.min(midpoint + EPSILON, max);
+
+  // Ensure the upper range's min is not less than its max (can happen if midpoint + EPSILON > max)
+  const upper = between(Math.min(upperMin, max), max);
+
+  console.log(`[splitRange DEBUG]: lower: ${printNumericRange(lower)}, upper: ${printNumericRange(upper)}`);
+
+  return [lower, upper];
 }
 
 export function printNumericRange(range: NumericRange): string {
