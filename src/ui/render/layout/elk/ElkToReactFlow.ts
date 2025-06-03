@@ -78,44 +78,46 @@ function flattenElkNodes(node: ElkNode, parentId?: string): ApplicationNode[] {
     }
 
     case 'Transpose': {
-      const children = (node.children || []).flatMap(child => flattenElkNodes(child, node.id));
+      throw new Error('Transpose nodes are not supported in this layout engine');
+      // const children = (node.children || []).flatMap(child => flattenElkNodes(child, node.id));
 
-      console.log('children: ', children);
+      // console.log('children: ', children);
 
-      const bounds = calculateGroupBounds(children.map(child => ({ width: child.width!, height: child.height! })));
+      // const bounds = calculateGroupBounds(children.map(child => ({ width: child.width!, height: child.height! })));
 
-      const current: GroupedNode = {
-        id: node.id,
-        data: { label },
-        type: 'grouped',
-        position: { x: node.x || 0, y: node.y || 0 },
-        width: bounds.width,
-        height: bounds.height,
-        ...parentId && { parentId: parentId, extent: 'parent' },
-      }
-      return [current, ...children];
+      // const current: GroupedNode = {
+      //   id: node.id,
+      //   data: { label },
+      //   type: 'grouped',
+      //   position: { x: node.x || 0, y: node.y || 0 },
+      //   width: bounds.width,
+      //   height: bounds.height,
+      //   ...parentId && { parentId: parentId, extent: 'parent' },
+      // }
+      // return [current, ...children];
     }
     default: //case 'Regular':
-      const children = (node.children || []).flatMap(child => flattenElkNodes(child));
+      throw new Error(`Unknown node kind: ${kindLabel?.text}`);
+      // const children = (node.children || []).flatMap(child => flattenElkNodes(child));
 
-      console.log('parentId: ', parentId);
+      // console.log('parentId: ', parentId);
 
-      const current: TermNode = {
-        id: node.id,
-        type: 'term',
-        // data: { label, inputCount: 1, outputCount: (node.edges?.length || 0), isActiveRedex: false },
-        data: { 
-          label, 
-          outputCount: 1, 
-          inputCount: (node.edges?.length || 0), 
-          isActiveRedex: false,
-          inputPortIds: [], // TODO
-          outputPortIds: []
-        },
-        position: { x: node.x || 0, y: node.y || 0 },
-        ...parentId && { parentId: parentId, extent: 'parent' },
-      }
-      return [current, ...children];
+      // const current: TermNode = {
+      //   id: node.id,
+      //   type: 'term',
+      //   // data: { label, inputCount: 1, outputCount: (node.edges?.length || 0), isActiveRedex: false },
+      //   data: { 
+      //     label, 
+      //     outputCount: 1, 
+      //     inputCount: (node.edges?.length || 0), 
+      //     isActiveRedex: false,
+      //     inputPortIds: [], // TODO
+      //     outputPortIds: []
+      //   },
+      //   position: { x: node.x || 0, y: node.y || 0 },
+      //   ...parentId && { parentId: parentId, extent: 'parent' },
+      // }
+      // return [current, ...children];
   }
 }
 

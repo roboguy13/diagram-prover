@@ -13,13 +13,18 @@ export class CollectiveBoundingBox extends BoundingBox {
     boundingBoxes: BoundingBox[]
   ) {
     super()
-    if (boundingBoxes.length === 0) {
+    if (boundingBoxes[0] === undefined) {
       throw new Error("No bounding boxes provided for CollectiveBoundingBox");
     }
 
     this._typePrefix = typePrefix;
 
     const nodeIdsString = nodeIds.join(", ");
+
+    // const minX = boundingBoxes[0].left;
+    // // const minY = boundingBoxes[0]!.top;
+    // const maxX = boundingBoxes[boundingBoxes.length - 1]!.right;
+    // // const maxY = boundingBoxes[boundingBoxes.length - 1]!.bottom;
 
     const minX = net.newCell(`${typePrefix} minX for ${nodeIdsString}`, unknown())
     const minY = net.newCell(`${typePrefix} minY for ${nodeIdsString}`, unknown())

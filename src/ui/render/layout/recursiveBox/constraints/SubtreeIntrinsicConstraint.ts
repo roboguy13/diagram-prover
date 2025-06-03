@@ -27,12 +27,16 @@ export class SubtreeIntrinsicConstraint implements Constraint {
       console.log(`SubtreeIntrinsicConstraint: Node ${this._nodeId} is a leaf. Applying equalConstraints.`);
       intrinsicBox.equalConstraints(net, subtreeExtentBox);
     } else {
-      console.log(`SubtreeIntrinsicConstraint: Node ${this._nodeId} is non-leaf with children [${children.join(', ')}]. Applying containedInConstraints.`);
-      intrinsicBox.containedInConstraints(net, subtreeExtentBox);
+      // console.log(`SubtreeIntrinsicConstraint: Node ${this._nodeId} is non-leaf with children [${children.join(', ')}]. Applying containedInConstraints.`);
+      // intrinsicBox.containedInConstraints(net, subtreeExtentBox);
     }
   }
 
   public cellsToMinimize(): CellRef[] {
+    return [];
+  }
+
+  get debugBoxes() {
     return [];
   }
 }

@@ -5,6 +5,7 @@ import { LayoutTree } from "../LayoutTree";
 import { NodeId } from "../../../../../ir/StringDiagram";
 import { BoundingBox } from "../BoundingBox";
 import { PropagatorInterpreter } from "../../../../../constraint/propagator/PropagatorLanguage";
+import { DebugBoundingBox } from "../DebugBoundingBox";
 
 export class SubtreeExtentChildrenConstraint implements Constraint {
 
@@ -58,6 +59,10 @@ export class SubtreeExtentChildrenConstraint implements Constraint {
   }
 
   cellsToMinimize(): CellRef[] {
+    return [];
+  }
+
+  get debugBoxes(): DebugBoundingBox[] {
     return [];
   }
 }

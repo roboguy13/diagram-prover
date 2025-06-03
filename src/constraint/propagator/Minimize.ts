@@ -64,6 +64,11 @@ export class Minimizer {
     }
 
     let [lower, upper] = splitRange(range)
+    if (this._minSteps > 1000) {
+      console.error("Minimizer: Too many steps, aborting.");
+      debugger;
+      return false;
+    }
 
     // Try the lower subrange
     this._net.checkpoint()
@@ -75,7 +80,12 @@ export class Minimizer {
         return true
       }
     } catch (err) {
-      // Ignore any inconsistency error, we revert after this.
+      if (err instanceof InconsistentError) {
+        // Ignore any inconsistency error, we revert after this.
+      } else {
+        console.error('[Minimizer] Error while minimizing:', err)
+        throw err
+      }
     }
     this._net.revert()
 
@@ -89,7 +99,12 @@ export class Minimizer {
         return true
       }
     } catch (err) {
-      // Ignore any inconsistency error, we revert after this.
+      if (err instanceof InconsistentError) {
+        // Ignore any inconsistency error, we revert after this.
+      } else {
+        console.error('[Minimizer] Error while minimizing:', err)
+        throw err
+      }
     }
     this._net.revert()
 

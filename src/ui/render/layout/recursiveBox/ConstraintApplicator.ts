@@ -19,9 +19,12 @@ import { NodeId } from "../../../../ir/StringDiagram";
 import { VerticalSeparationConstraint } from "./constraints/VerticalSeparationConstraint";
 import { VerticalAlignmentConstraint } from "./constraints/VerticalAlignmentConstraint";
 import { ParentHorizontalCenteringConstraint } from "./constraints/ParentHorizontalCenteringConstraint";
+import { BoundingBox } from "./BoundingBox";
+import { DebugBoundingBox } from "./DebugBoundingBox";
 
 export class ConstraintApplicator {
   private _constraints: Constraint[] = [];
+  private _debugBoxes: DebugBoundingBox[] = [];
 
   public processLayout(layoutTree: LayoutTree): void {
     const layouts = layoutTree.nodeLayouts.values()
@@ -68,7 +71,9 @@ export class ConstraintApplicator {
       }
     }
 
-    this.performMinimization(layoutTree);
+    // this.performMinimization(layoutTree);
+
+    layoutTree.debugBoxes = this._debugBoxes;
   }
 
   private performMinimization(layoutTree: LayoutTree): void {
@@ -122,6 +127,8 @@ export class ConstraintApplicator {
   private applyConstraint(constraint: Constraint, layoutTree: LayoutTree): void {
     constraint.apply(layoutTree);
     this._constraints.push(constraint);
+
+    this._debugBoxes.push(...constraint.debugBoxes);
   }
 
   private static debugLeaves(layoutTree: LayoutTree, nodeId: string): void {

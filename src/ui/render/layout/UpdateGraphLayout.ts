@@ -22,7 +22,8 @@ export function updateGraphLayout(model: Model, term: Term): Promise<NodeListAnd
 
   return toFlow(theLayoutEngine, diagram, activeRedexId).catch(err => {
     console.error('Error updating graph layout:', err);
-    return { nodes: [], edges: [] };
+    throw err;
+    // return { nodes: [], edges: [] };
   })
 }
 

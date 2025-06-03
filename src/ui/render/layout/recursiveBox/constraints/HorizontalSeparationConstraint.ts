@@ -7,6 +7,7 @@ import { NodeLayout } from "../NodeLayout";
 import { BoundingBox } from "../BoundingBox";
 import { lessThanEqual, add } from "../../../../../constraint/propagator/PropagatorExpr";
 import { PropagatorInterpreter, } from "../../../../../constraint/propagator/PropagatorLanguage";
+import { DebugBoundingBox } from "../DebugBoundingBox";
 
 // Separate adjacent nodes by their subtree extents
 export class HorizontalSeparationConstraint implements Constraint {
@@ -42,9 +43,12 @@ export class HorizontalSeparationConstraint implements Constraint {
       .filter(cell => cell !== null) as CellRef[];
   }
 
+  get debugBoxes(): DebugBoundingBox[] {
+    return []
+  }
+
   private getBox(layout: NodeLayout): BoundingBox {
-    // if (!layout.nestingParentId) {
-    if (false) {
+    if (!layout.nestingParentId) {
       return layout.intrinsicBox;
     } else {
       return layout.subtreeExtentBox;

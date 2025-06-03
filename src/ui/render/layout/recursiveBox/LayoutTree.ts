@@ -1,6 +1,6 @@
 import { Edge, MarkerType, XYPosition } from "@xyflow/react";
 import { NodeLayout } from "./NodeLayout";
-import { SimpleBoundingBox } from "./BoundingBox";
+import { BoundingBox, SimpleBoundingBox } from "./BoundingBox";
 import { addRangeListPropagator, between, exactly, getMax, getMin, NumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
@@ -18,6 +18,9 @@ import { buildRootedHierarchy, findForestRoots } from "../../../../utils/RootedH
 import { DiagramBuilder, DiagramNode, DiagramNodeKind, FreeVarPort, NestedNode, NodeId, NodeKind, OpenDiagram, ParameterPort, PortRef, Wire } from "../../../../ir/StringDiagram";
 import { ElkRouter } from "../../routing/ElkRouter";
 import { max } from "lodash";
+import { DebugBoundingBox } from "./DebugBoundingBox";
+
+const WITH_DEBUG_LABELS = true;
 
 export class LayoutTree {
   private _nodeLayouts: Map<string, NodeLayout> = new Map();
@@ -45,6 +48,8 @@ export class LayoutTree {
 
   private _originalConnections: Wire[];
   private _pinnedNodeId: NodeId | null = null;
+
+  public debugBoxes: DebugBoundingBox[] = [];
 
   constructor(net: PropagatorNetwork<NumericRange>, originalConnections: Wire[]) {
     this._net = net;
@@ -160,11 +165,12 @@ export class LayoutTree {
     const nestingDepth = this._stringDiagram?.getNestingDepth(nodeId) ?? 0;
 
     if (node.kind === 'SimpleNode') {
+      const label = WITH_DEBUG_LABELS ? node.nodeId : node.label;
       return {
         id: nodeId,
         type: 'term',
         data: {
-          label: node.label,
+          label,
           isActiveRedex: false,
           outputCount: node.outputs.length,
           inputCount: node.inputs.length,
@@ -202,7 +208,7 @@ export class LayoutTree {
     }
   }
 
-  toNodesAndEdges(): NodeListAndEdges {
+  toNodesAndEdges(withDebugBoxes: boolean = true): NodeListAndEdges {
     const nodes: ApplicationNode[] = [];
     const edges: Edge[] = [];
 
@@ -252,6 +258,32 @@ export class LayoutTree {
       }
     });
 
+    if (withDebugBoxes) {
+      let debugBoxId = 0;
+      for (const debugBox of this.debugBoxes) {
+        const width = this.extractRangeValue(debugBox.box.width, `${debugBox.label} width`);
+        const height = this.extractRangeValue(debugBox.box.height, `height`);
+        const x = this.extractRangeValue(debugBox.box.left, `${debugBox.label} left`);
+        const y = this.extractRangeValue(debugBox.box.top, `top`);
+        nodes.push({
+          id: `debugBox-${debugBoxId}`,
+          type: 'debug-box',
+          data: {
+            label: debugBox.label,
+            width,
+            height,
+          },
+          width,
+          height,
+          position: { x, y },
+          ...debugBox.nestingParentId ? { parentId: debugBox.nestingParentId, extent: 'parent' } : {},
+          zIndex: 1000,
+        });
+
+        debugBoxId++;
+      }
+    }
+
     return { nodes, edges };
   }
 
@@ -290,8 +322,9 @@ export class LayoutTree {
       return maxValue
     }
 
-    console.warn(`LayoutTree.extractRangeValue: Cell ${name} has no finite value.`);
-    return 0
+    throw new Error(`LayoutTree.extractRangeValue: Cell ${name} has no finite value.`);
+    // console.warn(`LayoutTree.extractRangeValue: Cell ${name} has no finite value.`);
+    // return 0
   }
 
   public async renderDebugInfo(): Promise<NodeListAndEdges> {

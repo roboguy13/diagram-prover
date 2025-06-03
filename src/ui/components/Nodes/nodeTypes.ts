@@ -40,6 +40,8 @@ export type PortBarNode = Node<{ label: string, portCount: number, isInput: bool
 
 export type PinnedPortBarNode = Node<{ label: string, portCount: number, isInput: boolean }, 'pinned-port-bar'>
 
+export type DebugBox = Node<{ label: string, width: number, height: number }, 'debug-box'>
+
 // export type GroupNode = Node<{ label: string }, 'group'>
 
-export type ApplicationNode = BuiltInNode | TermNode | PositionLoggerNode | GroupedNode | PropagatorNode | PropagatorCellNode | PortBarNode | PinnedPortBarNode
+export type ApplicationNode = DebugBox | BuiltInNode | TermNode | PositionLoggerNode | GroupedNode | PropagatorNode | PropagatorCellNode | PortBarNode | PinnedPortBarNode

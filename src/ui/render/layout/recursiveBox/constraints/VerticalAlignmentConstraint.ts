@@ -34,4 +34,8 @@ export class VerticalAlignmentConstraint implements Constraint {
   cellsToMinimize(): CellRef[] {
     return [];
   }
+
+  get debugBoxes() {
+    return [];
+  }
 }

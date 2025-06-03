@@ -1,4 +1,4 @@
-import { NumericRange, addRangePropagator, atLeast, divNumericRangeNumberPropagator, exactly, lessThanEqualPropagator, printNumericRange } from "../../../../constraint/propagator/NumericRange";
+import { NumericRange, addRangePropagator, atLeast, divNumericRangeNumberPropagator, exactly, lessThan, lessThanEqualPropagator, printNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { CellRef, known, printContent, PropagatorNetwork, unknown } from "../../../../constraint/propagator/Propagator";
 import { Dimensions } from "../../../NodeDimensions";
 
@@ -13,6 +13,20 @@ export abstract class BoundingBox {
   protected abstract get _typePrefix(): string
 
   public containedInConstraints(net: PropagatorNetwork<NumericRange>, box: BoundingBox): void {
+    lessThanEqualPropagator(
+      `${this._typePrefix} width <= box.width`,
+      net,
+      this.width,
+      box.width
+    );
+
+    lessThanEqualPropagator(
+      `${this._typePrefix} height <= box.height`,
+      net,
+      this.height,
+      box.height
+    );
+  
     // this.left <= box.right
     lessThanEqualPropagator(
       `${this._typePrefix} left <= box.right`,
@@ -187,17 +201,17 @@ export class SimpleBoundingBox extends BoundingBox {
     width: CellRef,
     height: CellRef
   ): SimpleBoundingBox {
-    // For debug purposes:
-    net.writeCell(
-      { description: `${typePrefix} width [node ${nodeId}]`, inputs: [], outputs: [width] },
-      width,
-      known(atLeast(0))
-    );
-    net.writeCell(
-      { description: `${typePrefix} height [node ${nodeId}]`, inputs: [], outputs: [height] },
-      height,
-      known(atLeast(0))
-    );
+    // // For debug purposes:
+    // net.writeCell(
+    //   { description: `${typePrefix} width [node ${nodeId}]`, inputs: [], outputs: [width] },
+    //   width,
+    //   known(atLeast(0))
+    // );
+    // net.writeCell(
+    //   { description: `${typePrefix} height [node ${nodeId}]`, inputs: [], outputs: [height] },
+    //   height,
+    //   known(atLeast(0))
+    // );
 
     // maxX = minX + width
     addRangePropagator(

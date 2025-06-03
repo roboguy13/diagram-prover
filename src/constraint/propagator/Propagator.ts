@@ -156,6 +156,8 @@ export function waitForKnown<A>(cell: Cell<A>): Promise<A> {
 
 declare const cellRefBrand: unique symbol
 
+const PROBLEMATIC_CELL_REF = -1 //180
+
 export type CellRef = number & { readonly [cellRefBrand]: unique symbol }
 
 export type PropagatorDescription = { description: string, inputs: CellRef[], outputs: CellRef[] }
@@ -184,8 +186,9 @@ export class PropagatorNetwork<A> {
   private _aPrinter: (a: A) => string
 
   private _debugCells: [string, CellRef][] = []
+  private _equalityCheck: (x: A, y: A) => boolean
 
-  constructor(aPrinter: (a: A) => string, pSemigroup: PartialSemigroup<A>, conflictHandlers: ConflictHandler<A>[]) {
+  constructor(aPrinter: (a: A) => string, pSemigroup: PartialSemigroup<A>, conflictHandlers: ConflictHandler<A>[], equalityCheck: (x: A, y: A) => boolean = isEqual) {
     this._aPrinter = aPrinter
 
     conflictHandlers.push(net => conflict => {
@@ -194,6 +197,7 @@ export class PropagatorNetwork<A> {
 
     this._pSemigroup = pSemigroup
     this._conflictHandlers = conflictHandlers
+    this._equalityCheck = equalityCheck
   }
 
   public get aPrinter(): (a: A) => string {
@@ -234,6 +238,9 @@ export class PropagatorNetwork<A> {
 
   checkpoint(): void {
     for (let cell of this._cells) {
+      if (cell.ref === PROBLEMATIC_CELL_REF) {
+        console.log(`[Checkpoint DEBUG] Saving cell ${cell} (${cell.description}) content:`, JSON.stringify(cell.read()));
+      }
       cell.checkpoint()
     }
   }
@@ -241,6 +248,9 @@ export class PropagatorNetwork<A> {
   revert(): void {
     for (let cell of this._cells) {
       cell.revert()
+      if (cell.ref === PROBLEMATIC_CELL_REF) {
+        console.log(`[Revert DEBUG] Reverting cell ${cell} (${cell.description}) to:`, JSON.stringify(cell.read()));
+      }
     }
     if (DEBUG_PROPAGATOR_NETWORK) {
       try {
@@ -293,7 +303,7 @@ export class PropagatorNetwork<A> {
 
   newCell(description: string, content: Content<A>): CellRef {
     let cellRef = this._cells.length as CellRef
-    this._cells.push(new Cell(this, this._pSemigroup, cellRef, description, this._conflictHandlers.map(f => f(this)), content))
+    this._cells.push(new Cell(this, this._pSemigroup, cellRef, description, this._equalityCheck, this._conflictHandlers.map(f => f(this)), content))
     return cellRef
   }
 
@@ -506,13 +516,15 @@ class Cell<A> {
   private _undoStack: Content<A>[] = []
 
   private _ref: CellRef
+  private _equalityCheck: (x: A, y: A) => boolean
 
-  constructor(net: PropagatorNetwork<A>, pSemigroup: PartialSemigroup<A>, ref: CellRef, description: string, conflictHandlers: ((conflict: Conflict<A>) => void)[], content: Content<A> = { kind: 'Unknown' }) {
+  constructor(net: PropagatorNetwork<A>, pSemigroup: PartialSemigroup<A>, ref: CellRef, description: string, equalityCheck: (x: A, y: A) => boolean, conflictHandlers: ((conflict: Conflict<A>) => void)[], content: Content<A> = { kind: 'Unknown' }) {
     this._net = net
     this._pSemigroup = pSemigroup
     this._content = content
     this._description = description
     this._ref = ref
+    this._equalityCheck = equalityCheck
   }
 
   get description(): string {
@@ -532,10 +544,16 @@ class Cell<A> {
   }
 
   checkpoint(): void {
+    if (!this._content) {
+      throw new Error('Content is null or undefined for cell ' + this._ref)
+    }
     this._undoStack.push(structuredClone(this._content))
   }
 
   revert(): void {
+    if (this._undoStack.length === 0) {
+      throw new Error('No checkpoint to revert to')
+    }
     this._content = structuredClone(this._undoStack.pop()!)
   }
 
@@ -558,9 +576,32 @@ class Cell<A> {
     return this._content
   }
 
+  cellWriteCounter = 0
+  readonly CELL_WRITE_LIMIT = 1000
+
   write(writer: PropagatorDescription, content: Content<A>) {
+    if (this.cellWriteCounter > this.CELL_WRITE_LIMIT) {
+      console.error(`Cell ${this.ref} (${this.description}) write limit exceeded. Possible infinite loop detected.`)
+      debugger;
+      this.cellWriteCounter = 0
+    }
+    this.cellWriteCounter++
     let previousContent = this._content
+    if (this._ref === PROBLEMATIC_CELL_REF) {
+      console.log(`[Cell.write DEBUG] Cell ${this.ref} (${this.description})`);
+      console.log(`[Cell.write DEBUG]  Current content:`, JSON.stringify(this._content)); // Log current content
+      console.log(`[Cell.write DEBUG]  Incoming content:`, JSON.stringify(content)); // Log incoming content
+    }
+    if (!content) {
+      throw new Error('Content is null or undefined for cell ' + this._ref)
+    }
+    if (!this._content) {
+      throw new Error('Current content is null or undefined for cell ' + this._ref)
+    }
     const mergedContent = semigroupContent<A>(this._pSemigroup).concat(this._content, content)
+    if (this._ref === PROBLEMATIC_CELL_REF) {
+      console.log(`[Cell.write DEBUG]  Merged content:`, JSON.stringify(mergedContent)); // Log merged content
+    }
 
     if (DEBUG_PROPAGATOR_NETWORK) {
       const writerDesc = writer.description || 'Unknown Writer';
@@ -599,17 +640,17 @@ class Cell<A> {
           // throw new InconsistentError(JSON.stringify(previousContent), JSON.stringify(content))
         case 'Known':
           if (previousContent.kind === 'Known') {
-            if (!isEqual(previousContent.value, this._content.value)) {
+            if (!this._equalityCheck(previousContent.value, this._content.value)) {
               if (DEBUG_PROPAGATOR_NETWORK) {
                 this._allWrites.push([writer, this._content])
               }
-              this._subscribers.forEach(subscriber => subscriber(content))
+              this._subscribers.forEach(subscriber => subscriber(this._content))
             }
           } else {
             if (DEBUG_PROPAGATOR_NETWORK) {
                 this._allWrites.push([writer, this._content]);
             }
-            this._subscribers.forEach(subscriber => subscriber(content));
+            this._subscribers.forEach(subscriber => subscriber(this._content));
             if (this._signalKnownTransition) {
               console.warn(`Known transition: ${this._description} ${this._net.aPrinter(this._content.value)}`)
             }

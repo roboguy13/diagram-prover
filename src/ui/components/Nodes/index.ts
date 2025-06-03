@@ -10,6 +10,7 @@ import { mkPropagatorNode } from './PropagatorNode/PropagatorNodeComponent';
 import { mkPropagatorCellNode } from './PropagatorCellNode/PropagatorCellNodeComponent';
 import { PortBarComponent } from './PortBar/PortBarComponent';
 import { PinnedPortBarNode } from './PinnedPortBar/PinnedPortBarNode';
+import { DebugBoxNode } from './DebugBoxNode';
 
 export const wireYourIdeas = [
   { id: 'a', type: 'input', position: { x: 0, y: 0 }, data: { label: 'wire' }, parentId: 'group-1', extent: 'parent' },
@@ -52,5 +53,6 @@ export const nodeTypes = {
   'propagator': mkPropagatorNode,
   'propagator-cell': mkPropagatorCellNode,
   'port-bar': PortBarComponent,
-  'pinned-port-bar': PinnedPortBarNode
+  'pinned-port-bar': PinnedPortBarNode,
+  'debug-box': DebugBoxNode,
 } satisfies NodeTypes;

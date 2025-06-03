@@ -100,6 +100,24 @@
   }
 }
 
+/* Add this to your CSS file */
+.debug-box-node {
+  position: absolute; /* Important for z-index and positioning */
+  border: 1px dashed red; /* Make the box visible */
+  background-color: rgba(255, 0, 0, 0.05); /* Optional: light fill */
+  pointer-events: none; /* Prevent interaction */
+  box-sizing: border-box; /* Ensure border is included in width/height */
+  color: cornflowerblue;
+  /* Keep the z-index if needed, but positioning is key */
+}
+
+/* .debug-bounding-box {
+  stroke: rgba(255, 0, 0, 0.7);
+  stroke-dasharray: 3, 3;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+} */
+
 /* .port-bar {
   display: flex;
   gap: 8px;

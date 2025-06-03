@@ -4,6 +4,8 @@ import { LayoutTree } from "../LayoutTree";
 import { addList, divNumber, sub, equal, addDebugPExpr } from "../../../../../constraint/propagator/PropagatorExpr";
 import { NumericRange } from "../../../../../constraint/propagator/NumericRange";
 import { PropagatorInterpreter } from "../../../../../constraint/propagator/PropagatorLanguage";
+import { BoundingBox } from "../BoundingBox";
+import { DebugBoundingBox } from "../DebugBoundingBox";
 
 // 
 export class ParentHorizontalCenteringConstraint implements Constraint {
@@ -49,5 +51,9 @@ export class ParentHorizontalCenteringConstraint implements Constraint {
 
   cellsToMinimize(): CellRef[] {
     return [];
+  }
+
+  get debugBoxes(): DebugBoundingBox[] {
+    return []
   }
 }

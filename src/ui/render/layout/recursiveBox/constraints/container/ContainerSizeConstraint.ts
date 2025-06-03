@@ -9,8 +9,10 @@ import {
 import { CellRef, known, unknown } from "../../../../../../constraint/propagator/Propagator";
 import { equal } from "../../../../../../constraint/propagator/PropagatorExpr";
 import { PropagatorInterpreter, } from "../../../../../../constraint/propagator/PropagatorLanguage";
+import { BoundingBox } from "../../BoundingBox";
 import { CollectiveBoundingBox } from "../../CollectiveBoundingBox";
 import { Constraint } from "../../Constraint";
+import { DebugBoundingBox } from "../../DebugBoundingBox";
 import { LayoutTree } from "../../LayoutTree";
 
 // Constrain the size of a nested node based on the contained subgraph, and center the subgraph within the container.
@@ -20,6 +22,11 @@ export class ContainerSizeConstraint implements Constraint {
 
   private verticalPadding: CellRef | null = null;
   private horizontalPadding: CellRef | null = null;
+
+  private _debugBoxes: DebugBoundingBox[] = [];
+
+  private _containerBox: BoundingBox | null = null;
+  private _collectiveBox: BoundingBox | null = null;
 
   constructor(
     private _containerId: string,
@@ -54,20 +61,47 @@ export class ContainerSizeConstraint implements Constraint {
     const collectiveBottom = collectiveBoundingBox.bottom;
     const collectiveRight = collectiveBoundingBox.right;
 
-    this.verticalPadding = net.newCell(`verticalPadding`, known(between(this._PADDING_VERTICAL, this._PADDING_VERTICAL * 3)));
-    this.horizontalPadding = net.newCell(`horizontalPadding`, known(between(this._PADDING_HORIZONTAL, this._PADDING_HORIZONTAL * 3)));
+    this.verticalPadding = net.newCell(`verticalPadding`, known(exactly(this._PADDING_VERTICAL)));
+    this.horizontalPadding = net.newCell(`horizontalPadding`, known(exactly(this._PADDING_HORIZONTAL)));
 
-    solver.addRelation`${collectiveLeft} = ${this.horizontalPadding}`;
-    solver.addRelation`${collectiveTop} = ${this.verticalPadding}`;
+    solver.addRelation`${collectiveLeft} >= ${this.horizontalPadding}`;
+    solver.addRelation`${collectiveTop} >= ${this.verticalPadding}`;
+
+    // // Horizontally center the collective bounding box within the container
+    // solver.addRelation`${collectiveBoundingBox.centerX} = ${containerBox.centerX}`;
+    // // solver.addRelation`${containerBox.width} - ${collectiveBoundingBox.centerX} = ${collectiveLeft}`;
 
     this.padWith(solver, collectiveRight, containerBox.width, this.horizontalPadding);
     this.padWith(solver, collectiveBottom, containerBox.height, this.verticalPadding);
+
+    const debugLayout = nestedLayouts[nestedLayouts.length-1]!
+    this._debugBoxes.push(new DebugBoundingBox(collectiveBoundingBox, '', this._containerId));
+    // this._debugBoxes.push(DebugBoundingBox.createFromIntrinsicBox(debugLayout));
+
+    this._containerBox = containerBox;
+    this._collectiveBox = collectiveBoundingBox;
+
+    // net.addDebugCell(`[DEBUG]: Container (${this._containerId}): Collective Width`, collectiveBoundingBox.width);
+    // net.addDebugCell(`[DEBUG]: Container (${this._containerId}): Collective Height`, collectiveBoundingBox.height);
+    // net.addDebugCell(`[DEBUG]: Container (${this._containerId}): Collective Top`, collectiveBoundingBox.top);
+    // net.addDebugCell(`[DEBUG]: Container (${this._containerId}): Collective Bottom`, collectiveBoundingBox.bottom);
+
+    // for (const layout of nestedLayouts) {
+    //   net.addDebugCell(`[DEBUG]: Subtree top`, layout.subtreeExtentBox.top);
+    //   net.addDebugCell(`[DEBUG]: Subtree bottom`, layout.subtreeExtentBox.bottom);
+    //   // net.addDebugCell(`[DEBUG]: Subtree left`, layout.subtreeExtentBox.left);
+    //   // net.addDebugCell(`[DEBUG]: Subtree right`, layout.subtreeExtentBox.right);
+    // }
   }
 
   cellsToMinimize(): CellRef[] {
     let paddingCellsToMinimize = [
-      this.verticalPadding,
-      this.horizontalPadding,
+      // this.verticalPadding,
+      // this.horizontalPadding,
+      // this._containerBox?.width,
+      // this._containerBox?.height,
+      this._collectiveBox?.width,
+      this._collectiveBox?.height,
     ].filter(cell => cell !== undefined && cell !== null) as CellRef[];
 
     console.log(`Padding cells to minimize: ${paddingCellsToMinimize.map(cell => cell.toString())}`);
@@ -84,5 +118,9 @@ export class ContainerSizeConstraint implements Constraint {
     // console.log(`padWith: Relating smallerEdge (${layoutTree.net.cellDescription(smallerEdge)}), largerEdge (${layoutTree.net.cellDescription(largerEdge)}), padding (${layoutTree.net.cellDescription(padding)})`);
 
     solver.addRelation`${padding} = ${largerEdge} - ${smallerEdge}`;
+  }
+
+  get debugBoxes(): DebugBoundingBox[] {
+    return this._debugBoxes;
   }
 }

@@ -1,4 +1,4 @@
-import { NumericRange, partialSemigroupNumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
+import { NumericRange, numericRangesEqual, partialSemigroupNumericRange, printNumericRange } from "../../../../constraint/propagator/NumericRange";
 import { ConflictHandler, PropagatorNetwork } from "../../../../constraint/propagator/Propagator";
 import { SemanticNode } from "../../../../ir/SemanticGraph";
 import { OpenDiagram } from "../../../../ir/StringDiagram";
@@ -22,7 +22,7 @@ export class RecursiveBoxEngine implements ConstraintLayoutEngine<LayoutTree> {
   }
 
   fromStringDiagram(diagram: OpenDiagram, activeRedexId: string | null): Promise<LayoutTree> {
-    const net = new PropagatorNetwork<NumericRange>(printNumericRange, partialSemigroupNumericRange(), this._conflictHandlers)
+    const net = new PropagatorNetwork<NumericRange>(printNumericRange, partialSemigroupNumericRange(), this._conflictHandlers, numericRangesEqual)
     return Promise.resolve(LayoutTree.buildFromStringDiagram(net, diagram));
   }
 

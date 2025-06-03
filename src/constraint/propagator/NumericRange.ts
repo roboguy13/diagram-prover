@@ -5,6 +5,34 @@ export type NumericRange =
   | { kind: 'Exact', value: number }
   | { kind: 'Range', min: number, max: number }
 
+const EPSILON = 1
+
+const LOG_EQUALITY_INTERVAL = 100
+let equalityCheckCounter = 0
+
+export function numericRangesEqual(a: NumericRange, b: NumericRange): boolean {
+  equalityCheckCounter++
+  if (equalityCheckCounter % LOG_EQUALITY_INTERVAL === 0) {
+    console.log(`[numericRangesEqual DEBUG]: ${printNumericRange(a)} == ${printNumericRange(b)}`)
+  }
+  if (a.kind !== b.kind) {
+    return false
+  }
+  
+  if (a.kind === 'Exact' && b.kind === 'Exact') {
+    return Math.abs(a.value - b.value) < EPSILON
+  }
+
+  if (a.kind === 'Range' && b.kind === 'Range') {
+    const minDiff = (isFinite(a.min) && isFinite(b.min)) ? Math.abs(a.min - b.min) : (a.min === b.min ? 0 : Infinity);
+    const maxDiff = (isFinite(a.max) && isFinite(b.max)) ? Math.abs(a.max - b.max) : (a.max === b.max ? 0 : Infinity);
+    return minDiff < EPSILON && maxDiff < EPSILON;
+  }
+
+  // Kinds don't match
+  return false;
+}
+
 export function addNumericRange(a: NumericRange, b: NumericRange): NumericRange {
   let aMin = getMin(a)
   let aMax = getMax(a)
@@ -122,8 +150,6 @@ export function lessThan(a: NumericRange): NumericRange {
 export function greaterThan(a: NumericRange): NumericRange {
   return { kind: 'Range', min: getMax(a), max: Infinity }
 }
-
-const EPSILON = 1e-4
 
 export function splitRange(range: NumericRange): [NumericRange, NumericRange] {
   let min = getMin(range)

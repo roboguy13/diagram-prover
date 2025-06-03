@@ -38,4 +38,8 @@ export class VerticalSeparationConstraint  implements Constraint {
   cellsToMinimize(): CellRef[] {
     return [this._paddingCell].filter(cell => cell !== null) as CellRef[];
   }
+
+  get debugBoxes() {
+    return [];
+  }
 }

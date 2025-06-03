@@ -10,6 +10,7 @@ enum TokenKind {
   Sub,
   Equal,
   LessThanEqual,
+  GreaterThanEqual,
   AddList,
   MaxList,
   MinList,
@@ -44,6 +45,7 @@ const basicLexer = buildLexer<TokenKind>([
   [true, /^\+/g, TokenKind.Add],
   [true, /^=/g, TokenKind.Equal],
   [true, /^<=/g, TokenKind.LessThanEqual],
+  [true, /^>=/g, TokenKind.GreaterThanEqual],
   [true, /^\-/g, TokenKind.Sub],
   [true, /^\(/g, TokenKind.LParen],
   [true, /^\)/g, TokenKind.RParen],
@@ -121,6 +123,7 @@ class PropagatorLanguage {
     this.applyUnary = this.applyUnary.bind(this);
     this.applyEqual = this.applyEqual.bind(this);
     this.applyLessThanEqual = this.applyLessThanEqual.bind(this);
+    this.applyGreaterThanEqual = this.applyGreaterThanEqual.bind(this);
     this.applyCellRef = this.applyCellRef.bind(this);
     this.applyNumber = this.applyNumber.bind(this);
     this.applyRangeLiteral = this.applyRangeLiteral.bind(this);
@@ -133,6 +136,7 @@ class PropagatorLanguage {
       alt(
         apply(seq(this.EXPR, tok(TokenKind.Equal), this.EXPR), this.applyEqual),
         apply(seq(this.EXPR, tok(TokenKind.LessThanEqual), this.EXPR), this.applyLessThanEqual),
+        apply(seq(this.EXPR, tok(TokenKind.GreaterThanEqual), this.EXPR), this.applyGreaterThanEqual),
       )
     )
 
@@ -226,6 +230,22 @@ class PropagatorLanguage {
         net,
         getCellRef(net, firstPExpr),
         getCellRef(net, secondPExpr),
+      );
+    }
+  }
+
+  applyGreaterThanEqual(sequence: [TokenData, Token<TokenKind.GreaterThanEqual>, TokenData]): PropagatorRelation {
+    const [first, token, second] = sequence;
+
+    const firstPExpr = getPExpr(first);
+    const secondPExpr = getPExpr(second);
+
+    return (net: PropagatorNetwork<NumericRange>) => {
+      return lessThanEqualPropagator(
+        this.label(),
+        net,
+        getCellRef(net, secondPExpr),
+        getCellRef(net, firstPExpr),
       );
     }
   }
